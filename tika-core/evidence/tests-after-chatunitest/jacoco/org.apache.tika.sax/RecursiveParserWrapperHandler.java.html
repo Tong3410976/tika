@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RecursiveParserWrapperHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">RecursiveParserWrapperHandler.java</span></div><h1>RecursiveParserWrapperHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.parser.RecursiveParserWrapper;
+import org.apache.tika.utils.ParserUtils;
+
+/**
+ * This is the default implementation of {@link AbstractRecursiveParserWrapperHandler}.
+ * See its documentation for more details.
+ * &lt;p&gt;
+ * This caches the a metadata object for each embedded file and for the container file.
+ * It places the extracted content in the metadata object, with this key:
+ * {@link TikaCoreProperties#TIKA_CONTENT}
+ * If memory is a concern, subclass AbstractRecursiveParserWrapperHandler to handle each
+ * embedded document.
+ * &lt;p&gt;
+ * &lt;b&gt;NOTE: This handler must only be used with the {@link
+ * org.apache.tika.parser.RecursiveParserWrapper}&lt;/b&gt;
+ * &lt;/p&gt;
+ */
+public class RecursiveParserWrapperHandler extends AbstractRecursiveParserWrapperHandler {
+
+<span class="fc" id="L49">    protected final List&lt;Metadata&gt; metadataList = new LinkedList&lt;&gt;();</span>
+
+    /**
+     * Create a handler for recursive parsing.
+     * &lt;p&gt;
+     * Embedded resource limits are now configured via {@link org.apache.tika.config.EmbeddedLimits}
+     * in the ParseContext, not on the handler.
+     *
+     * @param contentHandlerFactory factory for creating content handlers
+     */
+    public RecursiveParserWrapperHandler(ContentHandlerFactory contentHandlerFactory) {
+<span class="fc" id="L60">        super(contentHandlerFactory);</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * This is called before parsing an embedded document
+     *
+     * @param contentHandler - local content handler to use on the embedded document
+     * @param metadata       metadata to use for the embedded document
+     * @throws SAXException
+     */
+    @Override
+    public void startEmbeddedDocument(ContentHandler contentHandler, Metadata metadata)
+            throws SAXException {
+<span class="nc" id="L73">        super.startEmbeddedDocument(contentHandler, metadata);</span>
+<span class="nc" id="L74">    }</span>
+
+    /**
+     * This is called after parsing an embedded document.
+     *
+     * @param contentHandler local contenthandler used on the embedded document
+     * @param metadata       metadata from the embedded document
+     * @throws SAXException
+     */
+    @Override
+    public void endEmbeddedDocument(ContentHandler contentHandler, Metadata metadata)
+            throws SAXException {
+<span class="nc" id="L86">        super.endEmbeddedDocument(contentHandler, metadata);</span>
+<span class="nc" id="L87">        addContent(contentHandler, metadata);</span>
+
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        if (metadata.size() &gt; 0) {</span>
+<span class="nc" id="L90">            metadataList.add(ParserUtils.cloneMetadata(metadata));</span>
+        }
+<span class="nc" id="L92">    }</span>
+
+    /**
+     * @param contentHandler content handler used on the main document
+     * @param metadata       metadata from the main document
+     * @throws SAXException
+     */
+    @Override
+    public void endDocument(ContentHandler contentHandler, Metadata metadata) throws SAXException {
+<span class="fc" id="L101">        super.endDocument(contentHandler, metadata);</span>
+<span class="fc" id="L102">        addContent(contentHandler, metadata);</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (metadata.size() &gt; 0) {</span>
+<span class="fc" id="L104">            metadataList.add(0, ParserUtils.cloneMetadata(metadata));</span>
+        }
+<span class="fc" id="L106">        writeFinalEmbeddedPaths();</span>
+<span class="fc" id="L107">    }</span>
+
+    private void writeFinalEmbeddedPaths() {
+        //for some file types, the file's &quot;name&quot; is not known before
+        //their attachments are parsed. This goes through the id paths
+        //and regenerates the path for the &quot;final embedded resource path&quot;
+<span class="fc" id="L113">        Map&lt;String, String&gt; idToName = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L114">        AtomicInteger unknownCount = new AtomicInteger(0);</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        for (Metadata metadata : metadataList) {</span>
+<span class="fc" id="L116">            String id = metadata.get(TikaCoreProperties.EMBEDDED_ID);</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">            if (id == null) {</span>
+<span class="fc" id="L118">                continue;</span>
+            }
+<span class="nc" id="L120">            String name = RecursiveParserWrapper.getResourceName(metadata, unknownCount);</span>
+<span class="nc" id="L121">            idToName.put(id, name);</span>
+<span class="nc" id="L122">        }</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        for (Metadata metadata : metadataList) {</span>
+<span class="fc" id="L124">            String idPath = metadata.get(TikaCoreProperties.EMBEDDED_ID_PATH);</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">            if (idPath == null) {</span>
+<span class="fc" id="L126">                continue;</span>
+            }
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (idPath.startsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L129">                idPath = idPath.substring(1);</span>
+            }
+<span class="nc" id="L131">            String[] ids = idPath.split(&quot;/&quot;);</span>
+<span class="nc" id="L132">            StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            for (String id : ids) {</span>
+<span class="nc" id="L134">                sb.append(&quot;/&quot;).append(idToName.get(id));</span>
+            }
+<span class="nc" id="L136">            metadata.set(TikaCoreProperties.FINAL_EMBEDDED_RESOURCE_PATH, sb.toString());</span>
+<span class="nc" id="L137">        }</span>
+<span class="fc" id="L138">    }</span>
+
+    /**
+     * @return a list of Metadata objects, one for the main document and one for each embedded
+     * document
+     */
+    public List&lt;Metadata&gt; getMetadataList() {
+<span class="fc" id="L145">        return metadataList;</span>
+    }
+
+    void addContent(ContentHandler handler, Metadata metadata) {
+        // BasicContentHandlerFactory's &quot;ignore&quot; handler's toString() returns &quot;&quot; (not
+        // Object's default identity string), so a plain blank check is enough here --
+        // no need to special-case its class, which would break under decoration (e.g.
+        // StrictXHTMLValidator when validateXHTML is set): ContentHandlerDecorator
+        // delegates toString() to the wrapped handler, so &quot;&quot; still propagates through.
+<span class="fc" id="L154">        String content = handler.toString();</span>
+<span class="pc bpc" id="L155" title="2 of 4 branches missed.">        if (content != null &amp;&amp; !content.isBlank()) {</span>
+<span class="fc" id="L156">            metadata.add(TikaCoreProperties.TIKA_CONTENT, content);</span>
+<span class="fc" id="L157">            metadata.add(TikaCoreProperties.TIKA_CONTENT_HANDLER,</span>
+<span class="fc" id="L158">                    handler.getClass().getSimpleName());</span>
+<span class="fc" id="L159">            metadata.set(TikaCoreProperties.TIKA_CONTENT_HANDLER_TYPE,</span>
+<span class="fc" id="L160">                    getContentHandlerFactory().handlerTypeName());</span>
+        }
+<span class="fc" id="L162">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

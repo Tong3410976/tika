@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractMultipleParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser.multiple</a> &gt; <span class="el_source">AbstractMultipleParser.java</span></div><h1>AbstractMultipleParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser.multiple;
+
+import static org.apache.tika.utils.ParserUtils.cloneMetadata;
+import static org.apache.tika.utils.ParserUtils.recordParserDetails;
+import static org.apache.tika.utils.ParserUtils.recordParserFailure;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TemporaryResources;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ParserDecorator;
+import org.apache.tika.sax.ContentHandlerFactory;
+import org.apache.tika.utils.ParserUtils;
+
+/**
+ * Abstract base class for parser wrappers which may / will
+ * process a given stream multiple times, merging the results
+ * of the various parsers used.
+ * End users should normally use {@link FallbackParser} or
+ * {@link SupplementingParser} along with a Strategy.
+ * Note that unless you give a {@link ContentHandlerFactory},
+ * you'll get content from every parser tried mushed together!
+ *
+ * @since Apache Tika 1.18
+ */
+public abstract class AbstractMultipleParser implements Parser {
+    protected static final String METADATA_POLICY_CONFIG_KEY = &quot;metadataPolicy&quot;;
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = 5383668090329836559L;
+    /**
+     * How we should handle metadata clashes
+     */
+    private final MetadataPolicy policy;
+    /**
+     * List of the multiple parsers to try.
+     */
+    private final Collection&lt;? extends Parser&gt; parsers;
+    /**
+     * Computed list of Mime Types to offer, which is all
+     * those in common between the parsers.
+     * For explicit mimetypes only, use a {@link ParserDecorator}
+     */
+    private final Set&lt;MediaType&gt; offeredTypes;
+    /**
+     * Media type registry.
+     */
+    private MediaTypeRegistry registry;
+
+    public AbstractMultipleParser(MediaTypeRegistry registry, MetadataPolicy policy,
+                                  Parser... parsers) {
+<span class="fc" id="L86">        this(registry, policy, Arrays.asList(parsers));</span>
+<span class="fc" id="L87">    }</span>
+
+    public AbstractMultipleParser(MediaTypeRegistry registry, MetadataPolicy policy,
+<span class="fc" id="L90">                                  Collection&lt;? extends Parser&gt; parsers) {</span>
+<span class="fc" id="L91">        this.policy = policy;</span>
+<span class="fc" id="L92">        this.parsers = parsers;</span>
+<span class="fc" id="L93">        this.registry = registry;</span>
+
+        // TODO Only offer those in common to several/all parser
+        // TODO Some sort of specialisation / subtype support
+<span class="fc" id="L97">        this.offeredTypes = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        for (Parser parser : parsers) {</span>
+<span class="fc" id="L99">            offeredTypes.addAll(parser.getSupportedTypes(new ParseContext()));</span>
+<span class="fc" id="L100">        }</span>
+<span class="fc" id="L101">    }</span>
+
+    protected static Metadata mergeMetadata(Metadata newMetadata, Metadata lastMetadata,
+                                            MetadataPolicy policy) {
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (policy == MetadataPolicy.DISCARD_ALL) {</span>
+<span class="fc" id="L106">            return newMetadata;</span>
+        }
+
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        for (String n : lastMetadata.names()) {</span>
+            // If this is one of the metadata keys we're setting ourselves
+            //  for tracking/errors, then always keep the latest one!
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            if (n.equals(TikaCoreProperties.TIKA_PARSED_BY.getName())) {</span>
+<span class="fc" id="L113">                continue;</span>
+            }
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            if (n.equals(ParserUtils.EMBEDDED_PARSER.getName())) {</span>
+<span class="fc" id="L116">                continue;</span>
+            }
+<span class="fc bfc" id="L118" title="All 2 branches covered.">            if (n.equals(TikaCoreProperties.EMBEDDED_EXCEPTION.getName())) {</span>
+<span class="fc" id="L119">                continue;</span>
+            }
+
+            // Merge as per policy
+<span class="fc" id="L123">            String[] newVals = newMetadata.getValues(n);</span>
+<span class="fc" id="L124">            String[] oldVals = lastMetadata.getValues(n);</span>
+<span class="pc bpc" id="L125" title="1 of 4 branches missed.">            if (newVals == null || newVals.length == 0) {</span>
+                // Metadata only in previous run, keep old values
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                for (String val : oldVals) {</span>
+<span class="fc" id="L128">                    newMetadata.reconstruct(n, val, true);</span>
+                }
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            } else if (Arrays.deepEquals(oldVals, newVals)) {</span>
+                // Metadata is the same, nothing to do
+<span class="nc" id="L132">                continue;</span>
+            } else {
+<span class="pc bpc" id="L134" title="1 of 4 branches missed.">                switch (policy) {</span>
+                    case FIRST_WINS:
+                        // Use the earlier value(s) in place of this/these one/s
+<span class="fc" id="L137">                        newMetadata.remove(n);</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">                        for (String val : oldVals) {</span>
+<span class="fc" id="L139">                            newMetadata.reconstruct(n, val, true);</span>
+                        }
+<span class="fc" id="L141">                        continue;</span>
+                    case LAST_WINS:
+                        // Most recent (last) parser has already won
+<span class="fc" id="L144">                        continue;</span>
+                    case KEEP_ALL:
+                        // Start with old list, then add any new unique values
+<span class="fc" id="L147">                        List&lt;String&gt; vals = new ArrayList&lt;&gt;(Arrays.asList(oldVals));</span>
+<span class="fc" id="L148">                        newMetadata.remove(n);</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">                        for (String oldVal : oldVals) {</span>
+<span class="fc" id="L150">                            newMetadata.reconstruct(n, oldVal, true);</span>
+                        }
+<span class="fc bfc" id="L152" title="All 2 branches covered.">                        for (String newVal : newVals) {</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">                            if (!vals.contains(newVal)) {</span>
+<span class="fc" id="L154">                                newMetadata.reconstruct(n, newVal, true);</span>
+<span class="fc" id="L155">                                vals.add(newVal);</span>
+                            }
+                        }
+
+<span class="fc" id="L159">                        continue;</span>
+                }
+            }
+        }
+<span class="fc" id="L163">        return newMetadata;</span>
+    }
+
+    /**
+     * Returns the media type registry used to infer type relationships.
+     *
+     * @return media type registry
+     */
+    public MediaTypeRegistry getMediaTypeRegistry() {
+<span class="nc" id="L172">        return registry;</span>
+    }
+
+    /**
+     * Sets the media type registry used to infer type relationships.
+     *
+     * @param registry media type registry
+     */
+    public void setMediaTypeRegistry(MediaTypeRegistry registry) {
+<span class="nc" id="L181">        this.registry = registry;</span>
+<span class="nc" id="L182">    }</span>
+
+    @Override
+    public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="nc" id="L186">        return offeredTypes;</span>
+    }
+
+    public MetadataPolicy getMetadataPolicy() {
+<span class="nc" id="L190">        return policy;</span>
+    }
+
+    public List&lt;Parser&gt; getAllParsers() {
+<span class="nc" id="L194">        return Collections.unmodifiableList(new ArrayList&lt;&gt;(parsers));</span>
+    }
+
+    /**
+     * Used to allow implementations to prepare or change things
+     * before parsing occurs
+     */
+    protected void parserPrepare(Parser parser, Metadata metadata, ParseContext context) {
+<span class="fc" id="L202">    }</span>
+
+    /**
+     * Used to notify implementations that a Parser has Finished
+     * or Failed, and to allow them to decide to continue or
+     * abort further parsing
+     */
+    protected abstract boolean parserCompleted(Parser parser, Metadata metadata,
+                                               ContentHandler handler, ParseContext context,
+                                               Exception exception);
+
+    /**
+     * Processes the given Stream through one or more parsers,
+     * resetting things between parsers as requested by policy.
+     * The actual processing is delegated to one or more {@link Parser}s.
+     * &lt;p&gt;
+     * Note that you'll get text from every parser this way, to have
+     * control of which content is from which parser you need to
+     * call the method with a {@link ContentHandlerFactory} instead.
+     */
+    @Override
+    public void parse(TikaInputStream tis, ContentHandler handler, Metadata metadata,
+                      ParseContext context) throws IOException, SAXException, TikaException {
+<span class="fc" id="L225">        parse(tis, handler, null, metadata, context);</span>
+<span class="fc" id="L226">    }</span>
+
+    /**
+     * Processes the given Stream through one or more parsers,
+     * resetting things between parsers as requested by policy.
+     * The actual processing is delegated to one or more {@link Parser}s.
+     * You will get one ContentHandler fetched for each Parser used.
+     * TODO Do we need to return all the ContentHandler instances we created?
+     *
+     * @deprecated The {@link ContentHandlerFactory} override is still experimental
+     * and the method signature is subject to change before Tika 2.0
+     */
+    @Deprecated
+    public void parse(TikaInputStream tis, ContentHandlerFactory handlers, Metadata metadata,
+                      ParseContext context) throws IOException, SAXException, TikaException {
+<span class="nc" id="L241">        parse(tis, null, handlers, metadata, context);</span>
+<span class="nc" id="L242">    }</span>
+
+    private void parse(TikaInputStream tis, ContentHandler handler,
+                       ContentHandlerFactory handlerFactory, Metadata originalMetadata,
+                       ParseContext context) throws IOException, SAXException, TikaException {
+        // Enable rewind capability since we rewind between multiple parsers
+<span class="fc" id="L248">        tis.enableRewind();</span>
+
+        // Track the metadata between parsers, so we can apply our policy
+<span class="fc" id="L251">        Metadata lastMetadata = cloneMetadata(originalMetadata);</span>
+<span class="fc" id="L252">        Metadata metadata = lastMetadata;</span>
+
+        // Start tracking resources, so we can clean up when done
+<span class="fc" id="L255">        TemporaryResources tmp = new TemporaryResources();</span>
+        try {
+<span class="fc bfc" id="L257" title="All 2 branches covered.">            for (Parser p : parsers) {</span>
+                // Get a new handler for this parser, if we can
+                // If not, the user will get text from every parser
+                //  mushed together onto the one solitary handler...
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">                if (handlerFactory != null) {</span>
+<span class="nc" id="L262">                    handler = handlerFactory.createHandler();</span>
+                }
+
+                // Record that we used this parser
+<span class="fc" id="L266">                recordParserDetails(p, originalMetadata);</span>
+
+                // Prepare an near-empty Metadata, will merge after
+<span class="fc" id="L269">                metadata = cloneMetadata(originalMetadata);</span>
+
+                // Notify the implementation of what we're about to do
+<span class="fc" id="L272">                parserPrepare(p, metadata, context);</span>
+
+                // Process if possible
+<span class="fc" id="L275">                Exception failure = null;</span>
+                try {
+<span class="fc" id="L277">                    p.parse(tis, handler, metadata, context);</span>
+<span class="fc" id="L278">                } catch (Exception e) {</span>
+                    // Record the failure such that it can't get lost / overwritten
+<span class="fc" id="L280">                    recordParserFailure(p, e, originalMetadata);</span>
+<span class="fc" id="L281">                    recordParserFailure(p, e, metadata);</span>
+<span class="fc" id="L282">                    failure = e;</span>
+<span class="fc" id="L283">                }</span>
+
+                // Notify the implementation how it went
+<span class="fc" id="L286">                boolean tryNext = parserCompleted(p, metadata, handler, context, failure);</span>
+
+                // Handle metadata merging / clashes
+<span class="fc" id="L289">                metadata = mergeMetadata(metadata, lastMetadata, policy);</span>
+
+                // Abort if requested, with the exception if there was one
+<span class="fc bfc" id="L292" title="All 2 branches covered.">                if (!tryNext) {</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">                    if (failure != null) {</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">                        if (failure instanceof IOException) {</span>
+<span class="nc" id="L295">                            throw (IOException) failure;</span>
+                        }
+<span class="nc bnc" id="L297" title="All 2 branches missed.">                        if (failure instanceof SAXException) {</span>
+<span class="nc" id="L298">                            throw (SAXException) failure;</span>
+                        }
+<span class="nc bnc" id="L300" title="All 2 branches missed.">                        if (failure instanceof TikaException) {</span>
+<span class="nc" id="L301">                            throw (TikaException) failure;</span>
+                        }
+<span class="nc" id="L303">                        throw new TikaException(&quot;Unexpected RuntimeException from &quot; + p, failure);</span>
+                    }
+                    // Abort processing, don't try any more parsers
+                    break;
+                }
+
+                // Prepare for the next parser, if present
+<span class="fc" id="L310">                lastMetadata = cloneMetadata(metadata);</span>
+<span class="fc" id="L311">                tis.rewind();</span>
+<span class="fc" id="L312">            }</span>
+        } finally {
+<span class="fc" id="L314">            tmp.dispose();</span>
+        }
+
+        // Finally, copy the latest metadata back onto their supplied object
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        for (String n : metadata.names()) {</span>
+<span class="fc" id="L319">            originalMetadata.remove(n);</span>
+<span class="fc bfc" id="L320" title="All 2 branches covered.">            for (String val : metadata.getValues(n)) {</span>
+<span class="fc" id="L321">                originalMetadata.reconstruct(n, val, true);</span>
+            }
+        }
+<span class="fc" id="L324">    }</span>
+
+    /**
+     * The various strategies for handling metadata emitted by
+     * multiple parsers.
+     * Note that not all will be supported by all subclasses.
+     */
+<span class="fc" id="L331">    public enum MetadataPolicy {</span>
+        /**
+         * Before moving onto another parser, throw away
+         * all previously seen metadata
+         */
+<span class="fc" id="L336">        DISCARD_ALL,</span>
+        /**
+         * The first parser to output a given key wins,
+         * merge in non-clashing other keys
+         */
+<span class="fc" id="L341">        FIRST_WINS,</span>
+        /**
+         * The last parser to output a given key wins,
+         * overriding previous parser values for a
+         * clashing key.
+         */
+<span class="fc" id="L347">        LAST_WINS,</span>
+        /**
+         * Where multiple parsers output a given key,
+         * store all their different (unique) values
+         */
+<span class="fc" id="L352">        KEEP_ALL</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

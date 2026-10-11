@@ -1,0 +1,8 @@
+After manual CharsetUtils tests
+Line coverage: 74/92 = 80%
+Generated mutations: 28
+Killed: 27
+Mutation coverage: 96%
+No coverage: 1
+Test strength: 100%
+Result: BUILD SUCCESS

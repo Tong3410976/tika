@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigDeserializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">ConfigDeserializer.java</span></div><h1>ConfigDeserializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+
+import java.lang.reflect.Method;
+
+/**
+ * Utility for deserializing JSON configuration without compile-time dependency on Jackson.
+ * &lt;p&gt;
+ * This class uses reflection to call Jackson's ObjectMapper when available on the classpath.
+ * If tika-serialization is available, it uses the configured ObjectMapper from
+ * {@code TikaObjectMapperFactory} to ensure consistent behavior with ParseContext
+ * serialization. Otherwise, it falls back to a plain ObjectMapper.
+ * &lt;p&gt;
+ * If Jackson is not available and JSON deserialization is attempted, it throws a clear error message.
+ * &lt;p&gt;
+ * Usage pattern in parsers, detectors, and other Tika components:
+ * &lt;pre&gt;
+ * public class MyParser implements Parser {
+ *     public static class Config {
+ *         public int timeout = 30;
+ *         public boolean verbose = false;
+ *     }
+ *
+ *     public MyParser() {
+ *         // Default constructor for SPI
+ *     }
+ *
+ *     public MyParser(Config config) {
+ *         // Constructor with explicit config object
+ *         this.timeout = config.timeout;
+ *         this.verbose = config.verbose;
+ *     }
+ *
+ *     public MyParser(JsonConfig jsonConfig) {
+ *         this(ConfigDeserializer.buildConfig(jsonConfig, Config.class));
+ *     }
+ * }
+ * &lt;/pre&gt;
+ *
+ * @since Apache Tika 4.0
+ */
+<span class="nc" id="L57">public class ConfigDeserializer {</span>
+
+    private static final Class&lt;?&gt; OBJECT_MAPPER_CLASS;
+    private static final Object OBJECT_MAPPER_INSTANCE;
+    private static final Method READ_VALUE_METHOD;
+
+    static {
+<span class="nc" id="L64">        Class&lt;?&gt; clazz = null;</span>
+<span class="nc" id="L65">        Object instance = null;</span>
+<span class="nc" id="L66">        Method method = null;</span>
+        try {
+<span class="nc" id="L68">            clazz = Class.forName(&quot;com.fasterxml.jackson.databind.ObjectMapper&quot;);</span>
+
+            // Try to use TikaObjectMapperFactory from tika-serialization if available.
+            // This ensures we use the same configured ObjectMapper as ParseContext serialization.
+            try {
+<span class="nc" id="L73">                Class&lt;?&gt; factoryClass = Class.forName(</span>
+                        &quot;org.apache.tika.config.loader.TikaObjectMapperFactory&quot;);
+<span class="nc" id="L75">                Method getMapperMethod = factoryClass.getMethod(&quot;getMapper&quot;);</span>
+<span class="nc" id="L76">                instance = getMapperMethod.invoke(null);</span>
+<span class="nc" id="L77">            } catch (Exception e) {</span>
+                // tika-serialization not on classpath, fall back to plain ObjectMapper
+<span class="nc" id="L79">                instance = clazz.getDeclaredConstructor().newInstance();</span>
+<span class="nc" id="L80">            }</span>
+
+<span class="nc" id="L82">            method = clazz.getMethod(&quot;readValue&quot;, String.class, Class.class);</span>
+<span class="nc" id="L83">        } catch (Exception e) {</span>
+            // Jackson not on classpath - will fail at runtime if JSON deserialization is attempted
+<span class="nc" id="L85">        }</span>
+<span class="nc" id="L86">        OBJECT_MAPPER_CLASS = clazz;</span>
+<span class="nc" id="L87">        OBJECT_MAPPER_INSTANCE = instance;</span>
+<span class="nc" id="L88">        READ_VALUE_METHOD = method;</span>
+<span class="nc" id="L89">    }</span>
+
+    /**
+     * Deserializes a JSON configuration to a configuration object.
+     * Requires Jackson on the classpath.
+     *
+     * @param jsonConfig the JSON configuration
+     * @param configClass the configuration class
+     * @param &lt;T&gt; the configuration type
+     * @return the deserialized configuration object
+     * @throws RuntimeException if Jackson is not on the classpath or deserialization fails
+     */
+    public static &lt;T&gt; T buildConfig(JsonConfig jsonConfig, Class&lt;T&gt; configClass) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (OBJECT_MAPPER_CLASS == null) {</span>
+<span class="nc" id="L103">            throw new RuntimeException(</span>
+<span class="nc" id="L104">                &quot;Cannot parse JSON configuration for &quot; + configClass.getSimpleName() +</span>
+                &quot;: Jackson is not on the classpath. &quot; +
+                &quot;Add com.fasterxml.jackson.core:jackson-databind as a dependency.&quot;);
+        }
+
+        try {
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L111">            T config = (T) READ_VALUE_METHOD.invoke(OBJECT_MAPPER_INSTANCE, jsonConfig.json(), configClass);</span>
+<span class="nc" id="L112">            return config;</span>
+<span class="nc" id="L113">        } catch (Exception e) {</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            Throwable cause = e.getCause() != null ? e.getCause() : e;</span>
+<span class="nc" id="L115">            throw new RuntimeException(&quot;Failed to parse &quot; + configClass.getSimpleName() +</span>
+<span class="nc" id="L116">                &quot; configuration: &quot; + cause.getMessage(), cause);</span>
+        }
+    }
+
+    /**
+     * Checks if Jackson ObjectMapper is available on the classpath.
+     *
+     * @return true if Jackson is available for JSON deserialization
+     */
+    public static boolean isJacksonAvailable() {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        return OBJECT_MAPPER_CLASS != null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

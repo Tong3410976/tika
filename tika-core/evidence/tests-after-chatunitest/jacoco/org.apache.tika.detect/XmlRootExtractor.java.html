@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlRootExtractor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">XmlRootExtractor.java</span></div><h1>XmlRootExtractor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.io.CharConversionException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import javax.xml.namespace.QName;
+
+import org.apache.commons.io.input.CloseShieldInputStream;
+import org.apache.commons.io.input.UnsynchronizedByteArrayInputStream;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.XMLReaderUtils;
+
+/**
+ * Utility class that uses a {@link javax.xml.parsers.SAXParser} to determine
+ * the namespace URI and local name of the root element of an XML file.
+ *
+ * @since Apache Tika 0.4
+ */
+<span class="fc" id="L40">public class XmlRootExtractor {</span>
+<span class="fc" id="L41">    private static final ParseContext EMPTY_CONTEXT = new ParseContext();</span>
+
+    public QName extractRootElement(byte[] data) {
+        // this loop should be very rare
+        while (true) {
+            try {
+<span class="fc" id="L47">                UnsynchronizedByteArrayInputStream is = UnsynchronizedByteArrayInputStream.builder().setByteArray(data).get();</span>
+<span class="fc" id="L48">                return extractRootElement(is, true);</span>
+<span class="nc" id="L49">            } catch (IOException e) {</span>
+                // doesn't happen, the implementation of get() doesn't throw an IOException.
+<span class="fc" id="L51">            } catch (MalformedCharException e) {</span>
+                // see TIKA-3596, try to handle truncated/bad encoded XML files
+<span class="fc" id="L53">                int newLen = data.length / 2;</span>
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">                if (newLen % 2 == 1) {</span>
+<span class="fc" id="L55">                    newLen--;</span>
+                }
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">                if (newLen &gt; 0) {</span>
+<span class="fc" id="L58">                    data = Arrays.copyOf(data, newLen);</span>
+                } else {
+<span class="nc" id="L60">                    break;</span>
+                }
+<span class="pc" id="L62">            }</span>
+        }
+<span class="nc" id="L64">        return null;</span>
+    }
+
+    /**
+     * @since Apache Tika 0.9
+     */
+    public QName extractRootElement(InputStream stream) {
+<span class="nc" id="L71">        return extractRootElement(stream, false);</span>
+    }
+    
+    private QName extractRootElement(InputStream stream, boolean throwMalformed) {
+<span class="fc" id="L75">        ExtractorHandler handler = new ExtractorHandler();</span>
+        try {
+<span class="nc" id="L77">            XMLReaderUtils.parseSAX(CloseShieldInputStream.wrap(stream),</span>
+                    handler, EMPTY_CONTEXT);
+<span class="nc" id="L79">        } catch (SecurityException e) {</span>
+<span class="nc" id="L80">            throw e;</span>
+<span class="fc" id="L81">        } catch (Exception e) {</span>
+<span class="pc bpc" id="L82" title="2 of 4 branches missed.">            if (throwMalformed &amp;&amp; (e instanceof CharConversionException</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">                    || e.getCause() instanceof CharConversionException)) {</span>
+<span class="fc" id="L84">                throw new MalformedCharException(e);</span>
+            }
+<span class="nc" id="L86">        }</span>
+<span class="fc" id="L87">        return handler.rootElement;</span>
+    }
+
+<span class="fc" id="L90">    private static class ExtractorHandler extends DefaultHandler {</span>
+
+<span class="fc" id="L92">        private QName rootElement = null;</span>
+
+        @Override
+        public void startElement(String uri, String local, String name, Attributes attributes)
+                throws SAXException {
+<span class="fc" id="L97">            this.rootElement = new QName(uri, local);</span>
+<span class="fc" id="L98">            throw new SAXException(&quot;Aborting: root element received&quot;);</span>
+        }
+
+    }
+
+    private static class MalformedCharException extends RuntimeException {
+
+        public MalformedCharException(Exception e) {
+<span class="fc" id="L106">            super(e);</span>
+<span class="fc" id="L107">        }</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

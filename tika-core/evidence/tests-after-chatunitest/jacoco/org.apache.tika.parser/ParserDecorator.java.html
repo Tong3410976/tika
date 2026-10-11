@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParserDecorator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">ParserDecorator.java</span></div><h1>ParserDecorator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.parser.multiple.AbstractMultipleParser.MetadataPolicy;
+import org.apache.tika.parser.multiple.FallbackParser;
+
+/**
+ * Decorator base class for the {@link Parser} interface.
+ * &lt;p&gt;This class simply delegates all parsing calls to an underlying decorated
+ * parser instance. Subclasses can provide extra decoration by overriding the
+ * parse method.
+ * &lt;p&gt;To decorate several different parsers at the same time, wrap them in
+ * a {@link CompositeParser} instance first.
+ */
+public class ParserDecorator implements Parser {
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = -3861669115439125268L;
+    /**
+     * The decorated parser instance.
+     */
+    private final Parser parser;
+
+    /**
+     * Creates a decorator for the given parser.
+     *
+     * @param parser the parser instance to be decorated
+     */
+<span class="fc" id="L60">    public ParserDecorator(Parser parser) {</span>
+<span class="fc" id="L61">        this.parser = parser;</span>
+<span class="fc" id="L62">    }</span>
+
+    /**
+     * Decorates the given parser so that it always claims to support
+     * parsing of the given media types.
+     *
+     * @param parser the parser to be decorated
+     * @param types  supported media types
+     * @return the decorated parser
+     */
+    public static Parser withTypes(Parser parser, Set&lt;MediaType&gt; types) {
+<span class="fc" id="L73">        return new MimeFilteringDecorator(parser, types, null);</span>
+    }
+
+    /**
+     * Decorates the given parser so that it never claims to support
+     * parsing of the given media types, but will work for all others.
+     *
+     * @param parser       the parser to be decorated
+     * @param excludeTypes excluded/ignored media types
+     * @return the decorated parser
+     */
+    public static Parser withoutTypes(Parser parser, Set&lt;MediaType&gt; excludeTypes) {
+<span class="fc" id="L85">        return new MimeFilteringDecorator(parser, null, excludeTypes);</span>
+    }
+
+    /**
+     * Decorates the given parser with mime type filtering.
+     * Supports both include and exclude lists for round-trip serialization.
+     *
+     * @param parser the parser to be decorated
+     * @param includeTypes types to include (if non-empty, only these types are supported)
+     * @param excludeTypes types to exclude (removed from supported types)
+     * @return the decorated parser, or the original parser if no filtering needed
+     */
+    public static Parser withMimeFilters(Parser parser, Set&lt;MediaType&gt; includeTypes,
+                                         Set&lt;MediaType&gt; excludeTypes) {
+<span class="nc bnc" id="L99" title="All 6 branches missed.">        if ((includeTypes == null || includeTypes.isEmpty()) &amp;&amp;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">                (excludeTypes == null || excludeTypes.isEmpty())) {</span>
+<span class="nc" id="L101">            return parser;</span>
+        }
+<span class="nc" id="L103">        return new MimeFilteringDecorator(parser, includeTypes, excludeTypes);</span>
+    }
+
+    /**
+     * Decorates the given parsers into a virtual parser, where they'll
+     * be tried in preference order until one works without error.
+     *
+     * @deprecated This has been replaced by {@link FallbackParser}
+     */
+    @Deprecated
+    public static final Parser withFallbacks(final Collection&lt;? extends Parser&gt; parsers,
+                                             final Set&lt;MediaType&gt; types) {
+        // Delegate to the new FallbackParser for now, until people upgrade
+        // Keep old behaviour on metadata, which was to preseve all
+<span class="fc" id="L117">        MediaTypeRegistry registry = MediaTypeRegistry.getDefaultRegistry();</span>
+<span class="fc" id="L118">        Parser p = new FallbackParser(registry, MetadataPolicy.KEEP_ALL, parsers);</span>
+
+<span class="pc bpc" id="L120" title="2 of 4 branches missed.">        if (types == null || types.isEmpty()) {</span>
+<span class="nc" id="L121">            return p;</span>
+        }
+<span class="fc" id="L123">        return withTypes(p, types);</span>
+    }
+
+    /**
+     * A ParserDecorator that filters supported mime types.
+     * Stores include/exclude sets for round-trip serialization.
+     * Results are cached when includeTypes is specified (deterministic case).
+     */
+    public static class MimeFilteringDecorator extends ParserDecorator {
+        private static final long serialVersionUID = 1L;
+
+        private final Set&lt;MediaType&gt; includeTypes;
+        private final Set&lt;MediaType&gt; excludeTypes;
+        private volatile Set&lt;MediaType&gt; cachedTypes;
+
+        public MimeFilteringDecorator(Parser parser, Set&lt;MediaType&gt; includeTypes,
+                                      Set&lt;MediaType&gt; excludeTypes) {
+<span class="fc" id="L140">            super(parser);</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            this.includeTypes = includeTypes != null ?</span>
+<span class="fc" id="L142">                    Collections.unmodifiableSet(new HashSet&lt;&gt;(includeTypes)) : Collections.emptySet();</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            this.excludeTypes = excludeTypes != null ?</span>
+<span class="fc" id="L144">                    Collections.unmodifiableSet(new HashSet&lt;&gt;(excludeTypes)) : Collections.emptySet();</span>
+<span class="fc" id="L145">        }</span>
+
+        @Override
+        public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+            // If includeTypes is specified, result is deterministic - use cache
+<span class="fc bfc" id="L150" title="All 2 branches covered.">            if (!includeTypes.isEmpty()) {</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">                if (cachedTypes == null) {</span>
+<span class="fc" id="L152">                    Set&lt;MediaType&gt; types = new HashSet&lt;&gt;(includeTypes);</span>
+<span class="fc" id="L153">                    types.removeAll(excludeTypes);</span>
+<span class="fc" id="L154">                    cachedTypes = Collections.unmodifiableSet(types);</span>
+                }
+<span class="fc" id="L156">                return cachedTypes;</span>
+            }
+
+            // Otherwise compute from wrapped parser (may vary by context)
+<span class="fc" id="L160">            Set&lt;MediaType&gt; types = new HashSet&lt;&gt;(super.getSupportedTypes(context));</span>
+<span class="fc" id="L161">            types.removeAll(excludeTypes);</span>
+<span class="fc" id="L162">            return types;</span>
+        }
+
+        @Override
+        public String getDecorationName() {
+<span class="nc" id="L167">            return &quot;Mime Filtering&quot;;</span>
+        }
+
+        /**
+         * @return the included mime types, or empty set if no include filter
+         */
+        public Set&lt;MediaType&gt; getIncludeTypes() {
+<span class="nc" id="L174">            return includeTypes;</span>
+        }
+
+        /**
+         * @return the excluded mime types, or empty set if no exclude filter
+         */
+        public Set&lt;MediaType&gt; getExcludeTypes() {
+<span class="nc" id="L181">            return excludeTypes;</span>
+        }
+    }
+
+    /**
+     * Delegates the method call to the decorated parser. Subclasses should
+     * override this method (and use &lt;code&gt;super.getSupportedTypes()&lt;/code&gt;
+     * to invoke the decorated parser) to implement extra decoration.
+     */
+    public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="fc" id="L191">        return parser.getSupportedTypes(context);</span>
+    }
+
+    /**
+     * Delegates the method call to the decorated parser. Subclasses should
+     * override this method (and use &lt;code&gt;super.parse()&lt;/code&gt; to invoke
+     * the decorated parser) to implement extra decoration.
+     */
+    public void parse(TikaInputStream tis, ContentHandler handler, Metadata metadata,
+                      ParseContext context) throws IOException, SAXException, TikaException {
+<span class="fc" id="L201">        parser.parse(tis, handler, metadata, context);</span>
+<span class="fc" id="L202">    }</span>
+
+    /**
+     * @return A name/description of the decoration, or null if none available
+     */
+    public String getDecorationName() {
+<span class="nc" id="L208">        return null;</span>
+    }
+
+    /**
+     * Gets the parser wrapped by this ParserDecorator
+     *
+     * @return the parser wrapped by this ParserDecorator
+     */
+    public Parser getWrappedParser() {
+<span class="fc" id="L217">        return this.parser;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

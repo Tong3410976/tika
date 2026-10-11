@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParserContainerExtractor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.extractor</a> &gt; <span class="el_source">ParserContainerExtractor.java</span></div><h1>ParserContainerExtractor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.extractor;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Set;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.detect.DefaultDetector;
+import org.apache.tika.detect.Detector;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.StatefulParser;
+
+/**
+ * An implementation of {@link ContainerExtractor} powered by the regular
+ * {@link Parser} API. This allows you to easily extract out all the
+ * embedded resources from within container files supported by normal Tika
+ * parsers. By default the {@link AutoDetectParser} will be used, to allow
+ * extraction from the widest range of containers.
+ */
+public class ParserContainerExtractor implements ContainerExtractor {
+
+    /** Serial version UID */
+    private static final long serialVersionUID = 2261131045580861514L;
+
+    private final Parser parser;
+
+    private final Detector detector;
+
+    public ParserContainerExtractor() {
+<span class="nc" id="L56">        this(new AutoDetectParser(), new DefaultDetector());</span>
+<span class="nc" id="L57">    }</span>
+
+<span class="nc" id="L59">    public ParserContainerExtractor(Parser parser, Detector detector) {</span>
+<span class="nc" id="L60">        this.parser = parser;</span>
+<span class="nc" id="L61">        this.detector = detector;</span>
+<span class="nc" id="L62">    }</span>
+
+    @Override
+    public boolean isSupported(TikaInputStream input, ParseContext parseContext) throws IOException {
+<span class="nc" id="L66">        MediaType type = detector.detect(input, Metadata.newInstance(parseContext), parseContext);</span>
+<span class="nc" id="L67">        return parser.getSupportedTypes(parseContext).contains(type);</span>
+    }
+
+    @Override
+    public void extract(
+            TikaInputStream stream, ContainerExtractor recurseExtractor,
+            EmbeddedResourceHandler handler, ParseContext parseContext)
+            throws IOException, TikaException {
+<span class="nc" id="L75">        parseContext.set(Parser.class, new RecursiveParser(parser, recurseExtractor, handler, parseContext));</span>
+        try {
+<span class="nc" id="L77">            parser.parse(stream, new DefaultHandler(), Metadata.newInstance(parseContext), parseContext);</span>
+<span class="nc" id="L78">        } catch (SAXException e) {</span>
+<span class="nc" id="L79">            throw new TikaException(&quot;Unexpected SAX exception&quot;, e);</span>
+<span class="nc" id="L80">        }</span>
+<span class="nc" id="L81">    }</span>
+
+    private class RecursiveParser extends StatefulParser {
+
+        private final ContainerExtractor extractor;
+
+        private final EmbeddedResourceHandler handler;
+
+        private final ParseContext parseContext;
+
+        private RecursiveParser(Parser statelessParser,
+                ContainerExtractor extractor,
+                EmbeddedResourceHandler handler,
+<span class="nc" id="L94">                ParseContext parseContext) {</span>
+<span class="nc" id="L95">            super(statelessParser);</span>
+<span class="nc" id="L96">            this.extractor = extractor;</span>
+<span class="nc" id="L97">            this.handler = handler;</span>
+<span class="nc" id="L98">            this.parseContext = parseContext;</span>
+<span class="nc" id="L99">        }</span>
+
+        @Override
+        public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="nc" id="L103">            return parser.getSupportedTypes(context);</span>
+        }
+
+        @Override
+        public void parse(
+                TikaInputStream stream, ContentHandler ignored,
+                Metadata metadata, ParseContext context)
+                throws IOException, SAXException, TikaException {
+            // Figure out what we have to process
+<span class="nc" id="L112">            String filename = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="nc" id="L113">            MediaType type = detector.detect(stream, metadata, parseContext);</span>
+
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if (extractor == null) {</span>
+                // Let the handler process the embedded resource
+<span class="nc" id="L117">                handler.handle(filename, type, stream, parseContext);</span>
+            } else {
+                // Use a temporary file to process the stream twice
+<span class="nc" id="L120">                File file = stream.getFile();</span>
+
+                // Let the handler process the embedded resource
+<span class="nc" id="L123">                try (TikaInputStream tis = TikaInputStream.get(file.toPath())) {</span>
+<span class="nc" id="L124">                    handler.handle(filename, type, tis, parseContext);</span>
+                }
+
+                // Recurse
+<span class="nc" id="L128">                extractor.extract(stream, extractor, handler, parseContext);</span>
+            }
+<span class="nc" id="L130">        }</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

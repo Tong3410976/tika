@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IncludeFieldMetadataFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.filter</a> &gt; <span class="el_source">IncludeFieldMetadataFilter.java</span></div><h1>IncludeFieldMetadataFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.filter;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ConfigDeserializer;
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.metadata.Metadata;
+
+@TikaComponent
+public class IncludeFieldMetadataFilter extends MetadataFilterBase {
+
+    /**
+     * Configuration class for JSON deserialization.
+     */
+<span class="nc" id="L35">    public static class Config {</span>
+<span class="nc" id="L36">        public List&lt;String&gt; include = new ArrayList&lt;&gt;();</span>
+    }
+
+    private final Set&lt;String&gt; includeSet;
+
+    public IncludeFieldMetadataFilter() {
+<span class="nc" id="L42">        this(new HashSet&lt;&gt;());</span>
+<span class="nc" id="L43">    }</span>
+
+<span class="nc" id="L45">    public IncludeFieldMetadataFilter(Set&lt;String&gt; fields) {</span>
+<span class="nc" id="L46">        this.includeSet = fields;</span>
+<span class="nc" id="L47">    }</span>
+
+    /**
+     * Constructor with explicit Config object.
+     *
+     * @param config the configuration
+     */
+<span class="nc" id="L54">    public IncludeFieldMetadataFilter(Config config) {</span>
+<span class="nc" id="L55">        this.includeSet = new HashSet&lt;&gt;(config.include);</span>
+<span class="nc" id="L56">    }</span>
+
+    /**
+     * Constructor for JSON configuration.
+     * Requires Jackson on the classpath.
+     *
+     * @param jsonConfig JSON configuration
+     */
+    public IncludeFieldMetadataFilter(JsonConfig jsonConfig) {
+<span class="nc" id="L65">        this(ConfigDeserializer.buildConfig(jsonConfig, Config.class));</span>
+<span class="nc" id="L66">    }</span>
+
+    /**
+     * @param include comma-delimited list of fields to include
+     */
+    public void setInclude(List&lt;String&gt; include) {
+<span class="nc" id="L72">        includeSet.addAll(include);</span>
+<span class="nc" id="L73">    }</span>
+
+    public List&lt;String&gt; getInclude() {
+<span class="nc" id="L76">        return new ArrayList&lt;&gt;(includeSet);</span>
+    }
+
+    @Override
+    protected void filter(Metadata metadata) {
+
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        for (String n : metadata.names()) {</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            if (!includeSet.contains(n)) {</span>
+<span class="nc" id="L84">                metadata.remove(n);</span>
+            }
+        }
+<span class="nc" id="L87">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

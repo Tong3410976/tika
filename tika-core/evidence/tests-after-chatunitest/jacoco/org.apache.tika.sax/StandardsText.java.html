@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StandardsText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">StandardsText.java</span></div><h1>StandardsText.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.tika.sax.StandardReference.StandardReferenceBuilder;
+
+/**
+ * StandardText relies on regular expressions to extract standard references
+ * from text.
+ *
+ * &lt;p&gt;
+ * This class helps to find the standard references from text by performing the
+ * following steps:
+ * &lt;ol&gt;
+ * &lt;li&gt;searches for headers;&lt;/li&gt;
+ * &lt;li&gt;searches for patterns that are supposed to be standard references
+ * (basically, every string mostly composed of uppercase letters followed by an
+ * alphanumeric characters);&lt;/li&gt;
+ * &lt;li&gt;each potential standard reference starts with score equal to 0.25;&lt;/li&gt;
+ * &lt;li&gt;increases by 0.25 the score of references which include the name of a
+ * known standard organization ({@link StandardOrganizations});&lt;/li&gt;
+ * &lt;li&gt;increases by 0.25 the score of references which include the word
+ * Publication or Standard;&lt;/li&gt;
+ * &lt;li&gt;increases by 0.25 the score of references which have been found within
+ * &quot;Applicable Documents&quot; and equivalent sections;&lt;/li&gt;
+ * &lt;li&gt;returns the standard references along with scores.&lt;/li&gt;
+ * &lt;/ol&gt;
+ * &lt;/p&gt;
+ */
+<span class="nc" id="L52">public class StandardsText {</span>
+    // Regular expression to match uppercase headers
+    private static final String REGEX_HEADER =
+            &quot;(\\d{1,10}+\\.(\\d{1,10}+\\.?){0,10}+)\\p{Blank}+([A-Z]{1,64}+(\\s[A-Z]{1,64}+){0,&quot; +
+                    &quot;256}+){5,10}+&quot;;
+
+    // Regular expression to match the &quot;APPLICABLE DOCUMENTS&quot; and equivalent
+    // sections
+    private static final String REGEX_APPLICABLE_DOCUMENTS =
+            &quot;(?i:.*APPLICABLE\\sDOCUMENTS|REFERENCE|STANDARD|REQUIREMENT|GUIDELINE|COMPLIANCE.*)&quot;;
+
+    // Regular expression to match the alphanumeric identifier of the standard
+    private static final String REGEX_IDENTIFIER =
+            &quot;(?&lt;identifier&gt;([0-9]{3,64}+|([A-Z]{1,64}+(-|_|\\.)?[0-9]{2,64}+))((-|_|\\.)&quot; +
+                    &quot;?[A-Z0-9]{1,64}+){0,64}+)&quot;;
+
+    // Regular expression to match the standard organization
+<span class="nc" id="L69">    private static final String REGEX_ORGANIZATION = StandardOrganizations.getOrganzationsRegex();</span>
+
+    // Regular expression to match the type of publication, often reported
+    // between the name of the standard organization and the standard identifier
+    private static final String REGEX_STANDARD_TYPE = &quot;(\\s(?i:Publication|Standard))&quot;;
+
+    // Regular expression to match a string that is supposed to be a standard
+    // reference
+    private static final String REGEX_FALLBACK = &quot;\\(?&quot; + &quot;(?&lt;mainOrganization&gt;[A-Z]\\w{1,64}+)&quot; +
+            &quot;\\)?((\\s?(?&lt;separator&gt;\\/)\\s?)(\\w{1,64}+\\s)*\\(?&quot; + &quot;(?&lt;secondOrganization&gt;[A-Z&quot; +
+            &quot;]\\w{1,64}+)&quot; +
+            &quot;\\)?)?&quot; + REGEX_STANDARD_TYPE + &quot;?&quot; + &quot;(-|\\s)?&quot; + REGEX_IDENTIFIER;
+
+    // Regular expression to match the standard organization within a string
+    // that is supposed to be a standard reference
+<span class="nc" id="L84">    private static final String REGEX_STANDARD =</span>
+            &quot;.*&quot; + REGEX_ORGANIZATION + &quot;.+&quot; + REGEX_ORGANIZATION + &quot;?.*&quot;;
+
+    /**
+     * Extracts the standard references found within the given text.
+     *
+     * @param text      the text from which the standard references are extracted.
+     * @param threshold the lower bound limit to be used in order to select only the
+     *                  standard references with score greater than or equal to the
+     *                  threshold. For instance, using a threshold of 0.75 means that
+     *                  only the patterns with score greater than or equal to 0.75
+     *                  will be returned.
+     * @return the list of standard references extracted from the given text.
+     */
+    public static ArrayList&lt;StandardReference&gt; extractStandardReferences(String text,
+                                                                         double threshold) {
+<span class="nc" id="L100">        Map&lt;Integer, String&gt; headers = findHeaders(text);</span>
+
+<span class="nc" id="L102">        return findStandards(text, headers, threshold);</span>
+    }
+
+    /**
+     * This method helps to find the headers within the given text.
+     *
+     * @param text the text from which the headers are extracted.
+     * @return the list of headers found within the given text.
+     */
+    private static Map&lt;Integer, String&gt; findHeaders(String text) {
+<span class="nc" id="L112">        Map&lt;Integer, String&gt; headers = new TreeMap&lt;&gt;();</span>
+
+<span class="nc" id="L114">        Pattern pattern = Pattern.compile(REGEX_HEADER);</span>
+<span class="nc" id="L115">        Matcher matcher = pattern.matcher(text);</span>
+
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        while (matcher.find()) {</span>
+<span class="nc" id="L118">            headers.put(matcher.start(), matcher.group());</span>
+        }
+
+<span class="nc" id="L121">        return headers;</span>
+    }
+
+    /**
+     * This method helps to find the standard references within the given text.
+     *
+     * @param text      the text from which the standards references are extracted.
+     * @param headers   the list of headers found within the given text.
+     * @param threshold the lower bound limit to be used in order to select only the
+     *                  standard references with score greater than or equal to the
+     *                  threshold.
+     * @return the list of standard references extracted from the given text.
+     */
+    private static ArrayList&lt;StandardReference&gt; findStandards(String text,
+                                                              Map&lt;Integer, String&gt; headers,
+                                                              double threshold) {
+<span class="nc" id="L137">        ArrayList&lt;StandardReference&gt; standards = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L138">        double score = 0;</span>
+
+<span class="nc" id="L140">        Pattern pattern = Pattern.compile(REGEX_FALLBACK);</span>
+<span class="nc" id="L141">        Matcher matcher = pattern.matcher(text);</span>
+
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        while (matcher.find()) {</span>
+<span class="nc" id="L144">            StandardReferenceBuilder builder = new StandardReference.StandardReferenceBuilder(</span>
+<span class="nc" id="L145">                    matcher.group(&quot;mainOrganization&quot;), matcher.group(&quot;identifier&quot;))</span>
+<span class="nc" id="L146">                    .setSecondOrganization(matcher.group(&quot;separator&quot;),</span>
+<span class="nc" id="L147">                            matcher.group(&quot;secondOrganization&quot;));</span>
+<span class="nc" id="L148">            score = 0.25;</span>
+
+            // increases by 0.25 the score of references which include the name of a known
+            // standard organization
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (matcher.group().matches(REGEX_STANDARD)) {</span>
+<span class="nc" id="L153">                score += 0.25;</span>
+            }
+
+            // increases by 0.25 the score of references which include the word &quot;Publication&quot; or
+            // &quot;Standard&quot;
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (matcher.group().matches(&quot;.*&quot; + REGEX_STANDARD_TYPE + &quot;.*&quot;)) {</span>
+<span class="nc" id="L159">                score += 0.25;</span>
+            }
+
+<span class="nc" id="L162">            int startHeader = 0;</span>
+<span class="nc" id="L163">            int endHeader = 0;</span>
+<span class="nc" id="L164">            boolean headerFound = false;</span>
+<span class="nc" id="L165">            Iterator&lt;Entry&lt;Integer, String&gt;&gt; iterator = headers.entrySet().iterator();</span>
+<span class="nc bnc" id="L166" title="All 4 branches missed.">            while (iterator.hasNext() &amp;&amp; !headerFound) {</span>
+<span class="nc" id="L167">                startHeader = endHeader;</span>
+<span class="nc" id="L168">                endHeader = iterator.next().getKey();</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">                if (endHeader &gt; matcher.start()) {</span>
+<span class="nc" id="L170">                    headerFound = true;</span>
+                }
+            }
+
+<span class="nc" id="L174">            String header = headers.get(startHeader);</span>
+
+            // increases by 0.25 the score of references which have been found within &quot;Applicable
+            // Documents&quot; and equivalent sections
+<span class="nc bnc" id="L178" title="All 4 branches missed.">            if (header != null &amp;&amp; headers.get(startHeader).matches(REGEX_APPLICABLE_DOCUMENTS)) {</span>
+<span class="nc" id="L179">                score += 0.25;</span>
+            }
+
+<span class="nc" id="L182">            builder.setScore(score);</span>
+
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            if (score &gt;= threshold) {</span>
+<span class="nc" id="L185">                standards.add(builder.build());</span>
+            }
+<span class="nc" id="L187">        }</span>
+
+<span class="nc" id="L189">        return standards;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

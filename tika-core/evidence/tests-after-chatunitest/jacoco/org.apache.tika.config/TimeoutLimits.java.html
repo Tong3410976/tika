@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimeoutLimits.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">TimeoutLimits.java</span></div><h1>TimeoutLimits.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+import java.io.Serializable;
+import java.util.Objects;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Configuration for the two-tier task timeout system.
+ * &lt;p&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code totalTaskTimeoutMillis} — bounds entire task wall-clock time
+ *       (default: 3,600,000 ms = 1 hour)&lt;/li&gt;
+ *   &lt;li&gt;{@code progressTimeoutMillis} — bounds time since the last progress update;
+ *       catches infinite loops and hung processes (default: 120,000 ms = 2 minutes)&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * Parsers that never call {@link TikaProgressTracker#update()} effectively get
+ * {@code progressTimeoutMillis} as their total timeout (same as the old single-timeout
+ * behavior). Parsers that &lt;em&gt;do&lt;/em&gt; update progress can run up to
+ * {@code totalTaskTimeoutMillis}.
+ * &lt;p&gt;
+ * Example configuration:
+ * &lt;pre&gt;
+ * {
+ *   &quot;parse-context&quot;: {
+ *     &quot;timeout-limits&quot;: {
+ *       &quot;totalTaskTimeoutMillis&quot;: 3600000,
+ *       &quot;progressTimeoutMillis&quot;: 60000
+ *     }
+ *   }
+ * }
+ * &lt;/pre&gt;
+ *
+ * @since Apache Tika 4.0
+ */
+@TikaComponent(spi = false)
+public class TimeoutLimits implements Serializable {
+
+    private static final long serialVersionUID = 2L;
+
+    public static final long DEFAULT_TOTAL_TASK_TIMEOUT_MILLIS = 3_600_000L;
+
+    /**
+     * Also caps how long a single external process may run (see
+     * {@link #getProcessTimeoutMillis(ParseContext, long)}), so this must not be
+     * shorter than the per-process timeouts the bundled process-spawning parsers
+     * default to, or those defaults become unreachable.
+     */
+    public static final long DEFAULT_PROGRESS_TIMEOUT_MILLIS = 120_000L;
+
+<span class="nc" id="L68">    private long totalTaskTimeoutMillis = DEFAULT_TOTAL_TASK_TIMEOUT_MILLIS;</span>
+<span class="nc" id="L69">    private long progressTimeoutMillis = DEFAULT_PROGRESS_TIMEOUT_MILLIS;</span>
+
+    /**
+     * No-arg constructor for Jackson deserialization.
+     */
+<span class="nc" id="L74">    public TimeoutLimits() {</span>
+<span class="nc" id="L75">    }</span>
+
+    /**
+     * Constructor with both timeout parameters.
+     *
+     * @param totalTaskTimeoutMillis maximum wall-clock time for a task
+     * @param progressTimeoutMillis  maximum time between progress updates
+     */
+<span class="nc" id="L83">    public TimeoutLimits(long totalTaskTimeoutMillis, long progressTimeoutMillis) {</span>
+<span class="nc" id="L84">        this.totalTaskTimeoutMillis = totalTaskTimeoutMillis;</span>
+<span class="nc" id="L85">        this.progressTimeoutMillis = progressTimeoutMillis;</span>
+<span class="nc" id="L86">    }</span>
+
+    /**
+     * Gets the maximum wall-clock time in milliseconds for a parse task.
+     *
+     * @return total task timeout in milliseconds
+     */
+    public long getTotalTaskTimeoutMillis() {
+<span class="nc" id="L94">        return totalTaskTimeoutMillis;</span>
+    }
+
+    /**
+     * Sets the maximum wall-clock time in milliseconds for a parse task.
+     *
+     * @param totalTaskTimeoutMillis total task timeout in milliseconds
+     */
+    public void setTotalTaskTimeoutMillis(long totalTaskTimeoutMillis) {
+<span class="nc" id="L103">        this.totalTaskTimeoutMillis = totalTaskTimeoutMillis;</span>
+<span class="nc" id="L104">    }</span>
+
+    /**
+     * Gets the maximum time in milliseconds between progress updates before
+     * the task is considered stalled.
+     *
+     * @return progress timeout in milliseconds
+     */
+    public long getProgressTimeoutMillis() {
+<span class="nc" id="L113">        return progressTimeoutMillis;</span>
+    }
+
+    /**
+     * Sets the maximum time in milliseconds between progress updates before
+     * the task is considered stalled.
+     *
+     * @param progressTimeoutMillis progress timeout in milliseconds
+     */
+    public void setProgressTimeoutMillis(long progressTimeoutMillis) {
+<span class="nc" id="L123">        this.progressTimeoutMillis = progressTimeoutMillis;</span>
+<span class="nc" id="L124">    }</span>
+
+    /**
+     * Helper method to get TimeoutLimits from ParseContext with defaults.
+     *
+     * @param context the ParseContext (may be null)
+     * @return the TimeoutLimits from context, or a new instance with defaults if not found
+     */
+    public static TimeoutLimits get(ParseContext context) {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (context == null) {</span>
+<span class="nc" id="L134">            return new TimeoutLimits();</span>
+        }
+<span class="nc" id="L136">        TimeoutLimits limits = context.get(TimeoutLimits.class);</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        return limits != null ? limits : new TimeoutLimits();</span>
+    }
+
+    /**
+     * Returns the per-process timeout to use for external process execution.
+     * &lt;p&gt;
+     * External processes must not outlive the progress watchdog: a parser only
+     * reports progress once its process has finished, so a process allowed to run
+     * past {@code progressTimeoutMillis} would be killed as a hang. This caps the
+     * caller's timeout at {@code progressTimeoutMillis - 100}, leaving the monitoring
+     * loop a small window to observe the process exit first.
+     * &lt;p&gt;
+     * The cap is a ceiling, not a replacement: a caller asking for less than the cap
+     * keeps its own shorter value. Falls back to {@code defaultMs} when no
+     * TimeoutLimits is in the context.
+     *
+     * @param context   the ParseContext (may be null)
+     * @param defaultMs the caller's configured timeout; also used if no TimeoutLimits
+     *                  is in the context
+     * @return timeout in milliseconds for external process execution
+     */
+    public static long getProcessTimeoutMillis(ParseContext context, long defaultMs) {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (context == null) {</span>
+<span class="nc" id="L160">            return defaultMs;</span>
+        }
+<span class="nc" id="L162">        TimeoutLimits limits = context.get(TimeoutLimits.class);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (limits == null) {</span>
+<span class="nc" id="L164">            return defaultMs;</span>
+        }
+<span class="nc" id="L166">        return Math.max(0, Math.min(defaultMs, limits.progressTimeoutMillis - 100));</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L171">        return &quot;TimeoutLimits{&quot; +</span>
+                &quot;totalTaskTimeoutMillis=&quot; + totalTaskTimeoutMillis +
+                &quot;, progressTimeoutMillis=&quot; + progressTimeoutMillis +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L180">            return true;</span>
+        }
+<span class="nc bnc" id="L182" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L183">            return false;</span>
+        }
+<span class="nc" id="L185">        TimeoutLimits that = (TimeoutLimits) o;</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">        return totalTaskTimeoutMillis == that.totalTaskTimeoutMillis &amp;&amp;</span>
+                progressTimeoutMillis == that.progressTimeoutMillis;
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L192">        return Objects.hash(totalTaskTimeoutMillis, progressTimeoutMillis);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

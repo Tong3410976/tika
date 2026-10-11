@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HexCoDec.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">HexCoDec.java</span></div><h1>HexCoDec.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+/**
+ * A set of Hex encoding and decoding utility methods.
+ */
+<span class="nc" id="L22">public class HexCoDec {</span>
+
+<span class="nc" id="L24">    private static final char[] HEX_CHARS =</span>
+            {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+    /**
+     * Decode a hex string
+     *
+     * @param hexValue the string of hex characters
+     * @return the decode hex string as bytes.
+     */
+    public static byte[] decode(String hexValue) {
+<span class="nc" id="L34">        return decode(hexValue.toCharArray());</span>
+    }
+
+    /**
+     * Decode an array of hex chars
+     *
+     * @param hexChars an array of hex characters.
+     * @return the decode hex chars as bytes.
+     */
+    public static byte[] decode(char[] hexChars) {
+<span class="nc" id="L44">        return decode(hexChars, 0, hexChars.length);</span>
+    }
+
+    /**
+     * Decode an array of hex chars.
+     *
+     * @param hexChars   an array of hex characters.
+     * @param startIndex the index of the first character to decode
+     * @param length     the number of characters to decode.
+     * @return the decode hex chars as bytes.
+     */
+    public static byte[] decode(char[] hexChars, int startIndex, int length) {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if ((length &amp; 1) != 0) {</span>
+<span class="nc" id="L57">            throw new IllegalArgumentException(&quot;Length must be even&quot;);</span>
+        }
+
+<span class="nc" id="L60">        byte[] result = new byte[length / 2];</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        for (int j = 0; j &lt; result.length; j++) {</span>
+<span class="nc" id="L62">            result[j] = (byte) (hexCharToNibble(hexChars[startIndex++]) * 16 +</span>
+<span class="nc" id="L63">                    hexCharToNibble(hexChars[startIndex++]));</span>
+        }
+<span class="nc" id="L65">        return result;</span>
+    }
+
+    /**
+     * Hex encode an array of bytes
+     *
+     * @param bites the array of bytes to encode.
+     * @return the array of hex characters.
+     */
+    public static char[] encode(byte[] bites) {
+<span class="nc" id="L75">        return encode(bites, 0, bites.length);</span>
+    }
+
+    /**
+     * Hex encode an array of bytes
+     *
+     * @param bites      the array of bytes to encode.
+     * @param startIndex the index of the first character to encode.
+     * @param length     the number of characters to encode.
+     * @return the array of hex characters.
+     */
+    public static char[] encode(byte[] bites, int startIndex, int length) {
+<span class="nc" id="L87">        char[] result = new char[length * 2];</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        for (int i = 0, j = 0; i &lt; length; i++) {</span>
+<span class="nc" id="L89">            int bite = bites[startIndex++] &amp; 0xff;</span>
+<span class="nc" id="L90">            result[j++] = HEX_CHARS[bite &gt;&gt; 4];</span>
+<span class="nc" id="L91">            result[j++] = HEX_CHARS[bite &amp; 0xf];</span>
+        }
+<span class="nc" id="L93">        return result;</span>
+    }
+
+    /**
+     * Internal method to turn a hex char into a nibble.
+     */
+    private static int hexCharToNibble(char ch) {
+<span class="nc bnc" id="L100" title="All 4 branches missed.">        if ((ch &gt;= '0') &amp;&amp; (ch &lt;= '9')) {</span>
+<span class="nc" id="L101">            return ch - '0';</span>
+<span class="nc bnc" id="L102" title="All 4 branches missed.">        } else if ((ch &gt;= 'a') &amp;&amp; (ch &lt;= 'f')) {</span>
+<span class="nc" id="L103">            return ch - 'a' + 10;</span>
+<span class="nc bnc" id="L104" title="All 4 branches missed.">        } else if ((ch &gt;= 'A') &amp;&amp; (ch &lt;= 'F')) {</span>
+<span class="nc" id="L105">            return ch - 'A' + 10;</span>
+        } else {
+<span class="nc" id="L107">            throw new IllegalArgumentException(&quot;Not a hex char - '&quot; + ch + &quot;'&quot;);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

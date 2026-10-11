@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InputStreamDigester.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.digest</a> &gt; <span class="el_source">InputStreamDigester.java</span></div><h1>InputStreamDigester.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.digest;
+
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.StringUtils;
+
+/**
+ * Digester that uses {@link TikaInputStream#enableRewind()} and {@link TikaInputStream#rewind()}
+ * to read the entire stream for digesting, then rewind for subsequent processing.
+ */
+public class InputStreamDigester implements Digester {
+
+<span class="fc" id="L38">    private static final Map&lt;String, Property&gt; METADATA_KEY_PROPERTIES = new ConcurrentHashMap&lt;&gt;();</span>
+
+    private final String algorithm;
+    private final Property metadataProperty;
+    private final Encoder encoder;
+
+    /**
+     * @param algorithm   name of the digest algorithm to retrieve from the Provider
+     * @param metadataKey the full metadata key to use when storing the digest
+     *                    (e.g., &quot;tk:digest:MD5&quot; or &quot;tk:digest:SHA256:BASE32&quot;)
+     * @param encoder     encoder to convert the byte array returned from the digester to a
+     *                    string
+     */
+<span class="fc" id="L51">    public InputStreamDigester(String algorithm, String metadataKey, Encoder encoder) {</span>
+<span class="fc" id="L52">        this.algorithm = algorithm;</span>
+<span class="fc" id="L53">        this.metadataProperty =</span>
+<span class="fc" id="L54">                METADATA_KEY_PROPERTIES.computeIfAbsent(metadataKey, Property::internalText);</span>
+<span class="fc" id="L55">        this.encoder = encoder;</span>
+<span class="fc" id="L56">    }</span>
+
+    private static void setContentLength(long length, Metadata metadata) {
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        if (StringUtils.isBlank(metadata.get(Metadata.CONTENT_LENGTH))) {</span>
+            //only add it if it hasn't been populated already
+<span class="fc" id="L61">            metadata.set(Metadata.CONTENT_LENGTH, Long.toString(length));</span>
+        }
+<span class="fc" id="L63">    }</span>
+
+    private MessageDigest newMessageDigest() {
+        try {
+<span class="fc" id="L67">            Provider provider = getProvider();</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">            if (provider == null) {</span>
+<span class="fc" id="L69">                return MessageDigest.getInstance(algorithm);</span>
+            } else {
+<span class="nc" id="L71">                return MessageDigest.getInstance(algorithm, provider);</span>
+            }
+<span class="nc" id="L73">        } catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L74">            throw new IllegalArgumentException(e);</span>
+        }
+    }
+
+    /**
+     * When subclassing this, becare to ensure that your provider is
+     * thread-safe (not likely) or return a new provider with each call.
+     *
+     * @return provider to use to get the MessageDigest from the algorithm name.
+     * Default is to return null.
+     */
+    protected Provider getProvider() {
+<span class="fc" id="L86">        return null;</span>
+    }
+
+    /**
+     * Digests the TikaInputStream and stores the result in metadata.
+     * &lt;p&gt;
+     * Uses {@link TikaInputStream#enableRewind()} to ensure the stream can be
+     * rewound after digesting, then calls {@link TikaInputStream#rewind()} to
+     * reset the stream for subsequent processing.
+     *
+     * @param tis          TikaInputStream to digest
+     * @param metadata     metadata in which to store the digest information
+     * @param parseContext ParseContext -- not actually used yet, but there for future expansion
+     * @throws IOException on IO problem or IllegalArgumentException if algorithm couldn't be found
+     */
+    @Override
+    public void digest(TikaInputStream tis, Metadata metadata, ParseContext parseContext)
+            throws IOException {
+<span class="fc" id="L104">        tis.enableRewind();</span>
+
+<span class="fc" id="L106">        MessageDigest messageDigest = newMessageDigest();</span>
+<span class="fc" id="L107">        byte[] buffer = new byte[8192];</span>
+<span class="fc" id="L108">        long total = 0;</span>
+        int read;
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        while ((read = tis.read(buffer)) != -1) {</span>
+<span class="fc" id="L111">            messageDigest.update(buffer, 0, read);</span>
+<span class="fc" id="L112">            total += read;</span>
+        }
+
+<span class="fc" id="L115">        setContentLength(total, metadata);</span>
+<span class="fc" id="L116">        metadata.set(metadataProperty, encoder.encode(messageDigest.digest()));</span>
+
+<span class="fc" id="L118">        tis.rewind();</span>
+<span class="fc" id="L119">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

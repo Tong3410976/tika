@@ -1,0 +1,1276 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IPTC.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">IPTC.java</span></div><h1>IPTC.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * IPTC Metadata Descriptions taken from the IPTC Photo Metadata (July 2010)
+ * standard. These parts Copyright 2010 International Press Telecommunications
+ * Council.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * IPTC photo metadata schema.
+ * &lt;p&gt;
+ * A collection of
+ * {@link Property property definition} constants for the photo metadata
+ * properties defined in the IPTC standard.
+ *
+ * @see &lt;a href=&quot;http://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata-201007_1.pdf&quot;&gt;IPTC Photo Metadata&lt;/a&gt;
+ * @since Apache Tika 1.1
+ */
+public interface IPTC {
+
+    String NAMESPACE_URI_IPTC_CORE = &quot;http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/&quot;;
+    String NAMESPACE_URI_IPTC_EXT = &quot;http://iptc.org/std/Iptc4xmpExt/2008-02-29/&quot;;
+    String NAMESPACE_URI_PLUS = &quot;http://ns.useplus.org/ldf/xmp/1.0/&quot;;
+
+    String PREFIX_IPTC_CORE = &quot;Iptc4xmpCore&quot;;
+    String PREFIX_IPTC_EXT = &quot;Iptc4xmpExt&quot;;
+    String PREFIX_PLUS = &quot;plus&quot;;
+
+    /**
+     * Name of the city the content is focussing on -- either the place shown
+     * in visual media or referenced by text or audio media. This element is at
+     * the third level of a top-down geographical hierarchy.
+     * &lt;p&gt;
+     * This is a detail of a location with blurred semantics as it does not
+     * clearly indicate whether it is the location in the image or the location
+     * the photo was taken - which can be different. Two more concise properties
+     * are available in IPTC Extension with Location Created and Location Shown
+     * in the Image.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:90 City
+     *
+     * @see Photoshop#CITY
+     */
+<span class="nc" id="L58">    Property CITY = Photoshop.CITY;</span>
+
+    /**
+     * Full name of the country the content is focussing on -- either the
+     * country shown in visual media or referenced in text or audio media. This
+     * element is at the top/first level of a top- down geographical hierarchy.
+     * The full name should be expressed as a verbal name and not as a code, a
+     * code should go to the element &quot;CountryCode&quot;
+     * &lt;p&gt;
+     * This is a detail of a location with blurred semantics as it does not
+     * clearly indicate whether it is the location in the image or the location
+     * the photo was taken - which can be different. Two more concise properties
+     * are available in IPTC Extension with Location Created and Location Shown
+     * in the Image.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:101 Country/Primary Location Name
+     *
+     * @see Photoshop#COUNTRY
+     */
+<span class="nc" id="L77">    Property COUNTRY = Photoshop.COUNTRY;</span>
+
+    /**
+     * Code of the country the content is focussing on -- either the country
+     * shown in visual media or referenced in text or audio media. This element
+     * is at the top/first level of a top-down geographical hierarchy. The code
+     * should be taken from ISO 3166 two or three letter code. The full name of
+     * a country should go to the &quot;Country&quot; element.
+     * &lt;p&gt;
+     * This is a detail of a location with blurred semantics as it does not
+     * clearly indicate whether it is the location in the image or the location
+     * the photo was taken - which can be different. Two more concise properties
+     * are available in IPTC Extension with Location Created and Location Shown
+     * in the Image.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:100 Country/Primary Location Code
+     */
+<span class="nc" id="L94">    Property COUNTRY_CODE = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CountryCode&quot;);
+
+    /**
+     * A textual description, including captions, of the item's content,
+     * particularly used where the object is not text.
+     * &lt;p&gt;
+     * Note: the XMP property (dc:description) which stores the value of this
+     * IPTC Core property is of type Lang Alt. Hence any software agent dealing
+     * with this property must abide to the processing rules for
+     * Lang Alt value type as specified by the XMP specifications.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:120 Caption/Abstract
+     *
+     * @see DublinCore#DESCRIPTION
+     */
+<span class="nc" id="L110">    Property DESCRIPTION = DublinCore.DESCRIPTION;</span>
+
+    /**
+     * A brief synopsis of the caption. Headline is not the same as Title.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:105 Headline
+     *
+     * @see Photoshop#HEADLINE
+     */
+<span class="nc" id="L119">    Property HEADLINE = Photoshop.HEADLINE;</span>
+
+    /**
+     * Describes the nature, intellectual, artistic or journalistic
+     * characteristic of a item, not specifically its content.
+     * &lt;p&gt;
+     * The IPTC recognizes that the corresponding IPTC Genre NewsCodes needs
+     * photo specific extension to be better usable with this field (as of the
+     * release of this standard in the year 2008).
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:04 Object Attribute Reference
+     */
+<span class="nc" id="L131">    Property INTELLECTUAL_GENRE = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;IntellectualGenre&quot;);
+
+    /**
+     * Keywords to express the subject of the content. Keywords may be free
+     * text and don't have to be taken from a controlled vocabulary. Codes from
+     * the controlled vocabulary IPTC Subject NewsCodes must go to the
+     * &quot;Subject Code&quot; field.
+     * &lt;p&gt;
+     * Single values of this field should not be restricted to single words
+     * but must allow for phrases as well.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:25 Keywords
+     *
+     * @see DublinCore#SUBJECT
+     */
+<span class="nc" id="L147">    Property KEYWORDS = DublinCore.SUBJECT;</span>
+
+    /**
+     * Name of the subregion of a country -- either called province or state or
+     * anything else -- the content is focussing on -- either the subregion
+     * shown in visual media or referenced by text or audio media. This element
+     * is at the second level of a top-down geographical hierarchy.
+     * &lt;p&gt;
+     * This is a detail of a location with blurred semantics as it does not
+     * clearly indicate whether it is the location in the image or the location
+     * the photo was taken - which can be different. Two more concise properties
+     * are available in IPTC Extension with Location Created and Location Shown
+     * in the Image.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:95 Province/State
+     *
+     * @see Photoshop#STATE
+     */
+<span class="nc" id="L165">    Property PROVINCE_OR_STATE = Photoshop.STATE;</span>
+
+    /**
+     * Describes the scene of a news content. Specifies one or more terms
+     * from the IPTC &quot;Scene-NewsCodes&quot;. Each Scene is represented as a string of
+     * 6 digits in an unordered list.
+     * &lt;p&gt;
+     * Note: Only Scene values from this IPTC taxonomy should be used here. More
+     * about the IPTC Scene-NewsCodes at www.newscodes.org.
+     */
+<span class="nc" id="L175">    Property SCENE_CODE = Property.internalTextBag(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Scene&quot;);
+
+    /**
+     * Specifies one or more Subjects from the IPTC Subject-NewsCodes taxonomy
+     * to categorise the content. Each Subject is represented as a string of 8
+     * digits in an unordered list.
+     * &lt;p&gt;
+     * Note: Only Subjects from a controlled vocabulary should be used here,
+     * free text has to be put into the Keyword element. More about
+     * IPTC Subject-NewsCodes at www.newscodes.org.
+     */
+<span class="nc" id="L187">    Property SUBJECT_CODE = Property.internalTextBag(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;SubjectCode&quot;);
+
+    /**
+     * Name of a sublocation the content is focussing on -- either the
+     * location shown in visual media or referenced by text or audio media. This
+     * location name could either be the name of a sublocation to a city or the
+     * name of a well known location or (natural) monument outside a city. In
+     * the sense of a sublocation to a city this element is at the fourth level
+     * of a top-down geographical hierarchy.
+     * &lt;p&gt;
+     * This is a detail of a location with blurred semantics as it does not
+     * clearly indicate whether it is the location in the image or the location
+     * the photo was taken - which can be different. Two more concise properties
+     * are available in IPTC Extension with Location Created and Location Shown
+     * in the Image.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:92 Sublocation
+     */
+<span class="nc" id="L206">    Property SUBLOCATION = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Location&quot;);
+
+    /**
+     * Designates the date and optionally the time the intellectual content was
+     * created rather than the date of the creation of the physical
+     * representation.
+     * &lt;p&gt;
+     * If a software system requires explicit time values and no time is given
+     * by the Date Created property the software system should default the time
+     * to 00:00:00. If the software system does not require an explicit time
+     * value the time part should be left empty as it is.
+     * &lt;p&gt;
+     * Note 1: Any content of the IIM dataset 2:60, Time Created, should be
+     * merged to this element.
+     * Note 2: Implementers are encouraged to provide
+     * the creation date and time from the EXIF data of a digital
+     * camera to the user for entering this date for the first time.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:55 Date Created
+     *
+     * @see Photoshop#DATE_CREATED
+     */
+<span class="nc" id="L229">    Property DATE_CREATED = Photoshop.DATE_CREATED;</span>
+
+    /**
+     * Identifier or the name of the person involved in writing, editing or
+     * correcting the description of the content.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:122 Writer/Editor
+     *
+     * @see Photoshop#CAPTION_WRITER
+     */
+<span class="nc" id="L239">    Property DESCRIPTION_WRITER = Photoshop.CAPTION_WRITER;</span>
+
+    /**
+     * Any of a number of instructions from the provider or creator to the
+     * receiver of the item.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:40 Special Instruction
+     *
+     * @see Photoshop#INSTRUCTIONS
+     */
+<span class="nc" id="L249">    Property INSTRUCTIONS = Photoshop.INSTRUCTIONS;</span>
+
+    /**
+     * Number or identifier for the purpose of improved workflow handling. This
+     * is a user created identifier related to the job for which the item is
+     * supplied.
+     * &lt;p&gt;
+     * Note: As this identifier references a job of the receiver's workflow it
+     * must first be issued by the receiver, then transmitted to the creator or
+     * provider of the news object and finally added by the creator
+     * to this field.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:103 Original Transmission Reference
+     *
+     * @see Photoshop#TRANSMISSION_REFERENCE
+     */
+<span class="nc" id="L265">    Property JOB_ID = Photoshop.TRANSMISSION_REFERENCE;</span>
+
+    /**
+     * A shorthand reference for the item. Title provides a short human readable
+     * name which can be a text and/or numeric reference. It is not the same as
+     * Headline.
+     * &lt;p&gt;
+     * Many use the Title field to store the filename of the image, though the
+     * field may be used in many ways. Formal identifiers are provided by the
+     * Digital Image Id, or the Registry Entry property of the IPTC Extension.
+     * &lt;p&gt;
+     * Note 1: This element aligns with the use of Dublin Core's &quot;Title&quot;
+     * element.
+     * Note 2: the XMP property (dc:title) which stores the value of
+     * this IPTC Core property is of type Lang Alt. Hence any software agent
+     * dealing with this property must abide to the processing rules for Lang
+     * Alt value type as specified by the XMP specifications.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:05 Object Name
+     *
+     * @see DublinCore#TITLE
+     */
+<span class="nc" id="L287">    Property TITLE = DublinCore.TITLE;</span>
+
+    /**
+     * Contains any necessary copyright notice for claiming the intellectual
+     * property for this item and should identify the current owner of the
+     * copyright for the item. Other entities like the creator of the item may
+     * be added in the corresponding field. Notes on usage rights should be
+     * provided in &quot;Rights usage terms&quot;.
+     * &lt;p&gt;
+     * Copyright ownership can be expressed in a more controlled way using the
+     * PLUS fields &quot;Copyright Owner&quot;, &quot;Copyright Owner ID&quot;,
+     * &quot;Copyright Owner Name&quot; of the IPTC Extension. It is the user's
+     * responsibility to keep the values of the four fields in sync.
+     * &lt;p&gt;
+     * Note: the XMP property (dc:rights) which stores the value of this IPTC
+     * Core property is of type Lang Alt. Hence any software agent dealing with
+     * this property must abide to the processing rules for Lang Alt
+     * value type as specified by the XMP specifications.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:116 Copyright Notice
+     *
+     * @see DublinCore#RIGHTS
+     */
+<span class="nc" id="L310">    Property COPYRIGHT_NOTICE = DublinCore.RIGHTS;</span>
+
+    /**
+     * Contains the name of the person who created the content of this item, a
+     * photographer for photos, a graphic artist for graphics, or a writer for
+     * textual news, but in cases where the photographer should not be
+     * identified the name of a company or organisation may be appropriate.
+     * &lt;p&gt;
+     * The creator can be expressed in a more controlled way using the
+     * &quot;Image Creator&quot; of PLUS in the IPTC Extension additionally. It is the
+     * user's responsibility to keep the values of the IPTC Core and the PLUS
+     * fields in sync.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:80 By-line
+     *
+     * @see DublinCore#CREATOR
+     */
+<span class="nc" id="L327">    Property CREATOR = DublinCore.CREATOR;</span>
+
+    /**
+     * The creator's contact information provides all necessary information to
+     * get in contact with the creator of this item and comprises a set of
+     * sub-properties for proper addressing.
+     * &lt;p&gt;
+     * The IPTC Extension Licensor fields should be used instead of these
+     * Creator's Contact Info fields if you are using IPTC Extension fields. If
+     * the creator is also the licensor his or her contact information should be
+     * provided in the Licensor fields.
+     * &lt;p&gt;
+     * Note 1 to user interface implementers: All sub-properties of &quot;Creator's
+     * contact information&quot; should be shown as group on the form.
+     * Note 2: the
+     * CreatorContactInfo sub-properties' naming aligns with the vCard
+     * specification RFC 2426.
+     */
+<span class="nc" id="L345">    Property CREATORS_CONTACT_INFO = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;CreatorContactInfo&quot;);
+
+    /**
+     * Contains the job title of the person who created the content of this
+     * item. As this is sort of a qualifier the Creator element has to be filled
+     * in as mandatory prerequisite for using Creator's Jobtitle.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:85 By-line Title
+     *
+     * @see Photoshop#AUTHORS_POSITION
+     */
+<span class="nc" id="L358">    Property CREATORS_JOB_TITLE = Photoshop.AUTHORS_POSITION;</span>
+
+    /**
+     * The credit to person(s) and/or organisation(s) required by the supplier
+     * of the item to be used when published. This is a free-text field.
+     * &lt;p&gt;
+     * Note 1: For more formal identifications of the creator or the owner of
+     * the copyrights of this image other rights properties may be used.
+     * Note 2:
+     * This property was named &quot;Credit&quot; by the IIM metadata, then it was renamed
+     * to &quot;Provider&quot; in IPTC Core 1.0. In IPTC Core 1.1. it has been renamed to
+     * &quot;Credit Line&quot; as the field is used for this purpose by many users.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:110 Credit
+     *
+     * @see Photoshop#CREDIT
+     */
+<span class="nc" id="L375">    Property CREDIT_LINE = Photoshop.CREDIT;</span>
+
+    /**
+     * The licensing parameters of the item expressed in free-text.
+     * &lt;p&gt;
+     * The PLUS fields of the IPTC Extension can be used in parallel to express
+     * the licensed usage in more controlled terms.
+     */
+<span class="nc" id="L383">    Property RIGHTS_USAGE_TERMS = XMPRights.USAGE_TERMS;</span>
+
+    /**
+     * Identifies the original owner of the copyright for the intellectual
+     * content of the item. This could be an agency, a member of an agency or an
+     * individual. Source could be different from Creator and from the entities
+     * in the CopyrightNotice.
+     * &lt;p&gt;
+     * The original owner can never change. For that reason the content of this
+     * property should never be changed or deleted after the information is
+     * entered following the news object's initial creation.
+     * &lt;p&gt;
+     * Maps to this IIM property: 2:115 Source
+     *
+     * @see Photoshop#SOURCE
+     */
+<span class="nc" id="L399">    Property SOURCE = Photoshop.SOURCE;</span>
+
+    /**
+     * The contact information address part. Comprises an optional company name
+     * and all required information to locate the building or postbox to which
+     * mail should be sent. To that end, the address is a multiline field.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2: the ContactInfo naming aligns with the vCard specification RFC 2426.
+     */
+<span class="nc" id="L410">    Property CONTACT_INFO_ADDRESS = Property.internalTextBag(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiAdrExtadr&quot;);
+
+    /**
+     * The contact information city part.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2: the ContactInfo naming aligns with the vCard specification RFC 2426.
+     */
+<span class="nc" id="L420">    Property CONTACT_INFO_CITY = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiAdrCity&quot;);
+
+    /**
+     * The contact information country part.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2: the ContactInfo naming aligns with the vCard specification RFC 2426.
+     */
+<span class="nc" id="L430">    Property CONTACT_INFO_COUNTRY = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiAdrCtry&quot;);
+
+    /**
+     * The contact information email address part.
+     * &lt;p&gt;
+     * Multiple email addresses can be given. May have to be separated by a
+     * comma in the user interface.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2 to user interface
+     * implementers: provide sufficient space to fill in multiple e-mail
+     * addresses.
+     * Note 3: the ContactInfo naming aligns with the vCard
+     * specification RFC 2426.
+     */
+<span class="nc" id="L447">    Property CONTACT_INFO_EMAIL = Property.internalTextBag(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiEmailWork&quot;);
+
+    /**
+     * The contact information phone number part.
+     * &lt;p&gt;
+     * Multiple numbers can be given. May have to be separated by a
+     * comma in the user interface.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2 to user interface
+     * implementers: provide sufficient space to fill in multiple international
+     * numbers.
+     * Note 3: the ContactInfo naming aligns with the vCard
+     * specification RFC 2426.
+     */
+<span class="nc" id="L464">    Property CONTACT_INFO_PHONE = Property.internalTextBag(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiTelWork&quot;);
+
+    /**
+     * The contact information part denoting the local postal code.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2: the ContactInfo naming aligns with the vCard specification RFC 2426.
+     */
+<span class="nc" id="L474">    Property CONTACT_INFO_POSTAL_CODE = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiAdrPcode&quot;);
+
+    /**
+     * The contact information part denoting regional information such as state or province.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2: the ContactInfo naming aligns with the vCard specification RFC 2426.
+     */
+<span class="nc" id="L484">    Property CONTACT_INFO_STATE_PROVINCE = Property.internalText(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiAdrRegion&quot;);
+
+    /**
+     * The contact information web address part. Multiple addresses can be given, separated by a
+     * comma.
+     * &lt;p&gt;
+     * Note 1: to user interface implementers: This field should be part of a
+     * &quot;Contact information&quot; group on the form.
+     * Note 2 to user interface
+     * implementers: provide sufficient space to fill in multiple URLs.
+     * Note 3: the ContactInfo naming aligns with the vCard
+     * specification RFC 2426.
+     */
+<span class="nc" id="L498">    Property CONTACT_INFO_WEB_URL = Property.internalTextBag(</span>
+            PREFIX_IPTC_CORE + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CiUrlWork&quot;);
+
+    /**
+     * As this metadata element pertains to distribution management, it was not
+     * adopted. However, this data is still synchronised with the XMP property
+     * [photoshop:Urgency], and hence, available for future use, but outside the
+     * IPTC Core.
+     *
+     * @deprecated
+     */
+    @Deprecated
+<span class="nc" id="L510">    Property URGENCY = Photoshop.URGENCY;</span>
+
+    /**
+     * As this metadata element was earmarked as deprecated already for IIM 4.1,
+     * it was not adopted. However, this data is still synchronised with the XMP
+     * property [photoshop:Category], and hence available for future use - but
+     * outside the IPTC Core. For migrating from Category codes to Subject Codes
+     * please read the Guideline for mapping Category Codes to Subject NewsCodes
+     * section below.
+     *
+     * @deprecated
+     */
+    @Deprecated
+<span class="nc" id="L523">    Property CATEGORY = Photoshop.CATEGORY;</span>
+
+    /**
+     * As this metadata element was earmarked as deprecated already for IIM 4.1,
+     * it was not adopted. However, this data is still synchronised with the XMP
+     * property [photoshop:SupplementalCategories], and hence available for
+     * future use - but outside the IPTC Core.
+     *
+     * @deprecated
+     */
+    @Deprecated
+<span class="nc" id="L534">    Property SUPPLEMENTAL_CATEGORIES = Photoshop.SUPPLEMENTAL_CATEGORIES;</span>
+
+    /**
+     * Information about the ethnicity and other facets of the model(s) in a
+     * model-released image.
+     * &lt;p&gt;
+     * Use the Model Age field for the age of model(s).
+     */
+<span class="nc" id="L542">    Property ADDITIONAL_MODEL_INFO = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AddlModelInfo&quot;);
+
+    /**
+     * A set of metadata about artwork or an object in the item
+     */
+<span class="nc" id="L548">    Property ARTWORK_OR_OBJECT = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ArtworkOrObject&quot;);
+
+    /**
+     * A set of metadata about artwork or an object in the item
+     */
+<span class="nc" id="L554">    Property ORGANISATION_CODE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;OrganisationInImageCode&quot;);
+
+    /**
+     * A term to describe the content of the image by a value from a Controlled
+     * Vocabulary.
+     * &lt;p&gt;
+     * This property is part of the Photo Metadata 2008 specifications, but
+     * should not released to the public on the standard Adobe Custom Panels for
+     * IPTC metadata or other user interfaces unless agreed by the IPTC.
+     */
+<span class="nc" id="L566">    Property CONTROLLED_VOCABULARY_TERM = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CVterm&quot;);
+
+    /**
+     * A location the content of the item is about. For photos that is a
+     * location shown in the image.
+     * &lt;p&gt;
+     * If the location the image was taken in is different from this location
+     * the property Location Created should be used too.
+     */
+<span class="nc" id="L576">    Property LOCATION_SHOWN = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LocationShown&quot;);
+
+    /**
+     * Age of the human model(s) at the time this image was taken in a model
+     * released image.
+     * &lt;p&gt;
+     * The user should be aware of any legal implications of providing ages for
+     * young models. Ages below 18 years should not be included.
+     */
+<span class="nc" id="L586">    Property MODEL_AGE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ModelAge&quot;);
+
+    /**
+     * Name of the organisation or company which is featured in the content.
+     * &lt;p&gt;
+     * May be supplemented by values from a controlled vocabulary in the
+     * Organisation Code field.
+     */
+<span class="nc" id="L595">    Property ORGANISATION_NAME = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;OrganisationInImageName&quot;);
+
+    /**
+     * Name of a person the content of the item is about. For photos that is a
+     * person shown in the image.
+     */
+<span class="nc" id="L603">    Property PERSON = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;PersonInImage&quot;);
+
+    /**
+     * Globally unique identifier for the item. It is created and applied by the
+     * creator of the item at the time of its creation . This value shall not be
+     * changed after that time.
+     * &lt;p&gt;
+     * The identifier will probably be generated by the technical means of an
+     * imaging device or software and should be applied to the digital image
+     * file as early as possible in its life cycle. This identifier does not
+     * identify any pictured content, particularly in case of a scan of non-
+     * digital images, only this digital representation.
+     * &lt;p&gt;
+     * Any algorithm to create this identifier has to comply with the technical
+     * requirements to create a globally unique id. Any device creating digital
+     * images - e.g. still image cameras, video cameras, scanners - should
+     * create such an identifer right at the time of the creation of the digital
+     * data and add the id to the set of metadata without compromising
+     * performance. It is recommended that this image identifier allows
+     * identifying the device by which the image data and the GUID were created.
+     * IPTC's basic requirements for unique ids are:
+     * - It must be globally unique. Algorithms for this purpose exist.
+     * - It should identify the camera body.
+     * - It should identify each individual photo from this camera body.
+     * - It should identify the date and time of the creation of the picture.
+     * - It should be secured against tampering.
+     * This field should be implemented in a way to prove it has not been changed since its
+     * value has been applied. If the identifier has been created by the imaging device
+     * its type and brand can be found in the Exif/technical metadata.
+     */
+<span class="nc" id="L634">    Property DIGITAL_IMAGE_GUID = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;DigImageGUID&quot;);
+
+    /**
+     * The type of the source digital file.
+     * &lt;p&gt;
+     * The IPTC recommends not to implement this property any longer.
+     *
+     * @deprecated
+     */
+    @Deprecated
+<span class="nc" id="L645">    Property DIGITAL_SOURCE_FILE_TYPE = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;DigitalSourcefileType&quot;);
+
+    /**
+     * The type of the source of this digital image
+     */
+<span class="nc" id="L652">    Property DIGITAL_SOURCE_TYPE = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;DigitalSourceType&quot;);
+
+    /**
+     * Names or describes the specific event the content relates to.
+     * &lt;p&gt;
+     * Examples are: a press conference, dedication ceremony, etc. If this is a
+     * sub-event of a larger event both can be provided by the field: e.g. XXXIX
+     * Olympic Summer Games (Beijing): opening ceremony. Unplanned events could
+     * be named by this property too.
+     */
+<span class="nc" id="L663">    Property EVENT = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Event&quot;);
+
+    /**
+     * Both a Registry Item Id and a Registry Organisation Id to record any
+     * registration of this item with a registry.
+     * &lt;p&gt;
+     * Typically an id from a registry is negotiated and applied after the
+     * creation of the digital image.
+     * &lt;p&gt;
+     * Any user interface implementation must show both sub-properties - Item Id
+     * and Organisation Id - as corresponding values. Further an input to both
+     * fields should be made mandatory.
+     */
+<span class="nc" id="L677">    Property IMAGE_REGISTRY_ENTRY = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;RegistryId&quot;);
+
+    /**
+     * Identifies the most recent supplier of the item, who is not necessarily
+     * its owner or creator.
+     * &lt;p&gt;
+     * For identifying the supplier either a well known and/or registered
+     * company name or a URL of the company's web site may be used. This
+     * property succeeds the Provider property of IPTC Core 1.0 by its semantics
+     * as that Provider was renamed to Credit Line.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L692">    Property IMAGE_SUPPLIER = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageSupplier&quot;);
+    /**
+     * @deprecated use {@link IPTC#IMAGE_SUPPLIER_ID}
+     */
+    @Deprecated
+    String IMAGE_SUPPLIER_ID_WRONG_CASE =
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageSupplierId&quot;;
+    /**
+     * Identifies the most recent supplier of the item, who is not necessarily
+     * its owner or creator.
+     * &lt;p&gt;
+     * For identifying the supplier either a well known and/or registered
+     * company name or a URL of the company's web site may be used. This
+     * property succeeds the Provider property of IPTC Core 1.0 by its semantics
+     * as that Provider was renamed to Credit Line.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L712">    Property IMAGE_SUPPLIER_ID = Property.composite(Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageSupplierID&quot;),
+<span class="nc" id="L714">            new Property[]{Property.internalText(IPTC.IMAGE_SUPPLIER_ID_WRONG_CASE)});</span>
+    /**
+     * Identifies the most recent supplier of the item, who is not necessarily
+     * its owner or creator.
+     * &lt;p&gt;
+     * For identifying the supplier either a well known and/or registered
+     * company name or a URL of the company's web site may be used. This
+     * property succeeds the Provider property of IPTC Core 1.0 by its semantics
+     * as that Provider was renamed to Credit Line.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L727">    Property IMAGE_SUPPLIER_NAME = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageSupplierName&quot;);
+
+    /**
+     * Optional identifier assigned by the Image Supplier to the image.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L736">    Property IMAGE_SUPPLIER_IMAGE_ID = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageSupplierImageID&quot;);
+
+    /**
+     * The date and optionally time when any of the IPTC photo metadata fields
+     * has been last edited
+     * &lt;p&gt;
+     * The public use of this property is deprecated by IPTC Extension version
+     * 1.1. It may only still be used by a private user interface for a use
+     * scoped to a company. If used this field should be a timestamp of the
+     * latest change applied to any of the fields.
+     * &lt;p&gt;
+     * The value of this property should never be set by software. XMP-aware
+     * software should reflect any changes to metadata by the xmp:MetadataDate
+     * property of the XMP Basic scheme.
+     */
+<span class="nc" id="L752">    Property IPTC_LAST_EDITED = Property.internalDate(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;IptcLastEdited&quot;);
+
+    /**
+     * The location the content of the item was created.
+     * &lt;p&gt;
+     * If the location in the image is different from the location the photo was
+     * taken the IPTC Extension property Location Shown in the Image should be
+     * used.
+     */
+<span class="nc" id="L762">    Property LOCATION_CREATED = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LocationCreated&quot;);
+
+    /**
+     * The maximum available height in pixels of the original photo from which
+     * this photo has been derived by downsizing.
+     */
+<span class="nc" id="L769">    Property MAX_AVAIL_HEIGHT = Property.internalInteger(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;MaxAvailHeight&quot;);
+
+    /**
+     * The maximum available width in pixels of the original photo from which
+     * this photo has been derived by downsizing.
+     */
+<span class="nc" id="L776">    Property MAX_AVAIL_WIDTH = Property.internalInteger(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;MaxAvailWidth&quot;);
+
+    /**
+     * The version number of the PLUS standards in place at the time of the
+     * transaction.
+     * &lt;p&gt;
+     * This property was included into the IPTC Extension schema from PLUS
+     * version 1.2 as all other PLUS properties. To reflect this the value of
+     * &quot;PLUS Version&quot; should be set to the string &quot;1.2.0&quot;
+     */
+<span class="nc" id="L787">    Property PLUS_VERSION = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Version&quot;);
+
+    /**
+     * Owner or owners of the copyright in the licensed image.
+     * &lt;p&gt;
+     * Serves to identify the rights holder/s for the image. The Copyright
+     * Owner, Image Creator and Licensor may be the same or different entities.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L799">    Property COPYRIGHT_OWNER = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CopyrightOwner&quot;);
+    /**
+     * @deprecated use {@link IPTC#COPYRIGHT_OWNER_ID}
+     */
+    @Deprecated
+    String COPYRIGHT_OWNER_ID_WRONG_CASE =
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CopyrightOwnerId&quot;;
+    /**
+     * The ID of the owner or owners of the copyright in the licensed image.
+     * &lt;p&gt;
+     * Serves to identify the rights holder/s for the image. The Copyright
+     * Owner, Image Creator and Licensor may be the same or different entities.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L816">    Property COPYRIGHT_OWNER_ID = Property.composite(Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CopyrightOwnerID&quot;),
+<span class="nc" id="L818">            new Property[]{Property.internalTextBag(IPTC.COPYRIGHT_OWNER_ID_WRONG_CASE)});</span>
+    /**
+     * The name of the owner or owners of the copyright in the licensed image.
+     * &lt;p&gt;
+     * Serves to identify the rights holder/s for the image. The Copyright
+     * Owner, Image Creator and Licensor may be the same or different entities.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L828">    Property COPYRIGHT_OWNER_NAME = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;CopyrightOwnerName&quot;);
+
+    /**
+     * Creator or creators of the image.
+     * &lt;p&gt;
+     * The creator can be additionally expressed in free-text using the IPTC
+     * Core Creator field. In many countries, the Image Creator must be
+     * attributed in association with any use of the image. The Image Creator,
+     * Copyright Owner, Image Supplier and Licensor may be the same or different
+     * entities.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L843">    Property IMAGE_CREATOR = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageCreator&quot;);
+    /**
+     * @deprecated use {@link IPTC#IMAGE_CREATOR_ID}
+     */
+    @Deprecated
+    String IMAGE_CREATOR_ID_WRONG_CASE =
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageCreatorId&quot;;
+    /**
+     * The ID of the creator or creators of the image.
+     * &lt;p&gt;
+     * The creator can be additionally expressed in free-text using the IPTC
+     * Core Creator field. In many countries, the Image Creator must be
+     * attributed in association with any use of the image. The Image Creator,
+     * Copyright Owner, Image Supplier and Licensor may be the same or different
+     * entities.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L863">    Property IMAGE_CREATOR_ID = Property.composite(Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageCreatorID&quot;),
+<span class="nc" id="L865">            new Property[]{Property.internalTextBag(IPTC.IMAGE_CREATOR_ID_WRONG_CASE)});</span>
+    /**
+     * The name of the creator or creators of the image.
+     * &lt;p&gt;
+     * The creator can be additionally expressed in free-text using the IPTC
+     * Core Creator field. In many countries, the Image Creator must be
+     * attributed in association with any use of the image. The Image Creator,
+     * Copyright Owner, Image Supplier and Licensor may be the same or different
+     * entities.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L878">    Property IMAGE_CREATOR_NAME = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ImageCreatorName&quot;);
+
+    /**
+     * A person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L888">    Property LICENSOR = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Licensor&quot;);
+    /**
+     * @deprecated use {@link IPTC#LICENSOR_ID}
+     */
+    @Deprecated
+    String LICENSOR_ID_WRONG_CASE =
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorId&quot;;
+    /**
+     * The ID of the person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L903">    Property LICENSOR_ID = Property.composite(Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorID&quot;),
+<span class="nc" id="L905">            new Property[]{Property.internalTextBag(IPTC.LICENSOR_ID_WRONG_CASE)});</span>
+    /**
+     * The name of the person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L913">    Property LICENSOR_NAME = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorName&quot;);
+
+    /**
+     * The city of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L923">    Property LICENSOR_CITY = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorCity&quot;);
+
+    /**
+     * The country of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L933">    Property LICENSOR_COUNTRY = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorCountry&quot;);
+
+    /**
+     * The email of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L943">    Property LICENSOR_EMAIL = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorEmail&quot;);
+
+    /**
+     * The extended address of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L953">    Property LICENSOR_EXTENDED_ADDRESS = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LicensorExtendedAddress&quot;);
+
+    /**
+     * The postal code of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L964">    Property LICENSOR_POSTAL_CODE = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorPostalCode&quot;);
+
+    /**
+     * The region of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L974">    Property LICENSOR_REGION = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorRegion&quot;);
+
+    /**
+     * The street address of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L984">    Property LICENSOR_STREET_ADDRESS = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorStreetAddress&quot;);
+
+    /**
+     * The phone number of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L994">    Property LICENSOR_TELEPHONE_1 = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorTelephone1&quot;);
+
+    /**
+     * The phone number of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1004">    Property LICENSOR_TELEPHONE_2 = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorTelephone2&quot;);
+
+    /**
+     * The URL of a person or company that should be contacted to obtain a licence for
+     * using the item or who has licensed the item.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1014">    Property LICENSOR_URL = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LicensorURL&quot;);
+
+    /**
+     * Age of the youngest model pictured in the image, at the time that the
+     * image was made.
+     * &lt;p&gt;
+     * This age should not be displayed to the public on open web portals and
+     * the like. But it may be used by image repositories in a
+     * B2B enviroment.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1028">    Property MINOR_MODEL_AGE_DISCLOSURE = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;MinorModelAgeDisclosure&quot;);
+
+    /**
+     * Optional identifier associated with each Model Release.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1038">    Property MODEL_RELEASE_ID = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ModelReleaseID&quot;);
+
+    /**
+     * Summarizes the availability and scope of model releases authorizing usage
+     * of the likenesses of persons appearing in the photograph.
+     * &lt;p&gt;
+     * It is recommended to apply the PLUS controlled value Unlimited Model
+     * Releases (MR- UMR) very carefully and to check the wording of the model
+     * release thoroughly before applying it.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1052">    Property MODEL_RELEASE_STATUS = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;ModelReleaseStatus&quot;);
+
+    /**
+     * Optional identifier associated with each Property Release.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1061">    Property PROPERTY_RELEASE_ID = Property.internalTextBag(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;PropertyReleaseID&quot;);
+
+    /**
+     * Summarises the availability and scope of property releases authorizing
+     * usage of the properties appearing in the photograph.
+     * &lt;p&gt;
+     * It is recommended to apply the value PR-UPR very carefully and to check
+     * the wording of the property release thoroughly before applying it.
+     * &lt;p&gt;
+     * This is a PLUS version 1.2 property included in the IPTC Extension
+     * schema.
+     */
+<span class="nc" id="L1074">    Property PROPERTY_RELEASE_STATUS = Property.internalText(</span>
+            PREFIX_PLUS + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;PropertyReleaseStatus&quot;);
+
+    /**
+     * Contains any necessary copyright notice for claiming the intellectual
+     * property for artwork or an object in the image and should identify the
+     * current owner of the copyright of this work with associated intellectual
+     * property rights.
+     */
+<span class="nc" id="L1083">    Property ARTWORK_OR_OBJECT_DETAIL_COPYRIGHT_NOTICE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AOCopyrightNotice&quot;);
+
+    /**
+     * Contains the name of the artist who has created artwork or an object in the image.
+     */
+<span class="nc" id="L1089">    Property ARTWORK_OR_OBJECT_DETAIL_CREATOR = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AOCreator&quot;);
+
+    /**
+     * Designates the date and optionally the time the artwork or object in the
+     * image was created. This relates to artwork or objects with associated
+     * intellectual property rights.
+     */
+<span class="nc" id="L1097">    Property ARTWORK_OR_OBJECT_DETAIL_DATE_CREATED = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AODateCreated&quot;);
+
+    /**
+     * The organisation or body holding and registering the artwork or object in
+     * the image for inventory purposes.
+     */
+<span class="nc" id="L1104">    Property ARTWORK_OR_OBJECT_DETAIL_SOURCE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AOSource&quot;);
+
+    /**
+     * The inventory number issued by the organisation or body holding and
+     * registering the artwork or object in the image.
+     */
+<span class="nc" id="L1111">    Property ARTWORK_OR_OBJECT_DETAIL_SOURCE_INVENTORY_NUMBER = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AOSourceInvNo&quot;);
+
+    /**
+     * A reference for the artwork or object in the image.
+     */
+<span class="nc" id="L1117">    Property ARTWORK_OR_OBJECT_DETAIL_TITLE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AOTitle&quot;);
+
+    /**
+     * Name of the city of a location. This element is at the fourth level of a
+     * top-down geographical hierarchy.
+     */
+<span class="nc" id="L1124">    Property LOCATION_SHOWN_CITY = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;LocationShownCity&quot;);
+
+    /**
+     * The ISO code of a country of a location. This element is at the second
+     * level of a top-down geographical hierarchy.
+     * &lt;p&gt;
+     * Note 1: an implementer would have to derive from the length of the value
+     * string whether this is the country code from the two or three letter
+     * scheme as no explicit indication can be provided.
+     */
+<span class="nc" id="L1135">    Property LOCATION_SHOWN_COUNTRY_CODE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationShownCountryCode&quot;);
+
+    /**
+     * The name of a country of a location. This element is at the second level
+     * of a top-down geographical hierarchy.
+     */
+<span class="nc" id="L1143">    Property LOCATION_SHOWN_COUNTRY_NAME = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationShownCountryName&quot;);
+
+    /**
+     * The name of a subregion of a country - a province or state - of a
+     * location. This element is at the third level of a top-down geographical
+     * hierarchy.
+     */
+<span class="nc" id="L1152">    Property LOCATION_SHOWN_PROVINCE_OR_STATE = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationShownProvinceState&quot;);
+
+    /**
+     * Name of a sublocation. This sublocation name could either be the name of
+     * a sublocation to a city or the name of a well known location or (natural)
+     * monument outside a city. In the sense of a sublocation to a city this
+     * element is at the fifth level of a top-down geographical hierarchy.
+     */
+<span class="nc" id="L1162">    Property LOCATION_SHOWN_SUBLOCATION = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationShownSublocation&quot;);
+
+    /**
+     * The name of a world region of a location. This element is at the first
+     * (topI) level of a top- down geographical hierarchy.
+     */
+<span class="nc" id="L1170">    Property LOCATION_SHOWN_WORLD_REGION = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationShownWorldRegion&quot;);
+
+    /**
+     * Name of the city of a location. This element is at the fourth level of a
+     * top-down geographical hierarchy.
+     */
+<span class="nc" id="L1178">    Property LOCATION_CREATED_CITY = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationCreatedCity&quot;);
+
+    /**
+     * The ISO code of a country of a location. This element is at the second
+     * level of a top-down geographical hierarchy.
+     * &lt;p&gt;
+     * Note 1: an implementer would have to derive from the length of the value
+     * string whether this is the country code from the two or three letter
+     * scheme as no explicit indication can be provided.
+     */
+<span class="nc" id="L1190">    Property LOCATION_CREATED_COUNTRY_CODE = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationCreatedCountryCode&quot;);
+
+    /**
+     * The name of a country of a location. This element is at the second level
+     * of a top-down geographical hierarchy.
+     */
+<span class="nc" id="L1198">    Property LOCATION_CREATED_COUNTRY_NAME = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationCreatedCountryName&quot;);
+
+    /**
+     * The name of a subregion of a country - a province or state - of a
+     * location. This element is at the third level of a top-down geographical
+     * hierarchy.
+     */
+<span class="nc" id="L1207">    Property LOCATION_CREATED_PROVINCE_OR_STATE = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationCreatedProvinceState&quot;);
+
+    /**
+     * Name of a sublocation. This sublocation name could either be the name of
+     * a sublocation to a city or the name of a well known location or (natural)
+     * monument outside a city. In the sense of a sublocation to a city this
+     * element is at the fifth level of a top-down geographical hierarchy.
+     */
+<span class="nc" id="L1217">    Property LOCATION_CREATED_SUBLOCATION = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationCreatedSublocation&quot;);
+
+    /**
+     * The name of a world region of a location. This element is at the first
+     * (topI) level of a top- down geographical hierarchy.
+     */
+<span class="nc" id="L1225">    Property LOCATION_CREATED_WORLD_REGION = Property.internalText(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;LocationCreatedWorldRegion&quot;);
+
+    /**
+     * A unique identifier created by a registry and applied by the creator of
+     * the item. This value shall not be changed after being applied. This
+     * identifier is linked to a corresponding Registry Organisation Identifier.
+     */
+<span class="nc" id="L1234">    Property REGISTRY_ENTRY_CREATED_ITEM_ID = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;RegItemId&quot;);
+
+    /**
+     * An identifier for the registry which issued the corresponding Registry Image Id.
+     */
+<span class="nc" id="L1240">    Property REGISTRY_ENTRY_CREATED_ORGANISATION_ID = Property.internalTextBag(</span>
+            PREFIX_IPTC_EXT + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;RegOrgId&quot;);
+
+
+<span class="nc" id="L1244">    Property[] PROPERTY_GROUP_IPTC_CORE =</span>
+            new Property[]{CITY, COUNTRY, COUNTRY_CODE, DESCRIPTION, HEADLINE, INTELLECTUAL_GENRE,
+                    KEYWORDS, PROVINCE_OR_STATE, SCENE_CODE, SUBJECT_CODE, SUBLOCATION,
+                    DATE_CREATED, DESCRIPTION_WRITER, INSTRUCTIONS, JOB_ID, TITLE, COPYRIGHT_NOTICE,
+                    CREATOR, CREATORS_JOB_TITLE, CREDIT_LINE, RIGHTS_USAGE_TERMS, SOURCE,
+                    CONTACT_INFO_ADDRESS, CONTACT_INFO_CITY, CONTACT_INFO_COUNTRY,
+                    CONTACT_INFO_EMAIL, CONTACT_INFO_PHONE, CONTACT_INFO_POSTAL_CODE,
+                    CONTACT_INFO_STATE_PROVINCE, CONTACT_INFO_WEB_URL};
+
+<span class="nc" id="L1253">    Property[] PROPERTY_GROUP_IPTC_EXT =</span>
+            new Property[]{ADDITIONAL_MODEL_INFO, ORGANISATION_CODE, CONTROLLED_VOCABULARY_TERM,
+                    MODEL_AGE, ORGANISATION_NAME, PERSON, DIGITAL_IMAGE_GUID, DIGITAL_SOURCE_TYPE,
+                    EVENT, IMAGE_SUPPLIER_ID, IMAGE_SUPPLIER_NAME, IMAGE_SUPPLIER_IMAGE_ID,
+                    IPTC_LAST_EDITED, MAX_AVAIL_HEIGHT, MAX_AVAIL_WIDTH, PLUS_VERSION,
+                    COPYRIGHT_OWNER_ID, COPYRIGHT_OWNER_NAME, IMAGE_CREATOR_ID, IMAGE_CREATOR_NAME,
+                    LICENSOR_ID, LICENSOR_NAME, LICENSOR_CITY, LICENSOR_COUNTRY, LICENSOR_EMAIL,
+                    LICENSOR_EXTENDED_ADDRESS, LICENSOR_POSTAL_CODE, LICENSOR_REGION,
+                    LICENSOR_STREET_ADDRESS, LICENSOR_TELEPHONE_1, LICENSOR_TELEPHONE_2,
+                    LICENSOR_URL, MINOR_MODEL_AGE_DISCLOSURE, MODEL_RELEASE_ID,
+                    MODEL_RELEASE_STATUS, PROPERTY_RELEASE_ID, PROPERTY_RELEASE_STATUS,
+                    ARTWORK_OR_OBJECT_DETAIL_COPYRIGHT_NOTICE, ARTWORK_OR_OBJECT_DETAIL_CREATOR,
+                    ARTWORK_OR_OBJECT_DETAIL_DATE_CREATED, ARTWORK_OR_OBJECT_DETAIL_SOURCE,
+                    ARTWORK_OR_OBJECT_DETAIL_SOURCE_INVENTORY_NUMBER,
+                    ARTWORK_OR_OBJECT_DETAIL_TITLE, LOCATION_SHOWN_CITY,
+                    LOCATION_SHOWN_COUNTRY_CODE, LOCATION_SHOWN_COUNTRY_NAME,
+                    LOCATION_SHOWN_PROVINCE_OR_STATE, LOCATION_SHOWN_SUBLOCATION,
+                    LOCATION_SHOWN_WORLD_REGION, LOCATION_CREATED_CITY,
+                    LOCATION_CREATED_COUNTRY_CODE, LOCATION_CREATED_COUNTRY_NAME,
+                    LOCATION_CREATED_PROVINCE_OR_STATE, LOCATION_CREATED_SUBLOCATION,
+                    LOCATION_CREATED_WORLD_REGION, REGISTRY_ENTRY_CREATED_ITEM_ID,
+                    REGISTRY_ENTRY_CREATED_ORGANISATION_ID};
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

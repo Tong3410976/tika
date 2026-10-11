@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EncodingProbeCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">EncodingProbeCache.java</span></div><h1>EncodingProbeCache.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+/**
+ * Caches the raw encoding-detection probe (the leading bytes read for detection)
+ * so that multiple detectors in a chain do not each re-read and re-tag-strip the
+ * same bytes. For example a statistical detector and a downstream meta detector
+ * that re-reads the bytes for arbitration can share one probe.
+ * &lt;p&gt;
+ * An instance is held by {@link EncodingDetectorContext}, so it inherits that
+ * context's per-detection lifecycle: created fresh per detection and discarded
+ * with the context immediately afterwards. That matters because a
+ * {@link org.apache.tika.parser.ParseContext} flows on into recursive
+ * (attachment/embedded) parsing — a probe must never outlive the single detection
+ * it was read for.
+ * &lt;p&gt;
+ * Not thread-safe: a single detection runs its detectors sequentially on one
+ * thread. The cache is keyed by the probe parameters — {@link #get} returns the
+ * cached probe only when both {@code contentTarget} and {@code rawCap} match what
+ * it was stored with, so a detector that wants a differently-sized probe
+ * transparently reads (and caches) its own.
+ * &lt;p&gt;
+ * The cached array is shared read-only state; callers must not mutate it in place.
+ */
+<span class="nc" id="L40">public class EncodingProbeCache {</span>
+
+    private byte[] probe;
+<span class="nc" id="L43">    private int contentTarget = -1;</span>
+<span class="nc" id="L44">    private int rawCap = -1;</span>
+
+    /**
+     * @return the cached probe if one was stored with the same {@code contentTarget} and
+     * {@code rawCap}; otherwise {@code null}
+     */
+    public byte[] get(int contentTarget, int rawCap) {
+<span class="nc bnc" id="L51" title="All 6 branches missed.">        if (probe != null &amp;&amp; this.contentTarget == contentTarget &amp;&amp; this.rawCap == rawCap) {</span>
+<span class="nc" id="L52">            return probe;</span>
+        }
+<span class="nc" id="L54">        return null;</span>
+    }
+
+    /**
+     * Stores the probe bytes read with the given parameters.
+     */
+    public void put(byte[] probe, int contentTarget, int rawCap) {
+<span class="nc" id="L61">        this.probe = probe;</span>
+<span class="nc" id="L62">        this.contentTarget = contentTarget;</span>
+<span class="nc" id="L63">        this.rawCap = rawCap;</span>
+<span class="nc" id="L64">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

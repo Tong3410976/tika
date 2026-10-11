@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractRecursiveParserWrapperHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">AbstractRecursiveParserWrapperHandler.java</span></div><h1>AbstractRecursiveParserWrapperHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.io.Serializable;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+import org.apache.tika.metadata.TikaCoreProperties;
+
+/**
+ * This is a special handler to be used only with the
+ * {@link org.apache.tika.parser.RecursiveParserWrapper}.
+ * It allows for finer-grained processing of embedded documents than in the legacy handlers.
+ * Subclasses can choose how to process individual embedded documents.
+ */
+public abstract class AbstractRecursiveParserWrapperHandler extends DefaultHandler
+        implements Serializable {
+
+    // Canonical definitions live in TikaCoreProperties; alias here so the key can never diverge.
+<span class="fc" id="L39">    public final static Property EMBEDDED_RESOURCE_LIMIT_REACHED =</span>
+            TikaCoreProperties.EMBEDDED_RESOURCE_LIMIT_REACHED;
+<span class="fc" id="L41">    public final static Property EMBEDDED_DEPTH_LIMIT_REACHED =</span>
+            TikaCoreProperties.EMBEDDED_DEPTH_LIMIT_REACHED;
+    private static final int MAX_DEPTH = 100;
+    private final ContentHandlerFactory contentHandlerFactory;
+<span class="fc" id="L45">    private int embeddedDepth = 0;</span>
+
+<span class="fc" id="L47">    public AbstractRecursiveParserWrapperHandler(ContentHandlerFactory contentHandlerFactory) {</span>
+<span class="fc" id="L48">        this.contentHandlerFactory = contentHandlerFactory;</span>
+<span class="fc" id="L49">    }</span>
+
+    public ContentHandler createHandler() {
+<span class="fc" id="L52">        return contentHandlerFactory.createHandler();</span>
+    }
+
+    /**
+     * This is called before parsing each embedded document.  Override this
+     * for custom behavior.  Make sure to call this in your custom classes
+     * because this tracks the embedded depth.
+     *
+     * @param contentHandler local handler to be used on this embedded document
+     * @param metadata       embedded document's metadata
+     */
+    public void startEmbeddedDocument(ContentHandler contentHandler, Metadata metadata)
+            throws SAXException {
+<span class="nc" id="L65">        embeddedDepth++;</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (embeddedDepth &gt;= MAX_DEPTH) {</span>
+<span class="nc" id="L67">            throw new SAXException(&quot;Max embedded depth reached: &quot; + embeddedDepth);</span>
+        }
+<span class="nc" id="L69">        metadata.set(TikaCoreProperties.EMBEDDED_DEPTH, embeddedDepth);</span>
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * This is called after parsing each embedded document.  Override this
+     * for custom behavior.  This is currently a no-op aside from tracking embedded depth.
+     * &lt;p&gt;
+     * When overriding, make sure to call {@link #decrementEmbeddedDepth()}
+     *
+     * @param contentHandler content handler that was used on this embedded document
+     * @param metadata       metadata for this embedded document
+     * @throws SAXException
+     */
+    public void endEmbeddedDocument(ContentHandler contentHandler, Metadata metadata)
+            throws SAXException {
+<span class="nc" id="L84">        decrementEmbeddedDepth();</span>
+<span class="nc" id="L85">    }</span>
+
+    /**
+     * This is called by {@link #endEmbeddedDocument(ContentHandler, Metadata)}. Users
+     * overriding {@link #endEmbeddedDocument(ContentHandler, Metadata)} need to call this
+     * unless they are triggering it via &lt;code&gt;super.endEmbeddedDocument(contentHandler, metadata);&lt;/code&gt;
+     */
+    protected void decrementEmbeddedDepth() {
+<span class="nc" id="L93">        embeddedDepth--;</span>
+<span class="nc" id="L94">    }</span>
+
+    /**
+     * This is called after the full parse has completed.  Override this
+     * for custom behavior.  Make sure to call this as &lt;code&gt;super.endDocument(...)&lt;/code&gt;
+     * in subclasses.
+     *
+     * @param contentHandler content handler that was used on the main document
+     * @param metadata       metadata that was gathered for the main document
+     * @throws SAXException
+     */
+    public void endDocument(ContentHandler contentHandler, Metadata metadata) throws SAXException {
+<span class="fc" id="L106">        metadata.set(TikaCoreProperties.EMBEDDED_DEPTH, 0);</span>
+<span class="fc" id="L107">    }</span>
+
+    public ContentHandlerFactory getContentHandlerFactory() {
+<span class="fc" id="L110">        return contentHandlerFactory;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Magic.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">Magic.java</span></div><h1>Magic.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+/**
+ * Defines a magic for a MimeType. A magic is made of one or several
+ * MagicClause.
+ */
+class Magic implements Clause, Comparable&lt;Magic&gt; {
+
+    private final MimeType type;
+
+    private final int priority;
+
+    private final Clause clause;
+
+    private final String string;
+
+<span class="fc" id="L33">    Magic(MimeType type, int priority, Clause clause) {</span>
+<span class="fc" id="L34">        this.type = type;</span>
+<span class="fc" id="L35">        this.priority = priority;</span>
+<span class="fc" id="L36">        this.clause = clause;</span>
+<span class="fc" id="L37">        this.string = &quot;[&quot; + priority + &quot;/&quot; + clause + &quot;]&quot;;</span>
+<span class="fc" id="L38">    }</span>
+
+    MimeType getType() {
+<span class="fc" id="L41">        return type;</span>
+    }
+
+    int getPriority() {
+<span class="fc" id="L45">        return priority;</span>
+    }
+
+    public boolean eval(byte[] data) {
+<span class="fc" id="L49">        return clause.eval(data);</span>
+    }
+
+    public int size() {
+<span class="fc" id="L53">        return clause.size();</span>
+    }
+
+    public String toString() {
+<span class="nc" id="L57">        return string;</span>
+    }
+
+    public int compareTo(Magic o) {
+<span class="fc" id="L61">        int diff = o.priority - priority;</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (diff == 0) {</span>
+<span class="fc" id="L63">            diff = o.size() - size();</span>
+        }
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (diff == 0) {</span>
+<span class="fc" id="L66">            diff = o.type.compareTo(type);</span>
+        }
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (diff == 0) {</span>
+<span class="fc" id="L69">            diff = o.string.compareTo(string);</span>
+        }
+<span class="fc" id="L71">        return diff;</span>
+    }
+
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (o instanceof Magic) {</span>
+<span class="nc" id="L76">            Magic that = (Magic) o;</span>
+<span class="nc bnc" id="L77" title="All 4 branches missed.">            return type.equals(that.type) &amp;&amp; string.equals(that.string);</span>
+        }
+<span class="nc" id="L79">        return false;</span>
+    }
+
+    public int hashCode() {
+<span class="nc" id="L83">        return type.hashCode() ^ string.hashCode();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">StringUtils.java</span></div><h1>StringUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+import java.util.List;
+
+<span class="nc" id="L21">public class StringUtils {</span>
+
+    /**
+     * The empty String {@code &quot;&quot;}.
+     *
+     * @since 2.0
+     */
+    public static final String EMPTY = &quot;&quot;;
+
+    /**
+     * A String for a space character.
+     *
+     * @since 3.2
+     */
+    public static final String SPACE = &quot; &quot;;
+
+<span class="fc" id="L37">    static int PAD_LIMIT = 10000;</span>
+
+    public static boolean isEmpty(final CharSequence cs) {
+<span class="nc bnc" id="L40" title="All 4 branches missed.">        return cs == null || cs.isEmpty();</span>
+    }
+
+    public static boolean isBlank(final String s) {
+<span class="fc bfc" id="L44" title="All 4 branches covered.">        return s == null || s.isBlank();</span>
+    }
+
+    /**
+     * &lt;p&gt;Left pad a String with a specified String.&lt;/p&gt;
+     *
+     * &lt;p&gt;Pad to a size of {@code size}.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtils.leftPad(null, *, *)      = null
+     * StringUtils.leftPad(&quot;&quot;, 3, &quot;z&quot;)      = &quot;zzz&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, 3, &quot;yz&quot;)  = &quot;bat&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, 5, &quot;yz&quot;)  = &quot;yzbat&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, 8, &quot;yz&quot;)  = &quot;yzyzybat&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, 1, &quot;yz&quot;)  = &quot;bat&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, -1, &quot;yz&quot;) = &quot;bat&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, 5, null)  = &quot;  bat&quot;
+     * StringUtils.leftPad(&quot;bat&quot;, 5, &quot;&quot;)    = &quot;  bat&quot;
+     * &lt;/pre&gt;
+     *
+     * @param str    the String to pad out, may be null
+     * @param size   the size to pad to
+     * @param padStr the String to pad with, null or empty treated as single space
+     * @return left padded String or original String if no padding is necessary,
+     * {@code null} if null String input
+     */
+    public static String leftPad(final String str, final int size, String padStr) {
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L72">            return null;</span>
+        }
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (isEmpty(padStr)) {</span>
+<span class="nc" id="L75">            padStr = SPACE;</span>
+        }
+<span class="nc" id="L77">        final int padLen = padStr.length();</span>
+<span class="nc" id="L78">        final int strLen = str.length();</span>
+<span class="nc" id="L79">        final int pads = size - strLen;</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (pads &lt;= 0) {</span>
+<span class="nc" id="L81">            return str; // returns original String when possible</span>
+        }
+<span class="nc bnc" id="L83" title="All 4 branches missed.">        if (padLen == 1 &amp;&amp; pads &lt;= PAD_LIMIT) {</span>
+<span class="nc" id="L84">            return leftPad(str, size, padStr.charAt(0));</span>
+        }
+
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (pads == padLen) {</span>
+<span class="nc" id="L88">            return padStr.concat(str);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        } else if (pads &lt; padLen) {</span>
+<span class="nc" id="L90">            return padStr.substring(0, pads).concat(str);</span>
+        } else {
+<span class="nc" id="L92">            final char[] padding = new char[pads];</span>
+<span class="nc" id="L93">            final char[] padChars = padStr.toCharArray();</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            for (int i = 0; i &lt; pads; i++) {</span>
+<span class="nc" id="L95">                padding[i] = padChars[i % padLen];</span>
+            }
+<span class="nc" id="L97">            return new String(padding).concat(str);</span>
+        }
+    }
+
+
+    public static String leftPad(final String str, final int size, final char padChar) {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L104">            return null;</span>
+        }
+<span class="nc" id="L106">        final int pads = size - str.length();</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (pads &lt;= 0) {</span>
+<span class="nc" id="L108">            return str; // returns original String when possible</span>
+        }
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (pads &gt; PAD_LIMIT) {</span>
+<span class="nc" id="L111">            return leftPad(str, size, String.valueOf(padChar));</span>
+        }
+<span class="nc" id="L113">        return repeat(padChar, pads).concat(str);</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns padding using the specified delimiter repeated
+     * to a given length.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtils.repeat('e', 0)  = &quot;&quot;
+     * StringUtils.repeat('e', 3)  = &quot;eee&quot;
+     * StringUtils.repeat('e', -2) = &quot;&quot;
+     * &lt;/pre&gt;
+     *
+     * &lt;p&gt;Note: this method does not support padding with
+     * &lt;a href=&quot;http://www.unicode.org/glossary/#supplementary_character&quot;&gt;Unicode Supplementary Characters&lt;/a&gt;
+     * as they require a pair of {@code char}s to be represented.
+     * If you are needing to support full I18N of your applications
+     * consider using {@link #repeat(String, int)} instead.
+     * &lt;/p&gt;
+     *
+     * @param ch     character to repeat
+     * @param repeat number of times to repeat char, negative treated as zero
+     * @return String with repeated character
+     * @see #repeat(String, int)
+     */
+    public static String repeat(final char ch, final int repeat) {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (repeat &lt;= 0) {</span>
+<span class="nc" id="L140">            return EMPTY;</span>
+        }
+<span class="nc" id="L142">        final char[] buf = new char[repeat];</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        for (int i = repeat - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L144">            buf[i] = ch;</span>
+        }
+<span class="nc" id="L146">        return new String(buf);</span>
+    }
+
+    // Padding
+    //-----------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;Repeat a String {@code repeat} times to form a
+     * new String.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtils.repeat(null, 2) = null
+     * StringUtils.repeat(&quot;&quot;, 0)   = &quot;&quot;
+     * StringUtils.repeat(&quot;&quot;, 2)   = &quot;&quot;
+     * StringUtils.repeat(&quot;a&quot;, 3)  = &quot;aaa&quot;
+     * StringUtils.repeat(&quot;ab&quot;, 2) = &quot;abab&quot;
+     * StringUtils.repeat(&quot;a&quot;, -2) = &quot;&quot;
+     * &lt;/pre&gt;
+     *
+     * @param str    the String to repeat, may be null
+     * @param repeat number of times to repeat str, negative treated as zero
+     * @return a new String consisting of the original String repeated,
+     * {@code null} if null String input
+     */
+    public static String repeat(final String str, final int repeat) {
+        // Performance tuned for 2.0 (JDK1.4)
+
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L174">            return null;</span>
+        }
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        if (repeat &lt;= 0) {</span>
+<span class="nc" id="L177">            return EMPTY;</span>
+        }
+<span class="nc" id="L179">        final int inputLength = str.length();</span>
+<span class="nc bnc" id="L180" title="All 4 branches missed.">        if (repeat == 1 || inputLength == 0) {</span>
+<span class="nc" id="L181">            return str;</span>
+        }
+<span class="nc bnc" id="L183" title="All 4 branches missed.">        if (inputLength == 1 &amp;&amp; repeat &lt;= PAD_LIMIT) {</span>
+<span class="nc" id="L184">            return repeat(str.charAt(0), repeat);</span>
+        }
+
+<span class="nc" id="L187">        final int outputLength = inputLength * repeat;</span>
+<span class="nc bnc" id="L188" title="All 3 branches missed.">        switch (inputLength) {</span>
+            case 1:
+<span class="nc" id="L190">                return repeat(str.charAt(0), repeat);</span>
+            case 2:
+<span class="nc" id="L192">                final char ch0 = str.charAt(0);</span>
+<span class="nc" id="L193">                final char ch1 = str.charAt(1);</span>
+<span class="nc" id="L194">                final char[] output2 = new char[outputLength];</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">                for (int i = repeat * 2 - 2; i &gt;= 0; i--, i--) {</span>
+<span class="nc" id="L196">                    output2[i] = ch0;</span>
+<span class="nc" id="L197">                    output2[i + 1] = ch1;</span>
+                }
+<span class="nc" id="L199">                return new String(output2);</span>
+            default:
+<span class="nc" id="L201">                final StringBuilder buf = new StringBuilder(outputLength);</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">                for (int i = 0; i &lt; repeat; i++) {</span>
+<span class="nc" id="L203">                    buf.append(str);</span>
+                }
+<span class="nc" id="L205">                return buf.toString();</span>
+        }
+    }
+
+
+    public static String joinWith(String delimiter, List&lt;String&gt; lines) {
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (lines.size() == 0) {</span>
+<span class="nc" id="L212">            return EMPTY;</span>
+        }
+<span class="nc" id="L214">        int i = 0;</span>
+<span class="nc" id="L215">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        for (String line : lines) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            if (i++ &gt; 0) {</span>
+<span class="nc" id="L218">                sb.append(delimiter);</span>
+            }
+<span class="nc" id="L220">            sb.append(line);</span>
+<span class="nc" id="L221">        }</span>
+<span class="nc" id="L222">        return sb.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

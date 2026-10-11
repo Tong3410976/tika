@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExpandedTitleContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">ExpandedTitleContentHandler.java</span></div><h1>ExpandedTitleContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import javax.xml.transform.sax.TransformerHandler;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+/**
+ * Content handler decorator which wraps a {@link TransformerHandler} in order to
+ * allow the &lt;code&gt;TITLE&lt;/code&gt; tag to render as &lt;code&gt;&amp;lt;title&amp;gt;&amp;lt;/title&amp;gt;&lt;/code&gt;
+ * rather than &lt;code&gt;&amp;lt;title/&amp;gt;&lt;/code&gt; which is accomplished
+ * by calling the {@link TransformerHandler#characters(char[], int, int)} method
+ * with a &lt;code&gt;length&lt;/code&gt; of 1 but a zero length char array.
+ * &lt;p&gt;
+ * This workaround is an unfortunate circumstance of the limitations imposed by the
+ * implementation of the XML serialization code in the JDK brought over from
+ * the xalan project which no longer allows for the specification of an
+ * alternate &lt;code&gt;content-handler&lt;/code&gt; via xslt templates or other means.
+ *
+ * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-725&quot;&gt;TIKA-725&lt;/a&gt;
+ */
+public class ExpandedTitleContentHandler extends ContentHandlerDecorator {
+
+    private static final String TITLE_TAG = &quot;TITLE&quot;;
+    private boolean isTitleTagOpen;
+
+    public ExpandedTitleContentHandler() {
+<span class="nc" id="L45">        super();</span>
+<span class="nc" id="L46">    }</span>
+
+    public ExpandedTitleContentHandler(ContentHandler handler) {
+<span class="nc" id="L49">        super(handler);</span>
+<span class="nc" id="L50">    }</span>
+
+    @Override
+    public void startDocument() throws SAXException {
+<span class="nc" id="L54">        super.startDocument();</span>
+<span class="nc" id="L55">        isTitleTagOpen = false;</span>
+<span class="nc" id="L56">    }</span>
+
+    @Override
+    public void startElement(String uri, String localName, String qName, Attributes atts)
+            throws SAXException {
+<span class="nc" id="L61">        super.startElement(uri, localName, qName, atts);</span>
+<span class="nc bnc" id="L62" title="All 4 branches missed.">        if (TITLE_TAG.equalsIgnoreCase(localName) &amp;&amp; XHTMLContentHandler.XHTML.equals(uri)) {</span>
+<span class="nc" id="L63">            isTitleTagOpen = true;</span>
+        }
+<span class="nc" id="L65">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String qName) throws SAXException {
+<span class="nc" id="L69">        super.endElement(uri, localName, qName);</span>
+<span class="nc bnc" id="L70" title="All 4 branches missed.">        if (TITLE_TAG.equalsIgnoreCase(localName) &amp;&amp; XHTMLContentHandler.XHTML.equals(uri)) {</span>
+<span class="nc" id="L71">            isTitleTagOpen = false;</span>
+        }
+<span class="nc" id="L73">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="nc bnc" id="L77" title="All 4 branches missed.">        if (isTitleTagOpen &amp;&amp; length == 0) {</span>
+            // Hack to close the title tag
+            try {
+<span class="nc" id="L80">                super.characters(new char[0], 0, 1);</span>
+<span class="nc" id="L81">            } catch (ArrayIndexOutOfBoundsException e) {</span>
+                // Expected, just wanted to close the title tag
+<span class="nc" id="L83">            }</span>
+        } else {
+<span class="nc" id="L85">            super.characters(ch, start, length);</span>
+        }
+<span class="nc" id="L87">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

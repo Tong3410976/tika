@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LanguageDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.language.detect</a> &gt; <span class="el_source">LanguageDetector.java</span></div><h1>LanguageDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.language.detect;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.tika.config.ServiceLoader;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.CompareUtils;
+
+// We should use the IANA registry for primary language names...see
+// http://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+// There must be a package that uses this dataset to support knowledge of
+// the default script, etc. And how to map from &lt;lang&gt;-&lt;country&gt; (e.g. 'zh-CN')
+// to &lt;sublang&gt; ('cmn'), or &lt;lang&gt;-&lt;sublang&gt; to &lt;sublan&gt; ('zh-cmn' =&gt; 'cmn')
+// We'd also want to know the default sublang for a macro language ('zh' =&gt; 'zh-cmn')
+// There's also mapping 'zh-CN' to 'cmn-Hans' (simplified chinese script)
+
+// TODO decide how deep to go into supporting extended language tags, see
+// http://www.w3.org/International/articles/language-tags/. For example,
+// what should you expect from calling hasModel(&quot;en-GB&quot;) if there's only
+// a model for &quot;en&quot;?
+
+// This is mostly an issue for interpreting language tags in (X)HTML docs,
+// and maybe XML if we really care. In those cases you could get something
+// like &quot;ast&quot; (three letter language code), or even zh-cmn-Hant-SG
+// (Chinese, Mandarin, Traditional script, in Singapore) plus additional:
+// language-extlang-script-region-variant-extension-privateuse
+
+// The full spec is at http://www.rfc-editor.org/rfc/bcp/bcp47.txt
+
+<span class="nc" id="L49">public abstract class LanguageDetector {</span>
+
+<span class="nc" id="L51">    private static final ServiceLoader DEFAULT_SERVICE_LOADER = new ServiceLoader();</span>
+
+    //if a user calls detect on a huge string, break it into this size
+    //and add sequentially until hasEnoughText() is true
+    private static final int BUFFER_LENGTH = 4096;
+
+    // True if text is expected to be a mix of languages, and thus higher-resolution
+    // detection must be done to avoid under-sampling the text.
+<span class="nc" id="L59">    protected boolean mixedLanguages = false;</span>
+
+    // True if the text is expected to be 'short' (typically less than 100 chars), and
+    // thus a different algorithm and/or set of profiles should be used.
+<span class="nc" id="L63">    protected boolean shortText = false;</span>
+
+    public static LanguageDetector getDefaultLanguageDetector() {
+<span class="nc" id="L66">        List&lt;LanguageDetector&gt; detectors = getLanguageDetectors();</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (detectors.isEmpty()) {</span>
+<span class="nc" id="L68">            throw new IllegalStateException(&quot;No language detectors available&quot;);</span>
+        } else {
+<span class="nc" id="L70">            return detectors.get(0);</span>
+        }
+    }
+
+    public static List&lt;LanguageDetector&gt; getLanguageDetectors() {
+<span class="nc" id="L75">        return getLanguageDetectors(DEFAULT_SERVICE_LOADER);</span>
+    }
+
+    public static List&lt;LanguageDetector&gt; getLanguageDetectors(ServiceLoader loader) {
+<span class="nc" id="L79">        List&lt;LanguageDetector&gt; detectors =</span>
+<span class="nc" id="L80">                loader.loadStaticServiceProviders(LanguageDetector.class);</span>
+<span class="nc" id="L81">        detectors.sort(CompareUtils::compareClassName);</span>
+<span class="nc" id="L82">        return detectors;</span>
+    }
+
+    public boolean isMixedLanguages() {
+<span class="nc" id="L86">        return mixedLanguages;</span>
+    }
+
+    public LanguageDetector setMixedLanguages(boolean mixedLanguages) {
+<span class="nc" id="L90">        this.mixedLanguages = mixedLanguages;</span>
+<span class="nc" id="L91">        return this;</span>
+    }
+
+    public boolean isShortText() {
+<span class="nc" id="L95">        return shortText;</span>
+    }
+
+    public LanguageDetector setShortText(boolean shortText) {
+<span class="nc" id="L99">        this.shortText = shortText;</span>
+<span class="nc" id="L100">        return this;</span>
+    }
+
+    /**
+     * Load (or re-load) all available language models. This must
+     * be called after any settings that would impact the models
+     * being loaded (e.g. mixed language/short text), but
+     * before any of the document processing routines (below)
+     * are called. Note that it only needs to be called once.
+     *
+     * @return this
+     */
+    public abstract LanguageDetector loadModels() throws IOException;
+
+    /**
+     * Load (or re-load) the models specified in &lt;languages&gt;. These use the
+     * ISO 639-1 names, with an optional &quot;-&lt;country code&gt;&quot; for more
+     * specific specification (e.g. &quot;zh-CN&quot; for Chinese in China).
+     *
+     * @param languages list of target languages.
+     * @return this
+     */
+    public abstract LanguageDetector loadModels(Set&lt;String&gt; languages) throws IOException;
+
+    /**
+     * Provide information about whether a model exists for a specific
+     * language.
+     *
+     * @param language ISO 639-1 name for language
+     * @return true if a model for this language exists.
+     */
+    public abstract boolean hasModel(String language);
+
+    /**
+     * Set the a-priori probabilities for these languages. The provided map uses the language
+     * as the key, and the probability (0.0 &gt; probability &lt; 1.0) of text being in that language.
+     * Note that if the probabilities don't sum to 1.0, these values will be normalized.
+     * &lt;p&gt;
+     * If hasModel() returns false for any of the languages, an IllegalArgumentException is thrown.
+     * &lt;p&gt;
+     * Use of these probabilities is detector-specific, and thus might not impact the results  at
+     * all. As such, these should be viewed as a hint.
+     *
+     * @param languageProbabilities Map from language to probability
+     * @return this
+     */
+    public abstract LanguageDetector setPriors(Map&lt;String, Float&gt; languageProbabilities)
+            throws IOException;
+
+    // ============================================================
+    // The routines below are called when processing a document
+    // ============================================================
+
+    /**
+     * Reset statistics about the current document being processed.
+     */
+    public abstract void reset();
+
+    /**
+     * Reset statistics about the current document being processed, applying any
+     * per-document configuration present in {@code context}.
+     * &lt;p&gt;
+     * Implementations may override this to read detector-specific configuration
+     * objects from the context (e.g. strategy overrides, threshold adjustments).
+     * The base implementation ignores the context and delegates to {@link #reset()}.
+     * &lt;p&gt;
+     * Parsers that have a {@link ParseContext} available should prefer this overload
+     * so that callers can inject per-document language detection hints without
+     * constructing a specially-configured detector instance.
+     *
+     * @param context parse context for the current document; may be {@code null}
+     */
+    public void reset(ParseContext context) {
+<span class="nc" id="L173">        reset();</span>
+<span class="nc" id="L174">    }</span>
+
+    /**
+     * Add statistics about this text for the current document. Note
+     * that we assume an implicit word break exists before/after
+     * each of these runs of text.
+     *
+     * @param cbuf Character buffer
+     * @param off  Offset into cbuf to first character in the run of text
+     * @param len  Number of characters in the run of text.
+     */
+    public abstract void addText(char[] cbuf, int off, int len);
+
+    /**
+     * Add &lt;text&gt; to the statistics being accumulated for the current
+     * document. Note that this is a default implementation for adding
+     * a string (not optimized)
+     *
+     * @param text Characters to add to current statistics.
+     */
+    public void addText(CharSequence text) {
+<span class="nc" id="L195">        int len = text.length();</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        if (len &lt; BUFFER_LENGTH) {</span>
+<span class="nc" id="L197">            char[] chars = text.toString().toCharArray();</span>
+<span class="nc" id="L198">            addText(chars, 0, chars.length);</span>
+<span class="nc" id="L199">            return;</span>
+        }
+<span class="nc" id="L201">        int start = 0;</span>
+<span class="nc bnc" id="L202" title="All 4 branches missed.">        while (! hasEnoughText() &amp;&amp; start &lt; len) {</span>
+<span class="nc" id="L203">            int end = Math.min(start + BUFFER_LENGTH, len);</span>
+<span class="nc" id="L204">            char[] chars = text.subSequence(start, end).toString().toCharArray();</span>
+<span class="nc" id="L205">            addText(chars, 0, chars.length);</span>
+<span class="nc" id="L206">            start += BUFFER_LENGTH;</span>
+<span class="nc" id="L207">        }</span>
+
+<span class="nc" id="L209">    }</span>
+
+
+    /**
+     * Tell the caller whether more text is required for the current document
+     * before the language can be reliably detected.
+     * &lt;p&gt;
+     * Implementations can override this to do early termination of stats
+     * collection, which can improve performance with longer documents.
+     * &lt;p&gt;
+     * Note that detect() can be called even when this returns false
+     *
+     * @return true if we have enough text for reliable detection.
+     */
+    public boolean hasEnoughText() {
+<span class="nc" id="L224">        return false;</span>
+    }
+
+    /**
+     * Detect languages based on previously submitted text (via addText calls).
+     *
+     * @return list of all possible languages with at least medium confidence,
+     * sorted by confidence from highest to lowest. There will always
+     * be at least one result, which might have a confidence of NONE.
+     */
+    public abstract List&lt;LanguageResult&gt; detectAll();
+
+    public LanguageResult detect() {
+<span class="nc" id="L237">        List&lt;LanguageResult&gt; results = detectAll();</span>
+<span class="nc" id="L238">        return results.get(0);</span>
+    }
+
+    /**
+     * Utility wrapper that detects the language of a given chunk of text.
+     *
+     * @param text String to add to current statistics.
+     * @return list of all possible languages with at least medium confidence,
+     * sorted by confidence from highest to lowest.
+     */
+    public List&lt;LanguageResult&gt; detectAll(String text) {
+<span class="nc" id="L249">        reset();</span>
+<span class="nc" id="L250">        addText(text);</span>
+<span class="nc" id="L251">        return detectAll();</span>
+    }
+
+    public LanguageResult detect(CharSequence text) {
+<span class="nc" id="L255">        reset();</span>
+<span class="nc" id="L256">        addText(text);</span>
+<span class="nc" id="L257">        return detect();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

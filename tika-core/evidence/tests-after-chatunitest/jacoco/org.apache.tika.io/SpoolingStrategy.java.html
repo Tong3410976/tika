@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpoolingStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">SpoolingStrategy.java</span></div><h1>SpoolingStrategy.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+
+/**
+ * Strategy for determining when to spool a TikaInputStream to disk.
+ * &lt;p&gt;
+ * Components (detectors, parsers) can check this strategy before calling
+ * {@link TikaInputStream#getFile()} to determine if spooling is appropriate
+ * for the given media type.
+ * &lt;p&gt;
+ * Default behavior (when no strategy is in ParseContext): components spool when needed.
+ * A strategy allows fine-grained control over spooling decisions.
+ * &lt;p&gt;
+ * Configure via JSON:
+ * &lt;pre&gt;
+ * {
+ *   &quot;spooling-strategy&quot;: {
+ *     &quot;spoolTypes&quot;: [&quot;application/zip&quot;, &quot;application/x-tika-msoffice&quot;, &quot;application/pdf&quot;]
+ *   }
+ * }
+ * &lt;/pre&gt;
+ */
+@TikaComponent(spi = false)
+<span class="nc" id="L47">public class SpoolingStrategy {</span>
+
+    private static final Set&lt;MediaType&gt; DEFAULT_SPOOL_TYPES;
+
+    static {
+<span class="nc" id="L52">        Set&lt;MediaType&gt; types = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L53">        types.add(MediaType.application(&quot;zip&quot;));</span>
+<span class="nc" id="L54">        types.add(MediaType.application(&quot;x-tika-msoffice&quot;));</span>
+<span class="nc" id="L55">        types.add(MediaType.application(&quot;x-bplist&quot;));</span>
+<span class="nc" id="L56">        types.add(MediaType.application(&quot;pdf&quot;));</span>
+<span class="nc" id="L57">        DEFAULT_SPOOL_TYPES = Set.copyOf(types);</span>
+<span class="nc" id="L58">    }</span>
+
+<span class="nc" id="L60">    private Set&lt;MediaType&gt; spoolTypes = new HashSet&lt;&gt;(DEFAULT_SPOOL_TYPES);</span>
+    private MediaTypeRegistry mediaTypeRegistry;
+
+    /**
+     * Determines whether the stream should be spooled to disk.
+     *
+     * @param tis       the TikaInputStream (can check hasFile(), getLength())
+     * @param metadata  metadata (can check content-type hints, filename)
+     * @param mediaType the detected or declared media type
+     * @return true if the stream should be spooled to disk
+     */
+    public boolean shouldSpool(TikaInputStream tis, Metadata metadata, MediaType mediaType) {
+        // Already has file? No need to spool
+<span class="nc bnc" id="L73" title="All 4 branches missed.">        if (tis != null &amp;&amp; tis.hasFile()) {</span>
+<span class="nc" id="L74">            return false;</span>
+        }
+        // Check type against spoolTypes
+<span class="nc" id="L77">        return matchesSpoolType(mediaType);</span>
+    }
+
+    private boolean matchesSpoolType(MediaType type) {
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L82">            return false;</span>
+        }
+        // Exact match
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (spoolTypes.contains(type)) {</span>
+<span class="nc" id="L86">            return true;</span>
+        }
+        // Base type match (without parameters)
+<span class="nc" id="L89">        MediaType baseType = type.getBaseType();</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (spoolTypes.contains(baseType)) {</span>
+<span class="nc" id="L91">            return true;</span>
+        }
+        // Check if type is a specialization of any spool type
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (mediaTypeRegistry != null) {</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">            for (MediaType spoolType : spoolTypes) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                if (mediaTypeRegistry.isSpecializationOf(type, spoolType)) {</span>
+<span class="nc" id="L97">                    return true;</span>
+                }
+<span class="nc" id="L99">            }</span>
+        }
+<span class="nc" id="L101">        return false;</span>
+    }
+
+    /**
+     * Sets the media types that should be spooled to disk.
+     * Specializations of these types are also included.
+     *
+     * @param spoolTypes set of media types to spool
+     */
+    public void setSpoolTypes(Set&lt;MediaType&gt; spoolTypes) {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        this.spoolTypes = spoolTypes != null ? new HashSet&lt;&gt;(spoolTypes) : new HashSet&lt;&gt;();</span>
+<span class="nc" id="L112">    }</span>
+
+    /**
+     * Returns the media types that should be spooled to disk.
+     *
+     * @return set of media types to spool
+     */
+    public Set&lt;MediaType&gt; getSpoolTypes() {
+<span class="nc" id="L120">        return spoolTypes;</span>
+    }
+
+    /**
+     * Sets the media type registry used for checking type specializations.
+     *
+     * @param registry the media type registry
+     */
+    public void setMediaTypeRegistry(MediaTypeRegistry registry) {
+<span class="nc" id="L129">        this.mediaTypeRegistry = registry;</span>
+<span class="nc" id="L130">    }</span>
+
+    /**
+     * Returns the media type registry.
+     *
+     * @return the media type registry, or null if not set
+     */
+    public MediaTypeRegistry getMediaTypeRegistry() {
+<span class="nc" id="L138">        return mediaTypeRegistry;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

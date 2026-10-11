@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TextStatistics.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">TextStatistics.java</span></div><h1>TextStatistics.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+/**
+ * Utility class for computing a histogram of the bytes seen in a stream.
+ *
+ * @since Apache Tika 1.2
+ */
+<span class="fc" id="L24">public class TextStatistics {</span>
+
+<span class="fc" id="L26">    private final int[] counts = new int[256];</span>
+
+<span class="fc" id="L28">    private int total = 0;</span>
+
+    public void addData(byte[] buffer, int offset, int length) {
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        for (int i = 0; i &lt; length; i++) {</span>
+<span class="fc" id="L32">            counts[buffer[offset + i] &amp; 0xff]++;</span>
+<span class="fc" id="L33">            total++;</span>
+        }
+<span class="fc" id="L35">    }</span>
+
+    /**
+     * Checks whether at least one byte was seen and that the bytes that
+     * were seen were mostly plain text (i.e. &lt; 2% control, &gt; 90% ASCII range).
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the seen bytes were mostly safe ASCII,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-483&quot;&gt;TIKA-483&lt;/a&gt;
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-688&quot;&gt;TIKA-688&lt;/a&gt;
+     */
+    public boolean isMostlyAscii() {
+<span class="fc" id="L47">        int control = count(0, 0x20);</span>
+<span class="fc" id="L48">        int ascii = count(0x20, 128);</span>
+<span class="fc" id="L49">        int safe = countSafeControl();</span>
+<span class="fc bfc" id="L50" title="All 6 branches covered.">        return total &gt; 0 &amp;&amp; (control - safe) * 100 &lt; total * 2 &amp;&amp; (ascii + safe) * 100 &gt; total * 90;</span>
+    }
+
+    /**
+     * Checks whether the observed byte stream looks like UTF-8 encoded text.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the seen bytes look like UTF-8,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     * @since Apache Tika 1.3
+     */
+    public boolean looksLikeUTF8() {
+<span class="fc" id="L61">        int control = count(0, 0x20);</span>
+<span class="fc" id="L62">        int utf8 = count(0x20, 0x80);</span>
+<span class="fc" id="L63">        int safe = countSafeControl();</span>
+
+<span class="fc" id="L65">        int expectedContinuation = 0;</span>
+<span class="fc" id="L66">        int[] leading = new int[]{count(0xc0, 0xe0), count(0xe0, 0xf0), count(0xf0, 0xf8)};</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        for (int i = 0; i &lt; leading.length; i++) {</span>
+<span class="fc" id="L68">            utf8 += leading[i];</span>
+<span class="fc" id="L69">            expectedContinuation += (i + 1) * leading[i];</span>
+        }
+
+<span class="fc" id="L72">        int continuation = count(0x80, 0xc0);</span>
+<span class="pc bpc" id="L73" title="1 of 6 branches missed.">        return utf8 &gt; 0 &amp;&amp; continuation &lt;= expectedContinuation &amp;&amp;</span>
+<span class="pc bpc" id="L74" title="2 of 4 branches missed.">                continuation &gt;= expectedContinuation - 3 &amp;&amp; count(0xf8, 0x100) == 0 &amp;&amp;</span>
+                (control - safe) * 100 &lt; utf8 * 2;
+    }
+
+    /**
+     * Returns the total number of bytes seen so far.
+     *
+     * @return count of all bytes
+     */
+    public int count() {
+<span class="nc" id="L84">        return total;</span>
+    }
+
+    /**
+     * Returns the number of occurrences of the given byte.
+     *
+     * @param b byte
+     * @return count of the given byte
+     */
+    public int count(int b) {
+<span class="fc" id="L94">        return counts[b &amp; 0xff];</span>
+    }
+
+    /**
+     * Counts control characters (i.e. &lt; 0x20, excluding tab, CR, LF,
+     * page feed and escape).
+     * &lt;p&gt;
+     * This definition of control characters is based on section 4 of the
+     * &quot;Content-Type Processing Model&quot; Internet-draft
+     * (&lt;a href=&quot;http://webblaze.cs.berkeley.edu/2009/mime-sniff/mime-sniff.txt&quot;
+     * &gt;draft-abarth-mime-sniff-01&lt;/a&gt;).
+     * &lt;pre&gt;
+     * +-------------------------+
+     * | Binary data byte ranges |
+     * +-------------------------+
+     * | 0x00 -- 0x08            |
+     * | 0x0B                    |
+     * | 0x0E -- 0x1A            |
+     * | 0x1C -- 0x1F            |
+     * +-------------------------+
+     * &lt;/pre&gt;
+     *
+     * @return count of control characters
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-154&quot;&gt;TIKA-154&lt;/a&gt;
+     */
+    public int countControl() {
+<span class="nc" id="L120">        return count(0, 0x20) - countSafeControl();</span>
+    }
+
+    /**
+     * Counts &quot;safe&quot; (i.e. seven-bit non-control) ASCII characters.
+     *
+     * @return count of safe ASCII characters
+     * @see #countControl()
+     */
+    public int countSafeAscii() {
+<span class="nc" id="L130">        return count(0x20, 128) + countSafeControl();</span>
+    }
+
+    /**
+     * Counts eight bit characters, i.e. bytes with their highest bit set.
+     *
+     * @return count of eight bit characters
+     */
+    public int countEightBit() {
+<span class="nc" id="L139">        return count(128, 256);</span>
+    }
+
+    private int count(int from, int to) {
+<span class="pc bpc" id="L143" title="2 of 4 branches missed.">        assert 0 &lt;= from &amp;&amp; to &lt;= counts.length;</span>
+<span class="fc" id="L144">        int count = 0;</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        for (int i = from; i &lt; to; i++) {</span>
+<span class="fc" id="L146">            count += counts[i];</span>
+        }
+<span class="fc" id="L148">        return count;</span>
+    }
+
+    private int countSafeControl() {
+<span class="fc" id="L152">        return count('\t') + count('\n') + count('\r') // tab, LF, CR</span>
+<span class="fc" id="L153">                + count(0x0c) + count(0x1b);           // new page, escape</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

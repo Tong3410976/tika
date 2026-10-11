@@ -1,0 +1,9 @@
+Final mutation testing result
+
+Line coverage: 75/92 = 82%
+Generated mutations: 28
+Killed mutations: 28
+Mutation coverage: 100%
+No coverage: 0
+Test strength: 100%
+Result: BUILD SUCCESS

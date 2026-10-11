@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HighByteLetterStats.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">HighByteLetterStats.java</span></div><h1>HighByteLetterStats.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.nio.charset.Charset;
+
+/**
+ * High-byte decode-quality statistics shared by the charset detectors.
+ *
+ * &lt;p&gt;Used to disambiguate single-byte &lt;em&gt;Latin&lt;/em&gt; charset siblings
+ * (windows-1252 vs IBM850 / x-MacRoman / ISO-8859-x), where a wrong decode maps
+ * high bytes to box-drawing / symbols while the right one maps them to accented
+ * letters.  The cased-letter count reads that boundary; the byte-bigram
+ * typicality models cannot (both decodes look like typical Latin, and on
+ * COMMON-dominated docs the discriminating bytes are diluted to noise).&lt;/p&gt;
+ *
+ * &lt;p&gt;&lt;b&gt;Latin-only.&lt;/b&gt; {@link #countCasedHighByteLetters} counts Lu/Ll/Lt,
+ * which also covers Cyrillic/Greek cased letters and would be polluted by a
+ * non-Latin SBCS; and it excludes Lo, so a CJK decode (every ideograph is Lo)
+ * cannot win on &quot;letters&quot;.  Callers must restrict the comparison to Latin SBCS
+ * candidates.&lt;/p&gt;
+ */
+public final class HighByteLetterStats {
+
+    private HighByteLetterStats() {
+    }
+
+    /** Count of bytes &amp;ge; 0x80 in the probe. */
+    public static int countHighBytes(byte[] probe) {
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (probe == null) {</span>
+<span class="fc" id="L45">            return 0;</span>
+        }
+<span class="fc" id="L47">        int n = 0;</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        for (byte b : probe) {</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">            if ((b &amp; 0xFF) &gt;= 0x80) {</span>
+<span class="fc" id="L50">                n++;</span>
+            }
+        }
+<span class="fc" id="L53">        return n;</span>
+    }
+
+    /**
+     * Decode {@code probe} under {@code cs} and count codepoints &amp;ge; 0x80 that
+     * are Unicode cased letters (Lu/Ll/Lt).  Excludes the ordinal / superscript
+     * indicators ª (U+00AA), º (U+00BA), ⁿ (U+207F): MacRoman's 0xBB/0xBC are
+     * ª/º while windows-1252's 0xBB is » (punctuation), so without the exclusion
+     * MacRoman's letter count would beat windows-1252's wherever » appears.
+     * Lo (CJK / other-letter) is excluded by counting cased categories only.
+     */
+    public static int countCasedHighByteLetters(byte[] probe, Charset cs) {
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">        if (probe == null) {</span>
+<span class="nc" id="L66">            return 0;</span>
+        }
+        String decoded;
+        try {
+<span class="fc" id="L70">            decoded = new String(probe, cs);</span>
+<span class="nc" id="L71">        } catch (Exception e) {</span>
+<span class="nc" id="L72">            return 0;</span>
+<span class="fc" id="L73">        }</span>
+<span class="fc" id="L74">        int count = 0;</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        for (int i = 0; i &lt; decoded.length(); ) {</span>
+<span class="fc" id="L76">            int cp = decoded.codePointAt(i);</span>
+<span class="pc bpc" id="L77" title="1 of 4 branches missed.">            if (cp &gt;= 0x80 &amp;&amp; isCasedLatinishLetter(cp)) {</span>
+<span class="fc" id="L78">                count++;</span>
+            }
+<span class="fc" id="L80">            i += Character.charCount(cp);</span>
+<span class="fc" id="L81">        }</span>
+<span class="fc" id="L82">        return count;</span>
+    }
+
+    private static boolean isCasedLatinishLetter(int cp) {
+<span class="pc bpc" id="L86" title="1 of 6 branches missed.">        if (cp == 0x00AA || cp == 0x00BA || cp == 0x207F) {</span>
+<span class="fc" id="L87">            return false; // ª, º, ⁿ — ordinal / superscript indicators</span>
+        }
+<span class="fc" id="L89">        int type = Character.getType(cp);</span>
+<span class="pc bpc" id="L90" title="1 of 6 branches missed.">        return type == Character.UPPERCASE_LETTER</span>
+                || type == Character.LOWERCASE_LETTER
+                || type == Character.TITLECASE_LETTER;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

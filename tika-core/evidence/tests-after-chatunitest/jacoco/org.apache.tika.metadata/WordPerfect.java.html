@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WordPerfect.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">WordPerfect.java</span></div><h1>WordPerfect.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *  Copyright 2016 Norconex Inc.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * WordPerfect properties collection.
+ *
+ * @author Pascal Essiembre
+ */
+public interface WordPerfect {
+    String WORDPERFECT_METADATA_NAME_PREFIX = &quot;wordperfect&quot;;
+
+    /**
+     * File size as defined in document header.
+     */
+<span class="nc" id="L31">    Property FILE_SIZE = Property.internalText(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;file-size&quot;);
+    /**
+     * File identifier.
+     */
+<span class="nc" id="L37">    Property FILE_ID = Property.internalText(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;file-id&quot;);
+    /**
+     * Product type.
+     */
+<span class="nc" id="L43">    Property PRODUCT_TYPE = Property.internalInteger(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;product-type&quot;);
+    /**
+     * File type.
+     */
+<span class="nc" id="L49">    Property FILE_TYPE = Property.internalInteger(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;file-type&quot;);
+    /**
+     * Major version.
+     */
+<span class="nc" id="L55">    Property MAJOR_VERSION = Property.internalInteger(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;major-version&quot;);
+    /**
+     * Minor version.
+     */
+<span class="nc" id="L61">    Property MINOR_VERSION = Property.internalInteger(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;minor-version&quot;);
+    /**
+     * Is encrypted?.
+     */
+<span class="nc" id="L67">    Property ENCRYPTED = Property.internalBoolean(</span>
+            WORDPERFECT_METADATA_NAME_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;encrypted&quot;);
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

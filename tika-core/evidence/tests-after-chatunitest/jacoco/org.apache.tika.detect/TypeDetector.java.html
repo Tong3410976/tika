@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">TypeDetector.java</span></div><h1>TypeDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Content type detection based on a content type hint. This detector simply
+ * trusts any valid content type hint given in the input metadata, and returns
+ * that as the likely type of the input document.
+ *
+ * @since Apache Tika 0.3
+ */
+<span class="fc" id="L31">public class TypeDetector implements Detector {</span>
+
+    /**
+     * Detects the content type of an input document based on a type hint
+     * given in the input metadata. The CONTENT_TYPE attribute of the given
+     * input metadata is expected to contain the type of the input document.
+     * If that attribute exists and contains a valid type name, then that
+     * type is returned.
+     *
+     * @param tis      ignored
+     * @param metadata input metadata, possibly with a CONTENT_TYPE value
+     * @param context the parse context
+     * @return detected media type, or &lt;code&gt;application/octet-stream&lt;/code&gt;
+     */
+    @Override
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext context) {
+        // Look for a type hint in the input metadata
+<span class="fc" id="L48">        String hint = metadata.get(Metadata.CONTENT_TYPE);</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (hint != null) {</span>
+<span class="fc" id="L50">            MediaType type = MediaType.parse(hint);</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">            if (type != null) {</span>
+<span class="fc" id="L52">                return type;</span>
+            }
+        }
+<span class="fc" id="L55">        return MediaType.OCTET_STREAM;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

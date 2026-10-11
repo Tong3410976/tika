@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CharsetUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">CharsetUtils.java</span></div><h1>CharsetUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+import static java.util.Locale.ENGLISH;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+<span class="nc" id="L31">public class CharsetUtils {</span>
+
+<span class="fc" id="L33">    private static final Pattern CHARSET_NAME_PATTERN = Pattern.compile(&quot;[ \\\&quot;]*([^ &gt;,;\\\&quot;]+).*&quot;);</span>
+
+<span class="fc" id="L35">    private static final Pattern ISO_NAME_PATTERN = Pattern.compile(&quot;.*8859-(\\d+)&quot;);</span>
+
+<span class="fc" id="L37">    private static final Pattern CP_NAME_PATTERN = Pattern.compile(&quot;cp-(\\d+)&quot;);</span>
+
+<span class="fc" id="L39">    private static final Pattern WIN_NAME_PATTERN = Pattern.compile(&quot;win-?(\\d+)&quot;);</span>
+
+<span class="fc" id="L41">    private static final Map&lt;String, Charset&gt; COMMON_CHARSETS = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L43">    private static Method getCharsetICU = null;</span>
+<span class="fc" id="L44">    private static Method isSupportedICU = null;</span>
+
+    static {
+<span class="fc" id="L47">        initCommonCharsets(&quot;Big5&quot;, &quot;EUC-JP&quot;, &quot;EUC-KR&quot;, &quot;x-EUC-TW&quot;, &quot;GB18030&quot;, &quot;IBM855&quot;, &quot;IBM866&quot;,</span>
+                &quot;ISO-2022-CN&quot;, &quot;ISO-2022-JP&quot;, &quot;ISO-2022-KR&quot;, &quot;ISO-8859-1&quot;, &quot;ISO-8859-2&quot;,
+                &quot;ISO-8859-3&quot;, &quot;ISO-8859-4&quot;, &quot;ISO-8859-5&quot;, &quot;ISO-8859-6&quot;, &quot;ISO-8859-7&quot;, &quot;ISO-8859-8&quot;,
+                &quot;ISO-8859-9&quot;, &quot;ISO-8859-11&quot;, &quot;ISO-8859-13&quot;, &quot;ISO-8859-15&quot;, &quot;KOI8-R&quot;,
+                &quot;x-MacCyrillic&quot;, &quot;SHIFT_JIS&quot;, &quot;UTF-8&quot;, &quot;UTF-16BE&quot;, &quot;UTF-16LE&quot;, &quot;windows-1251&quot;,
+                &quot;windows-1252&quot;, &quot;windows-1253&quot;, &quot;windows-1255&quot;);
+
+        // Common aliases/typos not included in standard charset definitions
+<span class="fc" id="L55">        COMMON_CHARSETS.put(&quot;iso-8851-1&quot;, COMMON_CHARSETS.get(&quot;iso-8859-1&quot;));</span>
+<span class="fc" id="L56">        COMMON_CHARSETS.put(&quot;windows&quot;, COMMON_CHARSETS.get(&quot;windows-1252&quot;));</span>
+<span class="fc" id="L57">        COMMON_CHARSETS.put(&quot;koi8r&quot;, COMMON_CHARSETS.get(&quot;koi8-r&quot;));</span>
+
+        // See if we can load the icu4j CharsetICU class
+<span class="fc" id="L60">        Class&lt;?&gt; icuCharset = null;</span>
+        try {
+<span class="fc" id="L62">            icuCharset =</span>
+<span class="nc" id="L63">                    CharsetUtils.class.getClassLoader().loadClass(&quot;com.ibm.icu.charset.CharsetICU&quot;);</span>
+<span class="fc" id="L64">        } catch (ClassNotFoundException e) {</span>
+            //swallow
+<span class="nc" id="L66">        }</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (icuCharset != null) {</span>
+            try {
+<span class="nc" id="L69">                getCharsetICU = icuCharset.getMethod(&quot;forNameICU&quot;, String.class);</span>
+<span class="nc" id="L70">            } catch (Throwable t) {</span>
+<span class="nc" id="L71">                throw new RuntimeException(t);</span>
+<span class="nc" id="L72">            }</span>
+            try {
+<span class="nc" id="L74">                isSupportedICU = icuCharset.getMethod(&quot;isSupported&quot;, String.class);</span>
+<span class="nc" id="L75">            } catch (Throwable t) {</span>
+                //swallow
+<span class="nc" id="L77">            }</span>
+            // TODO: would be nice to somehow log that we
+            // successfully found ICU
+        }
+<span class="fc" id="L81">    }</span>
+
+    private static Map&lt;String, Charset&gt; initCommonCharsets(String... names) {
+<span class="fc" id="L84">        Map&lt;String, Charset&gt; charsets = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for (String name : names) {</span>
+            try {
+<span class="fc" id="L87">                Charset charset = Charset.forName(name);</span>
+<span class="fc" id="L88">                COMMON_CHARSETS.put(name.toLowerCase(ENGLISH), charset);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">                for (String alias : charset.aliases()) {</span>
+<span class="fc" id="L90">                    COMMON_CHARSETS.put(alias.toLowerCase(ENGLISH), charset);</span>
+<span class="fc" id="L91">                }</span>
+<span class="nc" id="L92">            } catch (IllegalArgumentException e) {</span>
+                // ignore
+<span class="fc" id="L94">            }</span>
+        }
+<span class="fc" id="L96">        return charsets;</span>
+    }
+
+    /**
+     * Safely return whether &lt;charsetName&gt; is supported, without throwing exceptions
+     *
+     * @param charsetName Name of charset (can be null)
+     * @return true if the character set is supported
+     */
+    public static boolean isSupported(String charsetName) {
+        try {
+<span class="pc bpc" id="L107" title="3 of 4 branches missed.">            if (isSupportedICU != null &amp;&amp; (Boolean) isSupportedICU.invoke(null, charsetName)) {</span>
+<span class="nc" id="L108">                return true;</span>
+            }
+<span class="fc" id="L110">            return Charset.isSupported(charsetName);</span>
+<span class="fc" id="L111">        } catch (IllegalCharsetNameException e) {</span>
+<span class="fc" id="L112">            return false;</span>
+<span class="fc" id="L113">        } catch (IllegalArgumentException e) {</span>
+            // null, for example
+<span class="fc" id="L115">            return false;</span>
+<span class="nc" id="L116">        } catch (Exception e) {</span>
+            // Unexpected exception, what to do?
+<span class="nc" id="L118">            return false;</span>
+        }
+    }
+
+    /**
+     * Handle various common charset name errors, and return something
+     * that will be considered valid (and is normalized)
+     *
+     * @param charsetName name of charset to process
+     * @return potentially remapped/cleaned up version of charset name
+     */
+    public static String clean(String charsetName) {
+        try {
+<span class="fc" id="L131">            return forName(charsetName).name();</span>
+<span class="fc" id="L132">        } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L133">            return null;</span>
+        }
+    }
+
+    /**
+     * Returns Charset impl, if one exists.  This method
+     * optionally uses ICU4J's CharsetICU.forNameICU,
+     * if it is found on the classpath, else only uses
+     * JDK's builtin Charset.forName.
+     */
+    public static Charset forName(String name) {
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L145">            throw new IllegalArgumentException();</span>
+        }
+
+        // Get rid of cruft around names, like &lt;&gt;, trailing commas, etc.
+<span class="fc" id="L149">        Matcher m = CHARSET_NAME_PATTERN.matcher(name);</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        if (!m.matches()) {</span>
+<span class="fc" id="L151">            throw new IllegalCharsetNameException(name);</span>
+        }
+<span class="fc" id="L153">        name = m.group(1);</span>
+
+<span class="fc" id="L155">        String lower = name.toLowerCase(Locale.ENGLISH);</span>
+<span class="fc" id="L156">        Charset charset = COMMON_CHARSETS.get(lower);</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        if (charset != null) {</span>
+<span class="fc" id="L158">            return charset;</span>
+<span class="fc bfc" id="L159" title="All 4 branches covered.">        } else if (&quot;none&quot;.equals(lower) || &quot;no&quot;.equals(lower)) {</span>
+<span class="fc" id="L160">            throw new IllegalCharsetNameException(name);</span>
+        } else {
+<span class="fc" id="L162">            Matcher iso = ISO_NAME_PATTERN.matcher(lower);</span>
+<span class="fc" id="L163">            Matcher cp = CP_NAME_PATTERN.matcher(lower);</span>
+<span class="fc" id="L164">            Matcher win = WIN_NAME_PATTERN.matcher(lower);</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">            if (iso.matches()) {</span>
+                // Handle &quot;iso 8859-x&quot; error
+<span class="fc" id="L167">                name = &quot;iso-8859-&quot; + iso.group(1);</span>
+<span class="fc" id="L168">                charset = COMMON_CHARSETS.get(name);</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">            } else if (cp.matches()) {</span>
+                // Handle &quot;cp-xxx&quot; error
+<span class="fc" id="L171">                name = &quot;cp&quot; + cp.group(1);</span>
+<span class="fc" id="L172">                charset = COMMON_CHARSETS.get(name);</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">            } else if (win.matches()) {</span>
+                // Handle &quot;winxxx&quot; and &quot;win-xxx&quot; errors
+<span class="fc" id="L175">                name = &quot;windows-&quot; + win.group(1);</span>
+<span class="fc" id="L176">                charset = COMMON_CHARSETS.get(name);</span>
+            }
+<span class="fc bfc" id="L178" title="All 2 branches covered.">            if (charset != null) {</span>
+<span class="fc" id="L179">                return charset;</span>
+            }
+        }
+
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        if (getCharsetICU != null) {</span>
+            try {
+<span class="nc" id="L185">                Charset cs = (Charset) getCharsetICU.invoke(null, name);</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">                if (cs != null) {</span>
+<span class="nc" id="L187">                    return cs;</span>
+                }
+<span class="nc" id="L189">            } catch (IllegalArgumentException | IllegalAccessException |</span>
+                    InvocationTargetException e) {
+                //ignore
+<span class="nc" id="L192">            }</span>
+        }
+
+<span class="fc" id="L195">        return Charset.forName(name);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

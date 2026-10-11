@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BOMDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">BOMDetector.java</span></div><h1>BOMDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.UnsupportedCharsetException;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.commons.io.ByteOrderMark;
+import org.apache.commons.io.IOUtils;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Encoding detector that identifies the character set from a byte-order mark
+ * (BOM) at the start of the stream.  Returns a single {@link EncodingResult.ResultType#DECLARATIVE}
+ * result when a BOM is found — a BOM is an explicit in-band declaration of encoding
+ * and takes priority over all statistical or structural inference.
+ *
+ * &lt;p&gt;SPI-loaded first in the default encoding-detector chain so that BOM evidence
+ * reaches the meta arbiter ({@code JunkFilterEncodingDetector}) before any
+ * statistical detector runs.  {@code MojibusterEncodingDetector} strips the BOM
+ * from its own probe independently to ensure consistent model inference (BOMs are
+ * excluded from training data).&lt;/p&gt;
+ *
+ * @since Apache Tika 0.x (moved to org.apache.tika.detect in 4.0)
+ */
+@TikaComponent(spi = false)
+<span class="fc" id="L48">public class BOMDetector implements EncodingDetector {</span>
+
+<span class="fc" id="L50">    private static final ByteOrderMark[] BOMS =</span>
+            //order matters -- have to try the 32 before the 16
+            new ByteOrderMark[] {
+                    ByteOrderMark.UTF_8,
+                    ByteOrderMark.UTF_32BE,
+                    ByteOrderMark.UTF_32LE,
+                    ByteOrderMark.UTF_16BE,
+                    ByteOrderMark.UTF_16LE
+            };
+<span class="fc" id="L59">    private static final Charset[] CHARSETS = new Charset[BOMS.length];</span>
+
+    private static final int MIN_BYTES = 2;
+    private static final int MAX_BYTES = 4;
+
+    static {
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        for (int i = 0; i &lt; BOMS.length; i++) {</span>
+            try {
+<span class="fc" id="L67">                CHARSETS[i] = Charset.forName(BOMS[i].getCharsetName());</span>
+<span class="nc" id="L68">            } catch (UnsupportedCharsetException e) {</span>
+                //log it
+<span class="fc" id="L70">            }</span>
+        }
+<span class="fc" id="L72">    }</span>
+
+    @Override
+    public List&lt;EncodingResult&gt; detect(TikaInputStream tis, Metadata metadata,
+                                       ParseContext parseContext) throws IOException {
+<span class="fc" id="L77">        tis.mark(MAX_BYTES);</span>
+<span class="fc" id="L78">        byte[] bytes = new byte[MAX_BYTES];</span>
+        try {
+<span class="fc" id="L80">            int numRead = IOUtils.read(tis, bytes);</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">            if (numRead &lt; MIN_BYTES) {</span>
+<span class="nc" id="L82">                return Collections.emptyList();</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">            } else if (numRead &lt; MAX_BYTES) {</span>
+<span class="fc" id="L84">                byte[] tmpBytes = new byte[numRead];</span>
+<span class="fc" id="L85">                System.arraycopy(bytes, 0, tmpBytes, 0, numRead);</span>
+<span class="fc" id="L86">                bytes = tmpBytes;</span>
+            }
+        } finally {
+<span class="fc" id="L89">            tis.reset();</span>
+        }
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        for (int i = 0; i &lt; BOMS.length; i++) {</span>
+<span class="fc" id="L92">            ByteOrderMark bom = BOMS[i];</span>
+<span class="pc bpc" id="L93" title="1 of 4 branches missed.">            if (startsWith(bom, bytes) &amp;&amp; CHARSETS[i] != null) {</span>
+<span class="fc" id="L94">                return List.of(new EncodingResult(CHARSETS[i], 1.0f,</span>
+<span class="fc" id="L95">                        CHARSETS[i].name(), EncodingResult.ResultType.DECLARATIVE));</span>
+            }
+        }
+<span class="fc" id="L98">        return Collections.emptyList();</span>
+    }
+
+    private boolean startsWith(ByteOrderMark bom, byte[] bytes) {
+<span class="fc" id="L102">        byte[] bomBytes = bom.getBytes();</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (bytes.length &lt; bomBytes.length) {</span>
+<span class="fc" id="L104">            return false;</span>
+        }
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        for (int i = 0; i &lt; bomBytes.length; i++) {</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">            if (bomBytes[i] != bytes[i]) {</span>
+<span class="fc" id="L108">                return false;</span>
+            }
+        }
+<span class="fc" id="L111">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XPathParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax.xpath</a> &gt; <span class="el_source">XPathParser.java</span></div><h1>XPathParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax.xpath;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Parser for a very simple XPath subset. Only the following XPath constructs
+ * (with namespaces) are supported:
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;code&gt;.../node()&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;.../text()&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;.../@*&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;.../@name&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;.../*...&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;.../name...&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;...//*...&lt;/code&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;code&gt;...//name...&lt;/code&gt;&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * In addition the non-abbreviated &lt;code&gt;.../descendant::node()&lt;/code&gt;
+ * construct can be used for cases where the descendant-or-self axis
+ * used by the &lt;code&gt;...//node()&lt;/code&gt; construct is not appropriate.
+ */
+public class XPathParser {
+
+<span class="fc" id="L42">    private final Map&lt;String, String&gt; prefixes = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L44">    public XPathParser() {</span>
+<span class="fc" id="L45">    }</span>
+
+<span class="fc" id="L47">    public XPathParser(String prefix, String namespace) {</span>
+<span class="fc" id="L48">        addPrefix(prefix, namespace);</span>
+<span class="fc" id="L49">    }</span>
+
+    public void addPrefix(String prefix, String namespace) {
+<span class="fc" id="L52">        prefixes.put(prefix, namespace);</span>
+<span class="fc" id="L53">    }</span>
+
+    /**
+     * Parses the given simple XPath expression to an evaluation state
+     * initialized at the document node. Invalid expressions are not flagged
+     * as errors, they just result in a failing evaluation state.
+     *
+     * @param xpath simple XPath expression
+     * @return XPath evaluation state
+     */
+    public Matcher parse(String xpath) {
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (xpath.equals(&quot;/text()&quot;)) {</span>
+<span class="fc" id="L65">            return TextMatcher.INSTANCE;</span>
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        } else if (xpath.equals(&quot;/node()&quot;)) {</span>
+<span class="nc" id="L67">            return NodeMatcher.INSTANCE;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        } else if (xpath.equals(&quot;/descendant::node()&quot;) ||</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">                xpath.equals(&quot;/descendant:node()&quot;)) { // for compatibility</span>
+<span class="fc" id="L70">            return new CompositeMatcher(TextMatcher.INSTANCE,</span>
+                    new ChildMatcher(new SubtreeMatcher(NodeMatcher.INSTANCE)));
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        } else if (xpath.equals(&quot;/@*&quot;)) {</span>
+<span class="fc" id="L73">            return AttributeMatcher.INSTANCE;</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        } else if (xpath.isEmpty()) {</span>
+<span class="fc" id="L75">            return ElementMatcher.INSTANCE;</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        } else if (xpath.startsWith(&quot;/@&quot;)) {</span>
+<span class="fc" id="L77">            String name = xpath.substring(2);</span>
+<span class="fc" id="L78">            String prefix = null;</span>
+<span class="fc" id="L79">            int colon = name.indexOf(':');</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            if (colon != -1) {</span>
+<span class="fc" id="L81">                prefix = name.substring(0, colon);</span>
+<span class="fc" id="L82">                name = name.substring(colon + 1);</span>
+            }
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">            if (prefixes.containsKey(prefix)) {</span>
+<span class="fc" id="L85">                return new NamedAttributeMatcher(prefixes.get(prefix), name);</span>
+            } else {
+<span class="nc" id="L87">                return Matcher.FAIL;</span>
+            }
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        } else if (xpath.startsWith(&quot;/*&quot;)) {</span>
+<span class="fc" id="L90">            return new ChildMatcher(parse(xpath.substring(2)));</span>
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">        } else if (xpath.startsWith(&quot;///&quot;)) {</span>
+<span class="nc" id="L92">            return Matcher.FAIL;</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        } else if (xpath.startsWith(&quot;//&quot;)) {</span>
+<span class="nc" id="L94">            return new SubtreeMatcher(parse(xpath.substring(1)));</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        } else if (xpath.startsWith(&quot;/&quot;)) {</span>
+<span class="fc" id="L96">            int slash = xpath.indexOf('/', 1);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            if (slash == -1) {</span>
+<span class="fc" id="L98">                slash = xpath.length();</span>
+            }
+<span class="fc" id="L100">            String name = xpath.substring(1, slash);</span>
+<span class="fc" id="L101">            String prefix = null;</span>
+<span class="fc" id="L102">            int colon = name.indexOf(':');</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            if (colon != -1) {</span>
+<span class="fc" id="L104">                prefix = name.substring(0, colon);</span>
+<span class="fc" id="L105">                name = name.substring(colon + 1);</span>
+            }
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">            if (prefixes.containsKey(prefix)) {</span>
+<span class="fc" id="L108">                return new NamedElementMatcher(prefixes.get(prefix), name,</span>
+<span class="fc" id="L109">                        parse(xpath.substring(slash)));</span>
+            } else {
+<span class="nc" id="L111">                return Matcher.FAIL;</span>
+            }
+        } else {
+<span class="nc" id="L114">            return Matcher.FAIL;</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

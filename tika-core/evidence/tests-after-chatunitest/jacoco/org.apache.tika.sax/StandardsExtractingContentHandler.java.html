@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StandardsExtractingContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">StandardsExtractingContentHandler.java</span></div><h1>StandardsExtractingContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.metadata.Metadata;
+
+/**
+ * StandardsExtractingContentHandler is a Content Handler used to extract
+ * standard references while parsing.
+ * &lt;p&gt;
+ * This handler relies on complex regular expressions which can be slow on some types of
+ * input data.
+ */
+public class StandardsExtractingContentHandler extends ContentHandlerDecorator {
+    public static final String STANDARD_REFERENCES = &quot;standard_references&quot;;
+    private final Metadata metadata;
+    private final StringBuilder stringBuilder;
+
+<span class="nc" id="L40">    private int maxBufferLength = 100000;</span>
+<span class="nc" id="L41">    private double threshold = 0;</span>
+
+    /**
+     * Creates a decorator for the given SAX event handler and Metadata object.
+     *
+     * @param handler  SAX event handler to be decorated.
+     * @param metadata {@link Metadata} object.
+     */
+    public StandardsExtractingContentHandler(ContentHandler handler, Metadata metadata) {
+<span class="nc" id="L50">        super(handler);</span>
+<span class="nc" id="L51">        this.metadata = metadata;</span>
+<span class="nc" id="L52">        this.stringBuilder = new StringBuilder();</span>
+<span class="nc" id="L53">    }</span>
+
+    /**
+     * Creates a decorator that by default forwards incoming SAX events to a
+     * dummy content handler that simply ignores all the events. Subclasses
+     * should use the {@link #setContentHandler(ContentHandler)} method to
+     * switch to a more usable underlying content handler. Also creates a dummy
+     * Metadata object to store phone numbers in.
+     */
+    protected StandardsExtractingContentHandler() {
+<span class="nc" id="L63">        this(new DefaultHandler(), new Metadata());</span>
+<span class="nc" id="L64">    }</span>
+
+    /**
+     * Gets the threshold to be used for selecting the standard references found
+     * within the text based on their score.
+     *
+     * @return the threshold to be used for selecting the standard references
+     * found within the text based on their score.
+     */
+    public double getThreshold() {
+<span class="nc" id="L74">        return threshold;</span>
+    }
+
+    /**
+     * Sets the score to be used as threshold.
+     *
+     * @param score the score to be used as threshold.
+     */
+    public void setThreshold(double score) {
+<span class="nc" id="L83">        this.threshold = score;</span>
+<span class="nc" id="L84">    }</span>
+
+    /**
+     * The characters method is called whenever a Parser wants to pass raw
+     * characters to the ContentHandler. However, standard references are often
+     * split across different calls to characters, depending on the specific
+     * Parser used. Therefore, we simply add all characters to a StringBuilder
+     * and analyze it once the document is finished.
+     */
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+        try {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if (maxBufferLength &gt; -1) {</span>
+<span class="nc" id="L97">                int remaining = maxBufferLength - stringBuilder.length();</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">                length = remaining &gt; length ? length : remaining;</span>
+            }
+<span class="nc" id="L100">            String text = new String(Arrays.copyOfRange(ch, start, start + length));</span>
+<span class="nc" id="L101">            stringBuilder.append(text);</span>
+<span class="nc" id="L102">            super.characters(ch, start, length);</span>
+<span class="nc" id="L103">        } catch (SAXException e) {</span>
+<span class="nc" id="L104">            handleException(e);</span>
+<span class="nc" id="L105">        }</span>
+<span class="nc" id="L106">    }</span>
+
+    /**
+     * This method is called whenever the Parser is done parsing the file. So,
+     * we check the output for any standard references.
+     */
+    @Override
+    public void endDocument() throws SAXException {
+<span class="nc" id="L114">        super.endDocument();</span>
+<span class="nc" id="L115">        List&lt;StandardReference&gt; standards =</span>
+<span class="nc" id="L116">                StandardsText.extractStandardReferences(stringBuilder.toString(), threshold);</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        for (StandardReference standardReference : standards) {</span>
+<span class="nc" id="L118">            metadata.add(STANDARD_REFERENCES, standardReference.toString());</span>
+<span class="nc" id="L119">        }</span>
+<span class="nc" id="L120">    }</span>
+
+
+    /**
+     * The number of characters to store in memory for checking for standards.
+     *
+     * If this is unbounded, the complex regular expressions can take a long time
+     * to process some types of data.  Only increase this limit with great caution.
+     */
+    public void setMaxBufferLength(int maxBufferLength) {
+<span class="nc" id="L130">        this.maxBufferLength = maxBufferLength;</span>
+<span class="nc" id="L131">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

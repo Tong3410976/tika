@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CleanPhoneText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">CleanPhoneText.java</span></div><h1>CleanPhoneText.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.ArrayList;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Class to help de-obfuscate phone numbers in text.
+ */
+<span class="nc" id="L27">public class CleanPhoneText {</span>
+<span class="nc" id="L28">    public static final String[][][] cleanSubstitutions =</span>
+            new String[][][]{{{&quot;&amp;#\\d{1,3};&quot;, &quot;&quot;}},         // first simply remove numeric entities
+                    {{&quot;th0usand&quot;, &quot;thousand&quot;},    // handle common misspellings
+                            {&quot;th1rteen&quot;, &quot;thirteen&quot;}, {&quot;f0urteen&quot;, &quot;fourteen&quot;},
+                            {&quot;e1ghteen&quot;, &quot;eighteen&quot;}, {&quot;n1neteen&quot;, &quot;nineteen&quot;},
+                            {&quot;f1fteen&quot;, &quot;fifteen&quot;}, {&quot;s1xteen&quot;, &quot;sixteen&quot;}, {&quot;th1rty&quot;, &quot;thirty&quot;},
+                            {&quot;e1ghty&quot;, &quot;eighty&quot;}, {&quot;n1nety&quot;, &quot;ninety&quot;}, {&quot;fourty&quot;, &quot;forty&quot;},
+                            {&quot;f0urty&quot;, &quot;forty&quot;}, {&quot;e1ght&quot;, &quot;eight&quot;}, {&quot;f0rty&quot;, &quot;forty&quot;},
+                            {&quot;f1fty&quot;, &quot;fifty&quot;}, {&quot;s1xty&quot;, &quot;sixty&quot;}, {&quot;zer0&quot;, &quot;zero&quot;},
+                            {&quot;f0ur&quot;, &quot;four&quot;}, {&quot;f1ve&quot;, &quot;five&quot;}, {&quot;n1ne&quot;, &quot;nine&quot;}, {&quot;0ne&quot;, &quot;one&quot;},
+                            {&quot;tw0&quot;, &quot;two&quot;}, {&quot;s1x&quot;, &quot;six&quot;}},
+                    // mixed compound numeral words
+                    // consider 7teen, etc.
+                    {{&quot;twenty[\\W_]{0,3}1&quot;, &quot;twenty-one&quot;}, {&quot;twenty[\\W_]{0,3}2&quot;, &quot;twenty-two&quot;},
+                            {&quot;twenty[\\W_]{0,3}3&quot;, &quot;twenty-three&quot;},
+                            {&quot;twenty[\\W_]{0,3}4&quot;, &quot;twenty-four&quot;},
+                            {&quot;twenty[\\W_]{0,3}5&quot;, &quot;twenty-five&quot;},
+                            {&quot;twenty[\\W_]{0,3}6&quot;, &quot;twenty-six&quot;},
+                            {&quot;twenty[\\W_]{0,3}7&quot;, &quot;twenty-seven&quot;},
+                            {&quot;twenty[\\W_]{0,3}8&quot;, &quot;twenty-eight&quot;},
+                            {&quot;twenty[\\W_]{0,3}9&quot;, &quot;twenty-nine&quot;},
+                            {&quot;thirty[\\W_]{0,3}1&quot;, &quot;thirty-one&quot;},
+                            {&quot;thirty[\\W_]{0,3}2&quot;, &quot;thirty-two&quot;},
+                            {&quot;thirty[\\W_]{0,3}3&quot;, &quot;thirty-three&quot;},
+                            {&quot;thirty[\\W_]{0,3}4&quot;, &quot;thirty-four&quot;},
+                            {&quot;thirty[\\W_]{0,3}5&quot;, &quot;thirty-five&quot;},
+                            {&quot;thirty[\\W_]{0,3}6&quot;, &quot;thirty-six&quot;},
+                            {&quot;thirty[\\W_]{0,3}7&quot;, &quot;thirty-seven&quot;},
+                            {&quot;thirty[\\W_]{0,3}8&quot;, &quot;thirty-eight&quot;},
+                            {&quot;thirty[\\W_]{0,3}9&quot;, &quot;thirty-nine&quot;},
+                            {&quot;forty[\\W_]{0,3}1&quot;, &quot;forty-one&quot;}, {&quot;forty[\\W_]{0,3}2&quot;, &quot;forty-two&quot;},
+                            {&quot;forty[\\W_]{0,3}3&quot;, &quot;forty-three&quot;},
+                            {&quot;forty[\\W_]{0,3}4&quot;, &quot;forty-four&quot;},
+                            {&quot;forty[\\W_]{0,3}5&quot;, &quot;forty-five&quot;}, {&quot;forty[\\W_]{0,3}6&quot;, &quot;forty-six&quot;},
+                            {&quot;forty[\\W_]{0,3}7&quot;, &quot;forty-seven&quot;},
+                            {&quot;forty[\\W_]{0,3}8&quot;, &quot;forty-eight&quot;},
+                            {&quot;forty[\\W_]{0,3}9&quot;, &quot;forty-nine&quot;}, {&quot;fifty[\\W_]{0,3}1&quot;, &quot;fifty-one&quot;},
+                            {&quot;fifty[\\W_]{0,3}2&quot;, &quot;fifty-two&quot;},
+                            {&quot;fifty[\\W_]{0,3}3&quot;, &quot;fifty-three&quot;},
+                            {&quot;fifty[\\W_]{0,3}4&quot;, &quot;fifty-four&quot;},
+                            {&quot;fifty[\\W_]{0,3}5&quot;, &quot;fifty-five&quot;}, {&quot;fifty[\\W_]{0,3}6&quot;, &quot;fifty-six&quot;},
+                            {&quot;fifty[\\W_]{0,3}7&quot;, &quot;fifty-seven&quot;},
+                            {&quot;fifty[\\W_]{0,3}8&quot;, &quot;fifty-eight&quot;},
+                            {&quot;fifty[\\W_]{0,3}9&quot;, &quot;fifty-nine&quot;}, {&quot;sixty[\\W_]{0,3}1&quot;, &quot;sixty-one&quot;},
+                            {&quot;sixty[\\W_]{0,3}2&quot;, &quot;sixty-two&quot;},
+                            {&quot;sixty[\\W_]{0,3}3&quot;, &quot;sixty-three&quot;},
+                            {&quot;sixty[\\W_]{0,3}4&quot;, &quot;sixty-four&quot;},
+                            {&quot;sixty[\\W_]{0,3}5&quot;, &quot;sixty-five&quot;}, {&quot;sixty[\\W_]{0,3}6&quot;, &quot;sixty-six&quot;},
+                            {&quot;sixty[\\W_]{0,3}7&quot;, &quot;sixty-seven&quot;},
+                            {&quot;sixty[\\W_]{0,3}8&quot;, &quot;sixty-eight&quot;},
+                            {&quot;sixty[\\W_]{0,3}9&quot;, &quot;sixty-nine&quot;},
+                            {&quot;seventy[\\W_]{0,3}1&quot;, &quot;seventy-one&quot;},
+                            {&quot;seventy[\\W_]{0,3}2&quot;, &quot;seventy-two&quot;},
+                            {&quot;seventy[\\W_]{0,3}3&quot;, &quot;seventy-three&quot;},
+                            {&quot;seventy[\\W_]{0,3}4&quot;, &quot;seventy-four&quot;},
+                            {&quot;seventy[\\W_]{0,3}5&quot;, &quot;seventy-five&quot;},
+                            {&quot;seventy[\\W_]{0,3}6&quot;, &quot;seventy-six&quot;},
+                            {&quot;seventy[\\W_]{0,3}7&quot;, &quot;seventy-seven&quot;},
+                            {&quot;seventy[\\W_]{0,3}8&quot;, &quot;seventy-eight&quot;},
+                            {&quot;seventy[\\W_]{0,3}9&quot;, &quot;seventy-nine&quot;},
+                            {&quot;eighty[\\W_]{0,3}1&quot;, &quot;eighty-one&quot;},
+                            {&quot;eighty[\\W_]{0,3}2&quot;, &quot;eighty-two&quot;},
+                            {&quot;eighty[\\W_]{0,3}3&quot;, &quot;eighty-three&quot;},
+                            {&quot;eighty[\\W_]{0,3}4&quot;, &quot;eighty-four&quot;},
+                            {&quot;eighty[\\W_]{0,3}5&quot;, &quot;eighty-five&quot;},
+                            {&quot;eighty[\\W_]{0,3}6&quot;, &quot;eighty-six&quot;},
+                            {&quot;eighty[\\W_]{0,3}7&quot;, &quot;eighty-seven&quot;},
+                            {&quot;eighty[\\W_]{0,3}8&quot;, &quot;eighty-eight&quot;},
+                            {&quot;eighty[\\W_]{0,3}9&quot;, &quot;eighty-nine&quot;},
+                            {&quot;ninety[\\W_]{0,3}1&quot;, &quot;ninety-one&quot;},
+                            {&quot;ninety[\\W_]{0,3}2&quot;, &quot;ninety-two&quot;},
+                            {&quot;ninety[\\W_]{0,3}3&quot;, &quot;ninety-three&quot;},
+                            {&quot;ninety[\\W_]{0,3}4&quot;, &quot;ninety-four&quot;},
+                            {&quot;ninety[\\W_]{0,3}5&quot;, &quot;ninety-five&quot;},
+                            {&quot;ninety[\\W_]{0,3}6&quot;, &quot;ninety-six&quot;},
+                            {&quot;ninety[\\W_]{0,3}7&quot;, &quot;ninety-seven&quot;},
+                            {&quot;ninety[\\W_]{0,3}8&quot;, &quot;ninety-eight&quot;},
+                            {&quot;ninety[\\W_]{0,3}9&quot;, &quot;ninety-nine&quot;}},
+                    // now resolve compound numeral words
+                    {{&quot;twenty-one&quot;, &quot;21&quot;}, {&quot;twenty-two&quot;, &quot;22&quot;}, {&quot;twenty-three&quot;, &quot;23&quot;},
+                            {&quot;twenty-four&quot;, &quot;24&quot;}, {&quot;twenty-five&quot;, &quot;25&quot;}, {&quot;twenty-six&quot;, &quot;26&quot;},
+                            {&quot;twenty-seven&quot;, &quot;27&quot;}, {&quot;twenty-eight&quot;, &quot;28&quot;}, {&quot;twenty-nine&quot;, &quot;29&quot;},
+                            {&quot;thirty-one&quot;, &quot;31&quot;}, {&quot;thirty-two&quot;, &quot;32&quot;}, {&quot;thirty-three&quot;, &quot;33&quot;},
+                            {&quot;thirty-four&quot;, &quot;34&quot;}, {&quot;thirty-five&quot;, &quot;35&quot;}, {&quot;thirty-six&quot;, &quot;36&quot;},
+                            {&quot;thirty-seven&quot;, &quot;37&quot;}, {&quot;thirty-eight&quot;, &quot;38&quot;}, {&quot;thirty-nine&quot;, &quot;39&quot;},
+                            {&quot;forty-one&quot;, &quot;41&quot;}, {&quot;forty-two&quot;, &quot;42&quot;}, {&quot;forty-three&quot;, &quot;43&quot;},
+                            {&quot;forty-four&quot;, &quot;44&quot;}, {&quot;forty-five&quot;, &quot;45&quot;}, {&quot;forty-six&quot;, &quot;46&quot;},
+                            {&quot;forty-seven&quot;, &quot;47&quot;}, {&quot;forty-eight&quot;, &quot;48&quot;}, {&quot;forty-nine&quot;, &quot;49&quot;},
+                            {&quot;fifty-one&quot;, &quot;51&quot;}, {&quot;fifty-two&quot;, &quot;52&quot;}, {&quot;fifty-three&quot;, &quot;53&quot;},
+                            {&quot;fifty-four&quot;, &quot;54&quot;}, {&quot;fifty-five&quot;, &quot;55&quot;}, {&quot;fifty-six&quot;, &quot;56&quot;},
+                            {&quot;fifty-seven&quot;, &quot;57&quot;}, {&quot;fifty-eight&quot;, &quot;58&quot;}, {&quot;fifty-nine&quot;, &quot;59&quot;},
+                            {&quot;sixty-one&quot;, &quot;61&quot;}, {&quot;sixty-two&quot;, &quot;62&quot;}, {&quot;sixty-three&quot;, &quot;63&quot;},
+                            {&quot;sixty-four&quot;, &quot;64&quot;}, {&quot;sixty-five&quot;, &quot;65&quot;}, {&quot;sixty-six&quot;, &quot;66&quot;},
+                            {&quot;sixty-seven&quot;, &quot;67&quot;}, {&quot;sixty-eight&quot;, &quot;68&quot;}, {&quot;sixty-nine&quot;, &quot;69&quot;},
+                            {&quot;seventy-one&quot;, &quot;71&quot;}, {&quot;seventy-two&quot;, &quot;72&quot;}, {&quot;seventy-three&quot;, &quot;73&quot;},
+                            {&quot;seventy-four&quot;, &quot;74&quot;}, {&quot;seventy-five&quot;, &quot;75&quot;}, {&quot;seventy-six&quot;, &quot;76&quot;},
+                            {&quot;seventy-seven&quot;, &quot;77&quot;}, {&quot;seventy-eight&quot;, &quot;78&quot;},
+                            {&quot;seventy-nine&quot;, &quot;79&quot;}, {&quot;eighty-one&quot;, &quot;81&quot;}, {&quot;eighty-two&quot;, &quot;82&quot;},
+                            {&quot;eighty-three&quot;, &quot;83&quot;}, {&quot;eighty-four&quot;, &quot;84&quot;}, {&quot;eighty-five&quot;, &quot;85&quot;},
+                            {&quot;eighty-six&quot;, &quot;86&quot;}, {&quot;eighty-seven&quot;, &quot;87&quot;}, {&quot;eighty-eight&quot;, &quot;88&quot;},
+                            {&quot;eighty-nine&quot;, &quot;89&quot;}, {&quot;ninety-one&quot;, &quot;91&quot;}, {&quot;ninety-two&quot;, &quot;92&quot;},
+                            {&quot;ninety-three&quot;, &quot;93&quot;}, {&quot;ninety-four&quot;, &quot;94&quot;}, {&quot;ninety-five&quot;, &quot;95&quot;},
+                            {&quot;ninety-six&quot;, &quot;96&quot;}, {&quot;ninety-seven&quot;, &quot;97&quot;}, {&quot;ninety-eight&quot;, &quot;98&quot;},
+                            {&quot;ninety-nine&quot;, &quot;99&quot;}},
+                    // larger units function as suffixes now
+                    // assume never have three hundred four, three hundred and four
+                    {{&quot;hundred&quot;, &quot;00&quot;}, {&quot;thousand&quot;, &quot;000&quot;}},
+                    // single numeral words now
+                    // some would have been ambiguous
+                    {{&quot;seventeen&quot;, &quot;17&quot;}, {&quot;thirteen&quot;, &quot;13&quot;}, {&quot;fourteen&quot;, &quot;14&quot;},
+                            {&quot;eighteen&quot;, &quot;18&quot;}, {&quot;nineteen&quot;, &quot;19&quot;}, {&quot;fifteen&quot;, &quot;15&quot;},
+                            {&quot;sixteen&quot;, &quot;16&quot;}, {&quot;seventy&quot;, &quot;70&quot;}, {&quot;eleven&quot;, &quot;11&quot;},
+                            {&quot;twelve&quot;, &quot;12&quot;}, {&quot;twenty&quot;, &quot;20&quot;}, {&quot;thirty&quot;, &quot;30&quot;}, {&quot;eighty&quot;, &quot;80&quot;},
+                            {&quot;ninety&quot;, &quot;90&quot;}, {&quot;three&quot;, &quot;3&quot;}, {&quot;seven&quot;, &quot;7&quot;}, {&quot;eight&quot;, &quot;8&quot;},
+                            {&quot;forty&quot;, &quot;40&quot;}, {&quot;fifty&quot;, &quot;50&quot;}, {&quot;sixty&quot;, &quot;60&quot;}, {&quot;zero&quot;, &quot;0&quot;},
+                            {&quot;four&quot;, &quot;4&quot;}, {&quot;five&quot;, &quot;5&quot;}, {&quot;nine&quot;, &quot;9&quot;}, {&quot;one&quot;, &quot;1&quot;}, {&quot;two&quot;, &quot;2&quot;},
+                            {&quot;six&quot;, &quot;6&quot;}, {&quot;ten&quot;, &quot;10&quot;}},
+                    // now do letter for digit substitutions
+                    {{&quot;oh&quot;, &quot;0&quot;}, {&quot;o&quot;, &quot;0&quot;}, {&quot;i&quot;, &quot;1&quot;}, {&quot;l&quot;, &quot;1&quot;}}};
+    // Regex to identify a phone number
+    static final String cleanPhoneRegex = &quot;([2-9]\\d{2}[2-9]\\d{6})&quot;;
+    // Regex which attempts to ignore punctuation and other distractions.
+    static final String phoneRegex =
+            &quot;([{(&lt;]{0,3}[2-9][\\W_]{0,3}\\d[\\W_]{0,3}\\d[\\W_]{0,6}&quot; +
+                    &quot;[2-9][\\W_]{0,3}\\d[\\W_]{0,3}\\d[\\W_]{0,6}\\d&quot; +
+                    &quot;[\\W_]{0,3}\\d[\\W_]{0,3}\\d[\\W_]{0,3}\\d)&quot;;
+
+    public static ArrayList&lt;String&gt; extractPhoneNumbers(String text) {
+<span class="nc" id="L156">        text = clean(text);</span>
+<span class="nc" id="L157">        int idx = 0;</span>
+<span class="nc" id="L158">        Pattern p = Pattern.compile(cleanPhoneRegex);</span>
+<span class="nc" id="L159">        Matcher m = p.matcher(text);</span>
+<span class="nc" id="L160">        ArrayList&lt;String&gt; phoneNumbers = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        while (m.find(idx)) {</span>
+<span class="nc" id="L162">            String digits = m.group(1);</span>
+<span class="nc" id="L163">            int start = m.start(1);</span>
+<span class="nc" id="L164">            int end = m.end(1);</span>
+<span class="nc" id="L165">            String prefix = &quot;&quot;;</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">            if (start &gt; 0) {</span>
+<span class="nc" id="L167">                prefix = text.substring(start - 1, start);</span>
+            }
+<span class="nc bnc" id="L169" title="All 4 branches missed.">            if (digits.startsWith(&quot;82&quot;) &amp;&amp; prefix.equals(&quot;*&quot;)) {</span>
+                // this number overlaps with a *82 sequence
+<span class="nc" id="L171">                idx += 2;</span>
+            } else {
+                // seems good
+<span class="nc" id="L174">                phoneNumbers.add(digits);</span>
+<span class="nc" id="L175">                idx = end;</span>
+            }
+<span class="nc" id="L177">        }</span>
+<span class="nc" id="L178">        return phoneNumbers;</span>
+    }
+
+    public static String clean(String text) {
+<span class="nc" id="L182">        text = text.toLowerCase(Locale.ROOT);</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        for (String[][] group : cleanSubstitutions) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            for (String[] sub : group) {</span>
+<span class="nc" id="L185">                text = text.replaceAll(sub[0], sub[1]);</span>
+            }
+        }
+        // Delete all non-digits and white space.
+<span class="nc" id="L189">        text = text.replaceAll(&quot;[\\D+\\s]&quot;, &quot;&quot;);</span>
+<span class="nc" id="L190">        return text;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

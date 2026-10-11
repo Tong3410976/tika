@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Message.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">Message.java</span></div><h1>Message.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * A collection of Message related property names.
+ * &lt;p&gt;
+ * See also {@link Office}'s MAPI-specific properties.
+ */
+public interface Message {
+    String MESSAGE_PREFIX = &quot;message&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+
+    String MULTIPART_PREFIX = &quot;multipart&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+
+    String MESSAGE_RAW_HEADER_PREFIX =
+            MESSAGE_PREFIX + &quot;raw-header&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+
+<span class="nc" id="L32">    PassthroughPrefix RAW_HEADER = PassthroughPrefix.file(MESSAGE_RAW_HEADER_PREFIX,</span>
+            &quot;RFC822 / Outlook raw email header names&quot;);
+
+<span class="nc" id="L35">    Property MESSAGE_RECIPIENT_ADDRESS =</span>
+<span class="nc" id="L36">            Property.internalTextBag(MESSAGE_PREFIX + &quot;recipient-address&quot;);</span>
+
+<span class="nc" id="L38">    Property MESSAGE_FROM = Property.internalTextBag(MESSAGE_PREFIX + &quot;from&quot;);</span>
+
+<span class="nc" id="L40">    Property MESSAGE_TO = Property.internalTextBag(MESSAGE_PREFIX + &quot;to&quot;);</span>
+
+<span class="nc" id="L42">    Property MESSAGE_CC = Property.internalTextBag(MESSAGE_PREFIX + &quot;cc&quot;);</span>
+
+<span class="nc" id="L44">    Property MESSAGE_BCC = Property.internalTextBag(MESSAGE_PREFIX + &quot;bcc&quot;);</span>
+
+<span class="nc" id="L46">    Property MULTIPART_SUBTYPE = Property.internalText(MULTIPART_PREFIX + &quot;subtype&quot;);</span>
+
+<span class="nc" id="L48">    Property MULTIPART_BOUNDARY = Property.internalText(MULTIPART_PREFIX + &quot;boundary&quot;);</span>
+
+    /**
+     * Where possible, this records the value from the name field.
+     * Even in MAPI messages, though, this can be an email address.
+     */
+<span class="nc" id="L54">    Property MESSAGE_FROM_NAME = Property.internalTextBag(MESSAGE_PREFIX + &quot;from-name&quot;);</span>
+
+    /**
+     * Where possible, this records the value from the name field.
+     * Even in MAPI messages, though, this can be a name.
+     * &lt;p/&gt;
+     * Note that the value may also be an X400/x500 Exchange format:
+     * /o=ExchangeLabs/ou=Exchange Administrative Group/cn=Recipients/cn=someone.or.other
+     */
+<span class="nc" id="L63">    Property MESSAGE_FROM_EMAIL = Property.internalTextBag(MESSAGE_PREFIX + &quot;from-email&quot;);</span>
+
+    /**
+     * In Outlook messages, there are sometimes separate fields for &quot;to-name&quot; and
+     * &quot;to-display-name&quot; name.
+     */
+<span class="nc" id="L69">    Property MESSAGE_TO_NAME = Property.internalTextBag(MESSAGE_PREFIX + &quot;to-name&quot;);</span>
+
+<span class="nc" id="L71">    Property MESSAGE_TO_DISPLAY_NAME = Property.internalTextBag(MESSAGE_PREFIX + &quot;to-display-name&quot;);</span>
+
+    /**
+     * Where possible, this records the email value in the to field.
+     * Even in MAPI messages, though, this can be a name.
+     * &lt;p/&gt;
+     * Note that the value may also be an X400/x500 Exchange format:
+     * /o=ExchangeLabs/ou=Exchange Administrative Group/cn=Recipients/cn=someone.or.other
+     */
+<span class="nc" id="L80">    Property MESSAGE_TO_EMAIL = Property.internalTextBag(MESSAGE_PREFIX + &quot;to-email&quot;);</span>
+
+    /**
+     * In Outlook messages, there are sometimes separate fields for &quot;cc-name&quot; and
+     * &quot;cc-display-name&quot; name.
+     */
+<span class="nc" id="L86">    Property MESSAGE_CC_NAME = Property.internalTextBag(MESSAGE_PREFIX + &quot;cc-name&quot;);</span>
+
+<span class="nc" id="L88">    Property MESSAGE_CC_DISPLAY_NAME = Property.internalTextBag(MESSAGE_PREFIX + &quot;cc-display-name&quot;);</span>
+
+    /**
+     * Where possible, this records the email value in the cc field.
+     * Even in MAPI messages, though, this can be a name.
+     * &lt;p/&gt;
+     * Note that the value may also be an X400/x500 Exchange format:
+     * /o=ExchangeLabs/ou=Exchange Administrative Group/cn=Recipients/cn=someone.or.other
+     */
+<span class="nc" id="L97">    Property MESSAGE_CC_EMAIL = Property.internalTextBag(MESSAGE_PREFIX + &quot;cc-email&quot;);</span>
+
+    /**
+     * In Outlook messages, there are sometimes separate fields for &quot;bcc-name&quot; and
+     * &quot;bcc-display-name&quot; name.
+     */
+<span class="nc" id="L103">    Property MESSAGE_BCC_NAME = Property.internalTextBag(MESSAGE_PREFIX + &quot;bcc-name&quot;);</span>
+
+<span class="nc" id="L105">    Property MESSAGE_BCC_DISPLAY_NAME =</span>
+<span class="nc" id="L106">            Property.internalTextBag(MESSAGE_PREFIX + &quot;bcc-display-name&quot;);</span>
+
+    /**
+     * Where possible, this records the email value in the bcc field.
+     * Even in MAPI messages, though, this can be a name.
+     * &lt;p/&gt;
+     * Note that the value may also be an X400/x500 Exchange format:
+     * /o=ExchangeLabs/ou=Exchange Administrative Group/cn=Recipients/cn=someone.or.other
+     */
+<span class="nc" id="L115">    Property MESSAGE_BCC_EMAIL = Property.internalTextBag(MESSAGE_PREFIX + &quot;bcc-email&quot;);</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

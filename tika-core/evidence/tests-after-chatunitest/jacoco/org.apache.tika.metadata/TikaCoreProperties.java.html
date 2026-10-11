@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TikaCoreProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">TikaCoreProperties.java</span></div><h1>TikaCoreProperties.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * Contains a core set of basic Tika metadata properties, which all parsers
+ * will attempt to supply (where the file format permits). These are all
+ * defined in terms of other standard namespaces.
+ * &lt;p&gt;
+ * Users of Tika who wish to have consistent metadata across file formats
+ * can make use of these Properties, knowing that where present they will
+ * have consistent semantic meaning between different file formats. (No
+ * matter if one file format calls it Title, another Long-Title and another
+ * Long-Name, if they all mean the same thing as defined by
+ * {@link DublinCore#TITLE} then they will all be present as such)
+ * &lt;p&gt;
+ * For now, most of these properties are composite ones including the deprecated
+ * non-prefixed String properties from the Metadata class. In Tika 2.0, most
+ * of these will revert back to simple assignments.
+ *
+ * @since Apache Tika 1.2
+ */
+@SuppressWarnings(&quot;deprecation&quot;)
+public interface TikaCoreProperties {
+
+    /**
+     * The common delimiter used between the namespace abbreviation and the property name
+     */
+    String NAMESPACE_PREFIX_DELIMITER = &quot;:&quot;;
+
+    /**
+     * Prefix for the Tika-native metadata namespace: keys that Tika itself asserts about
+     * the parse (not values copied out of the document). These keys are owned, normalized
+     * to kebab-case, and trusted; a file-controlled key can never enter this namespace via a
+     * String write (see {@link ReservedNamespaces} and the guard in {@code Metadata}).
+     * &lt;p&gt;
+     * Renamed from {@code X-TIKA:} to {@code tk:} in 4.0.0; see {@link #LEGACY_TIKA_META_PREFIX}.
+     */
+    String TIKA_META_PREFIX = &quot;tk&quot; + NAMESPACE_PREFIX_DELIMITER;
+
+    /**
+     * The pre-4.0.0 Tika-native prefix. Retained only so the reserved-key guard keeps rejecting
+     * forged {@code X-TIKA:} keys during the 4.x window; Tika no longer writes it. Consumers must
+     * migrate to {@link #TIKA_META_PREFIX} ({@code tk:}) — see the 3.x-to-4.x metadata key table.
+     */
+    String LEGACY_TIKA_META_PREFIX = &quot;X-TIKA&quot; + NAMESPACE_PREFIX_DELIMITER;
+<span class="fc" id="L61">    Property EMBEDDED_DEPTH = Property.internalInteger(TIKA_META_PREFIX + &quot;embedded-depth&quot;);</span>
+
+    /**
+     * This tracks the embedded file paths based on the name of embedded files
+     * where available.
+     * &lt;p/&gt;
+     * This field should be treated with great care and should NOT
+     * be used for creating a directory structure to write out attachments
+     * because: there may be path collisions or illegal characters or other mayhem.
+     * &lt;p/&gt;
+     * For a more robust path, see {@link TikaCoreProperties#EMBEDDED_ID_PATH}.
+     */
+<span class="fc" id="L73">    Property EMBEDDED_RESOURCE_PATH =</span>
+<span class="fc" id="L74">            Property.internalText(TIKA_META_PREFIX + &quot;embedded-resource-path&quot;);</span>
+
+
+    /**
+     * This is calculated in {@link org.apache.tika.sax.RecursiveParserWrapperHandler}.
+     * It differs from {@link TikaCoreProperties#EMBEDDED_RESOURCE_PATH} in that
+     * it is calculated at the end of the full parse of a file. {@link TikaCoreProperties#EMBEDDED_RESOURCE_PATH}
+     * is calculated during the parse, and, for some parsers, an embedded file's name isn't known until
+     * after its child files have been parsed.
+     * &lt;p/&gt;
+     * Note that the unknown file count may differ between {@link TikaCoreProperties#EMBEDDED_RESOURCE_PATH}
+     * because there should be fewer unknown files when this is calculated. More simply,
+     * there is no connection between &quot;embedded-1&quot; in this field and &quot;embedded-1&quot; in
+     * {@link TikaCoreProperties#EMBEDDED_RESOURCE_PATH}.
+     * &lt;p/&gt;
+     * This field should be treated with great care and should NOT
+     * be used for creating a directory structure to write out attachments
+     * because: there may be path collisions or illegal characters or other mayhem.
+     * &lt;p/&gt;
+     *
+     * For a more robust path, see {@link TikaCoreProperties#EMBEDDED_ID_PATH}.
+     */
+<span class="fc" id="L96">    Property FINAL_EMBEDDED_RESOURCE_PATH =</span>
+<span class="fc" id="L97">            Property.internalText(TIKA_META_PREFIX + &quot;final-embedded-resource-path&quot;);</span>
+
+    /**
+     * This tracks the embedded file paths based on the embedded file's
+     * {@link TikaCoreProperties#EMBEDDED_ID}.
+     */
+<span class="fc" id="L103">    Property EMBEDDED_ID_PATH =</span>
+<span class="fc" id="L104">            Property.internalText(TIKA_META_PREFIX + &quot;embedded-id-path&quot;);</span>
+
+    /**
+     * This is a 1-index counter for embedded files, used by the RecursiveParserWrapper
+     */
+<span class="fc" id="L109">    Property EMBEDDED_ID =</span>
+<span class="fc" id="L110">            Property.internalInteger(TIKA_META_PREFIX + &quot;embedded-id&quot;);</span>
+
+<span class="fc" id="L112">    Property PARSE_TIME_MILLIS = Property.internalText(TIKA_META_PREFIX + &quot;parse-time-millis&quot;);</span>
+    /**
+     * Simple class name of the content handler.
+     * @deprecated Use {@link #TIKA_CONTENT_HANDLER_TYPE} for the handler type enum value.
+     */
+    @Deprecated
+<span class="fc" id="L118">    Property TIKA_CONTENT_HANDLER = Property.internalText(TIKA_META_PREFIX + &quot;content-handler&quot;);</span>
+
+    /**
+     * The handler type used to produce {@link #TIKA_CONTENT}.
+     * Value is the {@link org.apache.tika.sax.BasicContentHandlerFactory.HANDLER_TYPE}
+     * enum name (e.g. {@code TEXT}, {@code MARKDOWN}, {@code HTML}, {@code XML}).
+     */
+<span class="fc" id="L125">    Property TIKA_CONTENT_HANDLER_TYPE =</span>
+<span class="fc" id="L126">            Property.internalText(TIKA_META_PREFIX + &quot;content-handler-type&quot;);</span>
+<span class="fc" id="L127">    Property TIKA_CONTENT = Property.internalText(TIKA_META_PREFIX + &quot;content&quot;);</span>
+
+    /**
+     * JSON array of chunks (text segments with optional embedding vectors and locators).
+     * Used by inference parsers and metadata filters to attach chunked representations
+     * of document content for downstream indexing and semantic search.
+     */
+<span class="fc" id="L134">    Property TIKA_CHUNKS = Property.internalText(&quot;tk:chunks&quot;);</span>
+    /**
+     * Use this to store parse exception information in the Metadata object.
+     */
+    String TIKA_META_EXCEPTION_PREFIX = TIKA_META_PREFIX + &quot;exception&quot; + NAMESPACE_PREFIX_DELIMITER;
+
+    /**
+     * Use this to store warnings that happened during the parse.
+     */
+    String TIKA_META_WARN_PREFIX = TIKA_META_PREFIX + &quot;warn&quot; + NAMESPACE_PREFIX_DELIMITER;
+
+    //exception in main file
+<span class="fc" id="L146">    Property CONTAINER_EXCEPTION =</span>
+<span class="fc" id="L147">            Property.internalText(TIKA_META_EXCEPTION_PREFIX + &quot;container-exception&quot;);</span>
+
+    //exception in an embedded file
+<span class="fc" id="L150">    Property EMBEDDED_EXCEPTION =</span>
+<span class="fc" id="L151">            Property.internalTextBag(TIKA_META_EXCEPTION_PREFIX + &quot;embedded-exception&quot;);</span>
+
+    //exception handling the raw bytes of an embedded file by an EmbeddedDocumentByteStore
+<span class="fc" id="L154">    Property EMBEDDED_BYTES_EXCEPTION =</span>
+<span class="fc" id="L155">            Property.internalTextBag(TIKA_META_EXCEPTION_PREFIX + &quot;embedded-bytes-exception&quot;);</span>
+
+    //warning while parsing in an embedded file
+<span class="fc" id="L158">    Property EMBEDDED_WARNING =</span>
+<span class="fc" id="L159">            Property.internalTextBag(TIKA_META_EXCEPTION_PREFIX + &quot;embedded-warning&quot;);</span>
+
+<span class="fc" id="L161">    Property WRITE_LIMIT_REACHED =</span>
+<span class="fc" id="L162">            Property.internalBoolean(TIKA_META_EXCEPTION_PREFIX + &quot;write-limit-reached&quot;);</span>
+
+<span class="fc" id="L164">    Property EMBEDDED_RESOURCE_LIMIT_REACHED =</span>
+<span class="fc" id="L165">            Property.internalBoolean(TIKA_META_EXCEPTION_PREFIX + &quot;embedded-resource-limit-reached&quot;);</span>
+
+<span class="fc" id="L167">    Property EMBEDDED_DEPTH_LIMIT_REACHED =</span>
+<span class="fc" id="L168">            Property.internalBoolean(TIKA_META_EXCEPTION_PREFIX + &quot;embedded-depth-limit-reached&quot;);</span>
+
+    /**
+     * Use this to store exceptions caught during a parse that are
+     * non-fatal, e.g. if a parser is in lenient mode and more
+     * content can be extracted if we ignore an exception thrown by
+     * a dependency.
+     */
+<span class="fc" id="L176">    Property TIKA_META_EXCEPTION_WARNING =</span>
+<span class="fc" id="L177">            Property.internalTextBag(TIKA_META_EXCEPTION_PREFIX + &quot;warn&quot;);</span>
+
+    /**
+     * This means that metadata keys or metadata values were truncated.
+     * If there is an &quot;include&quot; filter, this should not be set if
+     * a field is not in the &quot;include&quot; set.
+     */
+<span class="fc" id="L184">    Property TRUNCATED_METADATA =</span>
+<span class="fc" id="L185">            Property.internalBoolean(TIKA_META_WARN_PREFIX + &quot;truncated-metadata&quot;);</span>
+
+    /**
+     * This indicates that only a portion of the file content was provided for detection.
+     * Detectors should check this flag and may adjust their behavior accordingly
+     * (e.g., not returning a detection result that requires reading to end of file).
+     */
+<span class="fc" id="L192">    Property TRUNCATED_CONTENT_FOR_DETECTION =</span>
+<span class="fc" id="L193">            Property.internalBoolean(TIKA_META_PREFIX + &quot;truncated-content-for-detection&quot;);</span>
+
+    /**
+     * When content is truncated for detection, this stores the number of bytes
+     * that were actually buffered for detection. This can be used by detectors
+     * to set appropriate mark limits.
+     */
+<span class="fc" id="L200">    Property DETECTION_CONTENT_LENGTH =</span>
+<span class="fc" id="L201">            Property.internalInteger(TIKA_META_PREFIX + &quot;detection-content-length&quot;);</span>
+
+    /**
+     * Use this to store exceptions caught while trying to read the
+     * stream of an embedded resource.  Do not use this if there is
+     * a parse exception on the embedded resource.
+     */
+<span class="fc" id="L208">    Property TIKA_META_EXCEPTION_EMBEDDED_STREAM =</span>
+<span class="fc" id="L209">            Property.internalTextBag(TIKA_META_EXCEPTION_PREFIX + &quot;embedded-stream-exception&quot;);</span>
+<span class="fc" id="L210">    Property TIKA_PARSED_BY = Property.internalTextBag(TIKA_META_PREFIX + &quot;parsed-by&quot;);</span>
+
+    /**
+     * Use this to store a record of all parsers that touched a given file
+     * in the container file's metadata.
+     */
+<span class="fc" id="L216">    Property TIKA_PARSED_BY_FULL_SET = Property.internalTextBag(TIKA_META_PREFIX + &quot;parsed-by-full-set&quot;);</span>
+
+<span class="fc" id="L218">    Property TIKA_DETECTED_LANGUAGE = Property.externalTextBag(TIKA_META_PREFIX +</span>
+            &quot;detected-language&quot;);
+
+<span class="fc" id="L221">    Property TIKA_DETECTED_LANGUAGE_CONFIDENCE = Property.externalTextBag(TIKA_META_PREFIX +</span>
+            &quot;detected-language-confidence&quot;);
+
+<span class="fc" id="L224">    Property TIKA_DETECTED_LANGUAGE_CONFIDENCE_RAW = Property.externalRealSeq(TIKA_META_PREFIX +</span>
+            &quot;detected-language-confidence-raw&quot;);
+
+<span class="fc" id="L227">    Property RESOURCE_NAME_KEY = Property.internalText(TIKA_META_PREFIX + &quot;resource-name&quot;);</span>
+
+    /**
+     * Indicates that the file extension on the resource name was inferred by Tika
+     * (e.g., from content type detection) rather than provided by the original document.
+     */
+<span class="fc" id="L233">    Property RESOURCE_NAME_EXTENSION_INFERRED =</span>
+<span class="fc" id="L234">            Property.externalBoolean(TIKA_META_PREFIX + &quot;resource-name-extension-inferred&quot;);</span>
+
+<span class="fc" id="L236">    Property EMBEDDED_RELATIONSHIP_ID = Property.internalText(TIKA_META_PREFIX + &quot;embedded-relationship-id&quot;);</span>
+
+    String EMBEDDED_RESOURCE_TYPE_KEY = &quot;tk:embedded-resource-type&quot;;
+    /**
+     * Some file formats can store information about their original
+     * file name/location or about their attachment's original file name/location
+     * within the file.
+     */
+<span class="fc" id="L244">    Property ORIGINAL_RESOURCE_NAME =</span>
+<span class="fc" id="L245">            Property.internalTextBag(TIKA_META_PREFIX + &quot;orig-resource-name&quot;);</span>
+    /**
+     * This should be used to store the path (relative or full)
+     * of the source/container file, including the file name,
+     * e.g. doc/path/to/my_pdf.pdf
+     * &lt;p&gt;
+     * This can also be used for a primary key within a database.
+     */
+<span class="fc" id="L253">    Property SOURCE_PATH = Property.internalText(TIKA_META_PREFIX + &quot;source-path&quot;);</span>
+
+    /**
+     * This records the metadata as stored within a file for an embedded file's path
+     * including the file name. For example a zip file may include an msg with this path: /my-emails/important/this.msg
+     */
+<span class="fc" id="L259">    Property INTERNAL_PATH = Property.internalText(TIKA_META_PREFIX + &quot;internal-path&quot;);</span>
+
+    /**
+     * This is currently used to identify Content-Type that may be
+     * included within a document, such as in html documents
+     * (e.g. &lt;meta http-equiv=&quot;content-type&quot; content=&quot;text/html; charset=UTF-8&quot;&gt;)
+     * , or the value might come from outside the document.  This information
+     * may be faulty and should be treated only as a hint.
+     */
+<span class="fc" id="L268">    Property CONTENT_TYPE_HINT = Property.internalText(TIKA_META_PREFIX + &quot;content-type-hint&quot;);</span>
+    /**
+     * This is used by users to override detection with the override detector.
+     */
+<span class="fc" id="L272">    Property CONTENT_TYPE_USER_OVERRIDE =</span>
+<span class="fc" id="L273">            Property.internalText(TIKA_META_PREFIX + &quot;content-type-override&quot;);</span>
+    /**
+     * This is used by parsers to override detection of embedded resources
+     * with the override detector.
+     */
+<span class="fc" id="L278">    Property CONTENT_TYPE_PARSER_OVERRIDE =</span>
+<span class="fc" id="L279">            Property.internalText(TIKA_META_PREFIX + &quot;content-type-parser-override&quot;);</span>
+    /**
+     * This is set by DefaultDetector to store the result of MimeTypes (magic byte)
+     * detection. This allows downstream detectors to use it as a hint without
+     * re-running magic detection.
+     */
+<span class="fc" id="L285">    Property CONTENT_TYPE_MAGIC_DETECTED =</span>
+<span class="fc" id="L286">            Property.internalText(TIKA_META_PREFIX + &quot;content-type-magic-detected&quot;);</span>
+    /**
+     * @see DublinCore#FORMAT
+     */
+<span class="fc" id="L290">    Property FORMAT = DublinCore.FORMAT;</span>
+    /**
+     * @see DublinCore#IDENTIFIER
+     */
+<span class="fc" id="L294">    Property IDENTIFIER = DublinCore.IDENTIFIER;</span>
+    /**
+     * @see DublinCore#CONTRIBUTOR
+     */
+<span class="fc" id="L298">    Property CONTRIBUTOR = DublinCore.CONTRIBUTOR;</span>
+    /**
+     * @see DublinCore#COVERAGE
+     */
+<span class="fc" id="L302">    Property COVERAGE = DublinCore.COVERAGE;</span>
+    /**
+     * @see DublinCore#CREATOR
+     */
+<span class="fc" id="L306">    Property CREATOR = DublinCore.CREATOR;</span>
+    /**
+     * @see Office#LAST_AUTHOR
+     */
+<span class="fc" id="L310">    Property MODIFIER = Office.LAST_AUTHOR;</span>
+    /**
+     * @see XMP#CREATOR_TOOL
+     */
+<span class="fc" id="L314">    Property CREATOR_TOOL = XMP.CREATOR_TOOL;</span>
+    /**
+     * @see DublinCore#LANGUAGE
+     */
+<span class="fc" id="L318">    Property LANGUAGE = DublinCore.LANGUAGE;</span>
+    /**
+     * @see DublinCore#PUBLISHER
+     */
+<span class="fc" id="L322">    Property PUBLISHER = DublinCore.PUBLISHER;</span>
+    /**
+     * @see DublinCore#RELATION
+     */
+<span class="fc" id="L326">    Property RELATION = DublinCore.RELATION;</span>
+    /**
+     * @see DublinCore#RIGHTS
+     */
+<span class="fc" id="L330">    Property RIGHTS = DublinCore.RIGHTS;</span>
+    /**
+     * @see DublinCore#SOURCE
+     */
+<span class="fc" id="L334">    Property SOURCE = DublinCore.SOURCE;</span>
+    /**
+     * @see DublinCore#TYPE
+     */
+<span class="fc" id="L338">    Property TYPE = DublinCore.TYPE;</span>
+    /**
+     * @see DublinCore#TITLE
+     */
+<span class="fc" id="L342">    Property TITLE = DublinCore.TITLE;</span>
+
+    // Descriptive properties
+    /**
+     * @see DublinCore#DESCRIPTION
+     */
+<span class="fc" id="L348">    Property DESCRIPTION = DublinCore.DESCRIPTION;</span>
+    /**
+     * {@link DublinCore#SUBJECT}; should include both subject and keywords
+     * if a document format has both.  See also {@link Office#KEYWORDS}
+     * and {@link OfficeOpenXMLCore#SUBJECT}.
+     */
+<span class="fc" id="L354">    Property SUBJECT = DublinCore.SUBJECT;</span>
+    /**
+     * @see DublinCore#DATE
+     */
+<span class="fc" id="L358">    Property CREATED = DublinCore.CREATED;</span>
+
+    // Date related properties
+    /**
+     * @see DublinCore#MODIFIED
+     * @see Office#SAVE_DATE
+     */
+<span class="fc" id="L365">    Property MODIFIED = DublinCore.MODIFIED;</span>
+    /**
+     * @see Office#PRINT_DATE
+     */
+<span class="fc" id="L369">    Property PRINT_DATE = Office.PRINT_DATE;</span>
+    /**
+     * @see XMP#METADATA_DATE
+     */
+<span class="fc" id="L373">    Property METADATA_DATE = XMP.METADATA_DATE;</span>
+    /**
+     * @see Geographic#LATITUDE
+     */
+<span class="fc" id="L377">    Property LATITUDE = Geographic.LATITUDE;</span>
+
+
+    // Geographic related properties
+    /**
+     * @see Geographic#LONGITUDE
+     */
+<span class="fc" id="L384">    Property LONGITUDE = Geographic.LONGITUDE;</span>
+    /**
+     * @see Geographic#ALTITUDE
+     */
+<span class="fc" id="L388">    Property ALTITUDE = Geographic.ALTITUDE;</span>
+    /**
+     * @see XMP#RATING
+     */
+<span class="fc" id="L392">    Property RATING = XMP.RATING;</span>
+
+    /**
+     * This is the number of images (as in a multi-frame gif) returned by
+     * Java's {@link javax.imageio.ImageReader#getNumImages(boolean)}.  See
+     * the javadocs for known limitations.
+     */
+<span class="fc" id="L399">    Property NUM_IMAGES = Property.internalInteger(&quot;tk:num-images&quot;);</span>
+
+    // Comment and rating properties
+    /**
+     * @see OfficeOpenXMLExtended#COMMENTS
+     */
+<span class="fc" id="L405">    Property COMMENTS = OfficeOpenXMLExtended.COMMENTS;</span>
+    /**
+     * Embedded resource type property
+     */
+<span class="fc" id="L409">    Property EMBEDDED_RESOURCE_TYPE = Property.internalClosedChoise(EMBEDDED_RESOURCE_TYPE_KEY,</span>
+<span class="fc" id="L410">            EmbeddedResourceType.ATTACHMENT.toString(), EmbeddedResourceType.INLINE.toString(),</span>
+<span class="fc" id="L411">            EmbeddedResourceType.METADATA.toString(), EmbeddedResourceType.MACRO.toString(),</span>
+<span class="fc" id="L412">            EmbeddedResourceType.THUMBNAIL.toString(), EmbeddedResourceType.RENDERING.toString());</span>
+<span class="fc" id="L413">    Property HAS_SIGNATURE = Property.internalBoolean(&quot;tk:has-signature&quot;);</span>
+
+<span class="fc" id="L415">    Property SIGNATURE_NAME = Property.internalTextBag(&quot;tk:signature:name&quot;);</span>
+<span class="fc" id="L416">    Property SIGNATURE_DATE = Property.internalDateBag(&quot;tk:signature:date&quot;);</span>
+<span class="fc" id="L417">    Property SIGNATURE_LOCATION = Property.internalTextBag(&quot;tk:signature:location&quot;);</span>
+<span class="fc" id="L418">    Property SIGNATURE_REASON = Property.internalTextBag(&quot;tk:signature:reason&quot;);</span>
+<span class="fc" id="L419">    Property SIGNATURE_FILTER = Property.internalTextBag(&quot;tk:signature:filter&quot;);</span>
+<span class="fc" id="L420">    Property SIGNATURE_CONTACT_INFO = Property.internalTextBag(&quot;tk:signature:contact-info&quot;);</span>
+
+    //is the file encrypted
+<span class="fc" id="L423">    Property IS_ENCRYPTED = Property.internalBoolean(TIKA_META_PREFIX + &quot;encrypted&quot;);</span>
+
+    /**
+     * When an EncodingDetector detects an encoding, the encoding should be stored in this field.
+     * This is different from {@link Metadata#CONTENT_ENCODING} because that is what a parser
+     * chooses to use for processing a file. If an EncodingDetector returns &quot;null&quot;, a parser
+     * may choose to use a default encoding. We want to differentiate between a parser using a
+     * default encoding and the output of an EncodingDetector.
+     */
+<span class="fc" id="L432">    Property DETECTED_ENCODING = Property.externalText(TIKA_META_PREFIX + &quot;detected-encoding&quot;);</span>
+
+
+    /**
+     * This should be the simple class name for the EncodingDetectors whose detected encoding
+     * was used in the parse.
+     */
+<span class="fc" id="L439">    Property ENCODING_DETECTOR = Property.externalText(TIKA_META_PREFIX + &quot;encoding-detector&quot;);</span>
+
+    /**
+     * Diagnostic trace showing which encoding detectors ran and what each returned,
+     * plus the arbitration method used when detectors disagreed.
+     * Example: {@code &quot;HtmlEncodingDetector-&gt;UTF-8, Icu4jEncodingDetector-&gt;windows-1256 (scored)&quot;}
+     */
+<span class="fc" id="L446">    Property ENCODING_DETECTION_TRACE =</span>
+<span class="fc" id="L447">            Property.externalText(TIKA_META_PREFIX + &quot;encoding-detection-trace&quot;);</span>
+
+    /**
+     * The charset actually used to decode the stream when a superset override was applied.
+     * When the detected encoding (reported in Content-Type and {@link #DETECTED_ENCODING}) is
+     * a subset of a safer, broader charset (e.g. EUC-KR is a subset of x-windows-949, or
+     * GB2312 is a subset of GB18030), Tika decodes using the superset charset to avoid
+     * mojibake on extension characters. This field records the superset charset name so
+     * callers know which codec was actually used. Absent when detection and decoding use
+     * the same charset.
+     */
+<span class="fc" id="L458">    Property DECODED_CHARSET =</span>
+<span class="fc" id="L459">            Property.externalText(TIKA_META_PREFIX + &quot;decoded-charset&quot;);</span>
+
+    /**
+     * General metadata key for the count of non-final versions available within a file.  This
+     * was added initially to support generalizing incremental updates in PDF.
+     */
+<span class="fc" id="L465">    Property VERSION_COUNT = Property.externalInteger(TIKA_META_PREFIX + &quot;version-count&quot;);</span>
+
+    /**
+     * General metadata key for the version number of a given file that contains
+     * earlier versions within it.  This number is 0-indexed for the earliest version.
+     * The latest version does not have this metadata value.  This was added initially
+     * to support generalizing incremental updates in PDF.
+     */
+<span class="fc" id="L473">    Property VERSION_NUMBER = Property.externalInteger(TIKA_META_PREFIX + &quot;version-number&quot;);</span>
+
+<span class="fc" id="L475">    Property PIPES_RESULT = Property.externalText(TIKA_META_PREFIX + &quot;pipes-result&quot;);</span>
+    /**
+     * A file might contain different types of embedded documents.
+     * The most common is the ATTACHMENT.
+     * &lt;p&gt;
+     * An INLINE embedded resource should be used for embedded image
+     * files that are used to render the page image (as in PDXObjImages in PDF files).
+     * &lt;p&gt;
+     * A MACRO is code that is embedded in the document and is intended
+     * to be executable within the application that opens the document.  This
+     * includes traditional macros within Microsoft Office files and
+     * javascript within PDFActions.  This would not include, e.g., an
+     * .exe file embedded in a .zip file.
+     * &lt;p&gt;
+     * A VERSION is an earlier version of the file as in incremental updates.
+     * The initial use case for this is incremental updates in PDFs, but
+     * it could be applied to other file formats as well where earlier versions
+     * are recoverable. See also {@link PDF#INCREMENTAL_UPDATE_NUMBER}
+     * &lt;p&gt;
+     * Not all parsers have yet implemented this.
+     */
+<span class="fc" id="L496">    enum EmbeddedResourceType {</span>
+<span class="fc" id="L497">        INLINE, //image that is intended to be displayed in a rendering of the file</span>
+<span class="fc" id="L498">        ATTACHMENT,//standard attachment as in email</span>
+<span class="fc" id="L499">        MACRO, //any code that is intended to be run by the application</span>
+<span class="fc" id="L500">        METADATA, //e.g. xmp, xfa</span>
+<span class="fc" id="L501">        FONT,//embedded font files</span>
+<span class="fc" id="L502">        THUMBNAIL, //TODO: set this in parsers that handle thumbnails</span>
+<span class="fc" id="L503">        RENDERING, //if a file has been rendered</span>
+<span class="fc" id="L504">        VERSION, //an earlier version of a file</span>
+<span class="fc" id="L505">        ALTERNATE_FORMAT_CHUNK //OOXML inline alternate format chunk</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

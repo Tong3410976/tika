@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LanguageWriter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.language.detect</a> &gt; <span class="el_source">LanguageWriter.java</span></div><h1>LanguageWriter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.language.detect;
+
+import java.io.IOException;
+import java.io.Writer;
+
+/**
+ * Writer that builds a language profile based on all the written content.
+ *
+ * @since Apache Tika 0.10
+ */
+public class LanguageWriter extends Writer {
+
+    private final LanguageDetector detector;
+
+<span class="nc" id="L31">    public LanguageWriter(LanguageDetector detector) {</span>
+<span class="nc" id="L32">        this.detector = detector;</span>
+<span class="nc" id="L33">        detector.reset();</span>
+<span class="nc" id="L34">    }</span>
+
+    /**
+     * Returns the language detector used by this writer. Note that
+     * the returned language detector gets updated whenever new characters
+     * are written.
+     *
+     * @return language detector
+     */
+    public LanguageDetector getDetector() {
+<span class="nc" id="L44">        return detector;</span>
+    }
+
+    /**
+     * Returns the detected language based on text written thus far.
+     *
+     * @return LanguageResult
+     */
+    public LanguageResult getLanguage() {
+<span class="nc" id="L53">        return detector.detect();</span>
+    }
+
+    @Override
+    public void write(char[] cbuf, int off, int len) {
+<span class="nc" id="L58">        detector.addText(cbuf, off, len);</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Ignored.
+     */
+    @Override
+    public void close() throws IOException {
+<span class="nc" id="L66">    }</span>
+
+    /**
+     * Ignored.
+     */
+    @Override
+    public void flush() {
+<span class="nc" id="L73">    }</span>
+
+    public void reset() {
+<span class="nc" id="L76">        detector.reset();</span>
+<span class="nc" id="L77">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

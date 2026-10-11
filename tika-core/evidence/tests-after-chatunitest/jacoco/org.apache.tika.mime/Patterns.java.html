@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Patterns.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">Patterns.java</span></div><h1>Patterns.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+import java.io.Serializable;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
+
+/**
+ * Defines a MimeType pattern.
+ */
+class Patterns implements Serializable {
+
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = -5778015347278111140L;
+
+    private final MediaTypeRegistry registry;
+
+    /**
+     * Index of exact name patterns.
+     */
+<span class="fc" id="L41">    private final Map&lt;String, MimeType&gt; names = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Index of extension patterns of the form &quot;*extension&quot;.
+     */
+<span class="fc" id="L46">    private final Map&lt;String, MimeType&gt; extensions = new HashMap&lt;&gt;();</span>
+    /**
+     * Index of generic glob patterns, sorted by length.
+     */
+<span class="fc" id="L50">    private final SortedMap&lt;String, MimeType&gt; globs =</span>
+            new TreeMap&lt;&gt;(new LengthComparator());
+<span class="fc" id="L52">    private int minExtensionLength = Integer.MAX_VALUE;</span>
+<span class="fc" id="L53">    private int maxExtensionLength = 0;</span>
+
+<span class="fc" id="L55">    public Patterns(MediaTypeRegistry registry) {</span>
+<span class="fc" id="L56">        this.registry = registry;</span>
+<span class="fc" id="L57">    }</span>
+
+    public void add(String pattern, MimeType type) throws MimeTypeException {
+<span class="fc" id="L60">        this.add(pattern, false, type);</span>
+<span class="fc" id="L61">    }</span>
+
+    public void add(String pattern, boolean isJavaRegex, MimeType type) throws MimeTypeException {
+<span class="fc bfc" id="L64" title="All 4 branches covered.">        if (pattern == null || type == null) {</span>
+<span class="fc" id="L65">            throw new IllegalArgumentException(&quot;Pattern and/or mime type is missing&quot;);</span>
+        }
+
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (isJavaRegex) {</span>
+            // in this case, we don't need to build a regex pattern
+            // it's already there for us, so just add the pattern as is
+<span class="fc" id="L71">            addGlob(pattern, type);</span>
+        } else {
+
+<span class="pc bpc" id="L74" title="1 of 4 branches missed.">            if (pattern.indexOf('*') == -1 &amp;&amp; pattern.indexOf('?') == -1 &amp;&amp;</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">                    pattern.indexOf('[') == -1) {</span>
+<span class="fc" id="L76">                addName(pattern, type);</span>
+<span class="pc bpc" id="L77" title="1 of 4 branches missed.">            } else if (pattern.startsWith(&quot;*&quot;) &amp;&amp; pattern.indexOf('*', 1) == -1 &amp;&amp;</span>
+<span class="pc bpc" id="L78" title="2 of 4 branches missed.">                    pattern.indexOf('?') == -1 &amp;&amp; pattern.indexOf('[') == -1) {</span>
+<span class="fc" id="L79">                String extension = pattern.substring(1);</span>
+<span class="fc" id="L80">                addExtension(extension, type);</span>
+<span class="fc" id="L81">                type.addExtension(extension);</span>
+<span class="fc" id="L82">            } else {</span>
+<span class="fc" id="L83">                addGlob(compile(pattern), type);</span>
+            }
+        }
+<span class="fc" id="L86">    }</span>
+
+    private void addName(String name, MimeType type) throws MimeTypeException {
+<span class="fc" id="L89">        MimeType previous = names.get(name);</span>
+<span class="pc bpc" id="L90" title="3 of 4 branches missed.">        if (previous == null || registry.isSpecializationOf(previous.getType(), type.getType())) {</span>
+<span class="fc" id="L91">            names.put(name, type);</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        } else if (previous == type ||</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">                registry.isSpecializationOf(type.getType(), previous.getType())) {</span>
+            // do nothing
+        } else {
+<span class="nc" id="L96">            throw new MimeTypeException(&quot;Conflicting name pattern: &quot; + name);</span>
+        }
+<span class="fc" id="L98">    }</span>
+
+    private void addExtension(String extension, MimeType type) throws MimeTypeException {
+<span class="fc" id="L101">        MimeType previous = extensions.get(extension);</span>
+<span class="pc bpc" id="L102" title="1 of 4 branches missed.">        if (previous == null || registry.isSpecializationOf(previous.getType(), type.getType())) {</span>
+<span class="fc" id="L103">            extensions.put(extension, type);</span>
+<span class="fc" id="L104">            int length = extension.length();</span>
+<span class="fc" id="L105">            minExtensionLength = Math.min(minExtensionLength, length);</span>
+<span class="fc" id="L106">            maxExtensionLength = Math.max(maxExtensionLength, length);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        } else if (previous == type ||</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">                registry.isSpecializationOf(type.getType(), previous.getType())) {</span>
+            // do nothing
+        } else {
+<span class="fc" id="L111">            throw new MimeTypeException(&quot;Conflicting extension pattern: &quot; + extension);</span>
+        }
+<span class="fc" id="L113">    }</span>
+
+    private void addGlob(String glob, MimeType type) throws MimeTypeException {
+<span class="fc" id="L116">        MimeType previous = globs.get(glob);</span>
+<span class="pc bpc" id="L117" title="3 of 4 branches missed.">        if (previous == null || registry.isSpecializationOf(previous.getType(), type.getType())) {</span>
+<span class="fc" id="L118">            globs.put(glob, type);</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        } else if (previous == type ||</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">                registry.isSpecializationOf(type.getType(), previous.getType())) {</span>
+            // do nothing
+        } else {
+<span class="nc" id="L123">            throw new MimeTypeException(&quot;Conflicting glob pattern: &quot; + glob);</span>
+        }
+<span class="fc" id="L125">    }</span>
+
+    /**
+     * Find the MimeType corresponding to a resource name.
+     * &lt;p&gt;
+     * It applies the recommendations detailed in FreeDesktop Shared MIME-info
+     * Database for guessing MimeType from a resource name: It first tries a
+     * case-sensitive match, then try again with the resource name converted to
+     * lower-case if that fails. If several patterns match then the longest
+     * pattern is used. In particular, files with multiple extensions (such as
+     * Data.tar.gz) match the longest sequence of extensions (eg '*.tar.gz' in
+     * preference to '*.gz'). Literal patterns (eg, 'Makefile') are matched
+     * before all others. Patterns beginning with `*.' and containing no other
+     * special characters (`*?[') are matched before other wildcarded patterns
+     * (since this covers the majority of the patterns).
+     */
+    public MimeType matches(String name) {
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L143">            throw new IllegalArgumentException(&quot;Name is missing&quot;);</span>
+        }
+
+        // First, try exact match of the provided resource name
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (names.containsKey(name)) {</span>
+<span class="nc" id="L148">            return names.get(name);</span>
+        }
+
+        // Then try &quot;extension&quot; (*.xxx) matching
+<span class="fc" id="L152">        int maxLength = Math.min(maxExtensionLength, name.length());</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">        for (int n = maxLength; n &gt;= minExtensionLength; n--) {</span>
+<span class="fc" id="L154">            String extension = name.substring(name.length() - n);</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            if (extensions.containsKey(extension)) {</span>
+<span class="fc" id="L156">                return extensions.get(extension);</span>
+            }
+        }
+
+        // And finally, try complex regexp matching
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        for (Map.Entry&lt;String, MimeType&gt; entry : globs.entrySet()) {</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            if (name.matches(entry.getKey())) {</span>
+<span class="fc" id="L163">                return entry.getValue();</span>
+            }
+<span class="fc" id="L165">        }</span>
+
+<span class="fc" id="L167">        return null;</span>
+    }
+
+    private String compile(String glob) {
+<span class="fc" id="L171">        StringBuilder pattern = new StringBuilder();</span>
+<span class="fc" id="L172">        pattern.append(&quot;\\A&quot;);</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        for (int i = 0; i &lt; glob.length(); i++) {</span>
+<span class="fc" id="L174">            char ch = glob.charAt(i);</span>
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">            if (ch == '?') {</span>
+<span class="nc" id="L176">                pattern.append('.');</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">            } else if (ch == '*') {</span>
+<span class="fc" id="L178">                pattern.append(&quot;.*&quot;);</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">            } else if (&quot;\\[]^.-$+(){}|&quot;.indexOf(ch) != -1) {</span>
+<span class="fc" id="L180">                pattern.append('\\');</span>
+<span class="fc" id="L181">                pattern.append(ch);</span>
+            } else {
+<span class="fc" id="L183">                pattern.append(ch);</span>
+            }
+        }
+<span class="fc" id="L186">        pattern.append(&quot;\\z&quot;);</span>
+<span class="fc" id="L187">        return pattern.toString();</span>
+    }
+
+    private static final class LengthComparator implements Comparator&lt;String&gt;, Serializable {
+
+        /**
+         * Serial version UID.
+         */
+        private static final long serialVersionUID = 8468289702915532359L;
+
+        public int compare(String a, String b) {
+<span class="fc" id="L198">            int diff = b.length() - a.length();</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">            if (diff == 0) {</span>
+<span class="fc" id="L200">                diff = a.compareTo(b);</span>
+            }
+<span class="fc" id="L202">            return diff;</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

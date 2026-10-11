@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TailStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">TailStream.java</span></div><h1>TailStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+/**
+ * &lt;p&gt;
+ * A specialized input stream implementation which records the last portion read
+ * from an underlying stream.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This stream implementation is useful to deal with information which is known
+ * to be located at the end of a stream (e.g. ID3 v1 tags). While reading bytes
+ * from the underlying stream, a given number of bytes is kept in an internal
+ * buffer. This buffer can then be queried after the whole stream was read. It
+ * contains the last bytes read from the original input stream.
+ * &lt;/p&gt;
+ *
+ * @param in       the underlying input stream
+ * @param tailSize the size of the tail buffer
+ */
+public class TailStream extends FilterInputStream {
+    /**
+     * Constant for the default skip buffer size.
+     */
+    private static final int SKIP_SIZE = 4096;
+
+    /**
+     * The buffer in which the tail data is stored.
+     */
+    private final byte[] tailBuffer;
+
+    /**
+     * The size of the internal tail buffer.
+     */
+    private final int tailSize;
+
+    /**
+     * A copy of the internal tail buffer used for mark() operations.
+     */
+    private byte[] markBuffer;
+
+    /**
+     * The number of bytes that have been read so far.
+     */
+    private long bytesRead;
+
+    /**
+     * The number of bytes read at the last mark() operation.
+     */
+    private long markBytesRead;
+
+    /**
+     * The current index into the tail buffer.
+     */
+    private int currentIndex;
+
+    /**
+     * A copy of the current index used for mark() operations.
+     */
+    private int markIndex;
+
+    /**
+     * Creates a new instance of {@code TailStream}.
+     *
+     * @param in   the underlying input stream
+     * @param size the size of the tail buffer
+     */
+    public TailStream(InputStream in, int size) {
+<span class="fc" id="L87">        super(in);</span>
+<span class="fc" id="L88">        tailSize = size;</span>
+<span class="fc" id="L89">        tailBuffer = new byte[size];</span>
+<span class="fc" id="L90">    }</span>
+
+    /**
+     * {@inheritDoc} This implementation adds the read byte to the internal tail
+     * buffer.
+     */
+    @Override
+    public int read() throws IOException {
+<span class="fc" id="L98">        int c = super.read();</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (c != -1) {</span>
+<span class="fc" id="L100">            appendByte((byte) c);</span>
+        }
+<span class="fc" id="L102">        return c;</span>
+    }
+
+    /**
+     * {@inheritDoc} This implementation delegates to the underlying stream and
+     * then adds the correct portion of the read buffer to the internal tail
+     * buffer.
+     */
+    @Override
+    public int read(byte[] buf) throws IOException {
+<span class="fc" id="L112">        int read = super.read(buf);</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        if (read &gt; 0) {</span>
+<span class="fc" id="L114">            appendBuf(buf, 0, read);</span>
+        }
+<span class="fc" id="L116">        return read;</span>
+    }
+
+    /**
+     * {@inheritDoc} This implementation delegates to the underlying stream and
+     * then adds the correct portion of the read buffer to the internal tail
+     * buffer.
+     */
+    @Override
+    public int read(byte[] buf, int ofs, int length) throws IOException {
+<span class="fc" id="L126">        int read = super.read(buf, ofs, length);</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (read &gt; 0) {</span>
+<span class="fc" id="L128">            appendBuf(buf, ofs, read);</span>
+        }
+<span class="fc" id="L130">        return read;</span>
+    }
+
+    /**
+     * {@inheritDoc} This implementation delegates to the {@code read()} method
+     * to ensure that the tail buffer is also filled if data is skipped.
+     */
+    @Override
+    public long skip(long n) throws IOException {
+<span class="fc" id="L139">        int bufSize = (int) Math.min(n, SKIP_SIZE);</span>
+<span class="fc" id="L140">        byte[] buf = new byte[bufSize];</span>
+<span class="fc" id="L141">        long bytesSkipped = 0;</span>
+<span class="fc" id="L142">        int bytesRead = 0;</span>
+
+<span class="fc bfc" id="L144" title="All 4 branches covered.">        while (bytesSkipped &lt; n &amp;&amp; bytesRead != -1) {</span>
+<span class="fc" id="L145">            int len = (int) Math.min(bufSize, n - bytesSkipped);</span>
+<span class="fc" id="L146">            bytesRead = read(buf, 0, len);</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            if (bytesRead != -1) {</span>
+<span class="fc" id="L148">                bytesSkipped += bytesRead;</span>
+            }
+<span class="fc" id="L150">        }</span>
+
+<span class="fc bfc" id="L152" title="All 4 branches covered.">        return (bytesRead &lt; 0 &amp;&amp; bytesSkipped == 0) ? -1 : bytesSkipped;</span>
+    }
+
+    /**
+     * {@inheritDoc} This implementation saves the internal state including the
+     * content of the tail buffer so that it can be restored when ''reset()'' is
+     * called later.
+     */
+    @Override
+    public void mark(int limit) {
+<span class="fc" id="L162">        markBuffer = new byte[tailSize];</span>
+<span class="fc" id="L163">        System.arraycopy(tailBuffer, 0, markBuffer, 0, tailSize);</span>
+<span class="fc" id="L164">        markIndex = currentIndex;</span>
+<span class="fc" id="L165">        markBytesRead = bytesRead;</span>
+<span class="fc" id="L166">    }</span>
+
+    /**
+     * {@inheritDoc} This implementation restores this stream's state to the
+     * state when ''mark()'' was called the last time. If ''mark()'' has not
+     * been called before, this method has no effect.
+     */
+    @Override
+    public void reset() {
+<span class="fc bfc" id="L175" title="All 2 branches covered.">        if (markBuffer != null) {</span>
+<span class="fc" id="L176">            System.arraycopy(markBuffer, 0, tailBuffer, 0, tailSize);</span>
+<span class="fc" id="L177">            currentIndex = markIndex;</span>
+<span class="fc" id="L178">            bytesRead = markBytesRead;</span>
+        }
+<span class="fc" id="L180">    }</span>
+
+    /**
+     * Returns an array with the last data read from the underlying stream. If
+     * the underlying stream contained more data than the ''tailSize''
+     * constructor argument, the returned array has a length of ''tailSize''.
+     * Otherwise, its length equals the number of bytes read.
+     *
+     * @return an array with the last data read from the underlying stream
+     */
+    public byte[] getTail() {
+<span class="fc" id="L191">        int size = (int) Math.min(tailSize, bytesRead);</span>
+<span class="fc" id="L192">        byte[] result = new byte[size];</span>
+<span class="fc" id="L193">        System.arraycopy(tailBuffer, currentIndex, result, 0, size - currentIndex);</span>
+<span class="fc" id="L194">        System.arraycopy(tailBuffer, 0, result, size - currentIndex, currentIndex);</span>
+<span class="fc" id="L195">        return result;</span>
+    }
+
+    /**
+     * Adds the given byte to the internal tail buffer.
+     *
+     * @param b the byte to be added
+     */
+    private void appendByte(byte b) {
+<span class="fc" id="L204">        tailBuffer[currentIndex++] = b;</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        if (currentIndex &gt;= tailSize) {</span>
+<span class="fc" id="L206">            currentIndex = 0;</span>
+        }
+<span class="fc" id="L208">        bytesRead++;</span>
+<span class="fc" id="L209">    }</span>
+
+    /**
+     * Adds the content of the given buffer to the internal tail buffer.
+     *
+     * @param buf    the buffer
+     * @param ofs    the start offset in the buffer
+     * @param length the number of bytes to be copied
+     */
+    private void appendBuf(byte[] buf, int ofs, int length) {
+<span class="fc bfc" id="L219" title="All 2 branches covered.">        if (length &gt;= tailSize) {</span>
+<span class="fc" id="L220">            replaceTailBuffer(buf, ofs, length);</span>
+        } else {
+<span class="fc" id="L222">            copyToTailBuffer(buf, ofs, length);</span>
+        }
+
+<span class="fc" id="L225">        bytesRead += length;</span>
+<span class="fc" id="L226">    }</span>
+
+    /**
+     * Replaces the content of the internal tail buffer by the last portion of
+     * the given buffer. This method is called if a buffer was read from the
+     * underlying stream whose length is larger than the tail buffer.
+     *
+     * @param buf    the buffer
+     * @param ofs    the start offset in the buffer
+     * @param length the number of bytes to be copied
+     */
+    private void replaceTailBuffer(byte[] buf, int ofs, int length) {
+<span class="fc" id="L238">        System.arraycopy(buf, ofs + length - tailSize, tailBuffer, 0, tailSize);</span>
+<span class="fc" id="L239">        currentIndex = 0;</span>
+<span class="fc" id="L240">    }</span>
+
+    /**
+     * Copies the given buffer into the internal tail buffer at the current
+     * position. This method is called if a buffer is read from the underlying
+     * stream whose length is smaller than the tail buffer. In this case the
+     * tail buffer is only partly overwritten.
+     *
+     * @param buf    the buffer
+     * @param ofs    the start offset in the buffer
+     * @param length the number of bytes to be copied
+     */
+    private void copyToTailBuffer(byte[] buf, int ofs, int length) {
+<span class="fc" id="L253">        int remaining = tailSize - currentIndex;</span>
+<span class="fc" id="L254">        int size1 = Math.min(remaining, length);</span>
+<span class="fc" id="L255">        System.arraycopy(buf, ofs, tailBuffer, currentIndex, size1);</span>
+<span class="fc" id="L256">        System.arraycopy(buf, ofs + size1, tailBuffer, 0, length - size1);</span>
+<span class="fc" id="L257">        currentIndex = (currentIndex + length) % tailSize;</span>
+<span class="fc" id="L258">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FieldNameMappingFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.filter</a> &gt; <span class="el_source">FieldNameMappingFilter.java</span></div><h1>FieldNameMappingFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.filter;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ConfigDeserializer;
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.metadata.Metadata;
+
+@TikaComponent
+public class FieldNameMappingFilter extends MetadataFilterBase {
+
+    /**
+     * Configuration class for JSON deserialization.
+     */
+<span class="nc" id="L33">    public static class Config {</span>
+<span class="nc" id="L34">        public Map&lt;String, String&gt; mappings = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L35">        public boolean excludeUnmapped = true;</span>
+    }
+
+<span class="nc" id="L38">    Map&lt;String, String&gt; mappings = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="nc" id="L40">    boolean excludeUnmapped = true;</span>
+
+<span class="nc" id="L42">    public FieldNameMappingFilter() {</span>
+<span class="nc" id="L43">    }</span>
+
+    /**
+     * Constructor with explicit Config object.
+     *
+     * @param config the configuration
+     */
+<span class="nc" id="L50">    public FieldNameMappingFilter(Config config) {</span>
+<span class="nc" id="L51">        this.mappings = new LinkedHashMap&lt;&gt;(config.mappings);</span>
+<span class="nc" id="L52">        this.excludeUnmapped = config.excludeUnmapped;</span>
+<span class="nc" id="L53">    }</span>
+
+    /**
+     * Constructor for JSON configuration.
+     * Requires Jackson on the classpath.
+     *
+     * @param jsonConfig JSON configuration
+     */
+    public FieldNameMappingFilter(JsonConfig jsonConfig) {
+<span class="nc" id="L62">        this(ConfigDeserializer.buildConfig(jsonConfig, Config.class));</span>
+<span class="nc" id="L63">    }</span>
+
+    @Override
+    protected void filter(Metadata metadata) {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (excludeUnmapped) {</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            for (String n : metadata.names()) {</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">                if (mappings.containsKey(n)) {</span>
+<span class="nc" id="L70">                    String[] vals = metadata.getValues(n);</span>
+<span class="nc" id="L71">                    metadata.remove(n);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">                    for (String val : vals) {</span>
+                        // target field name is operator-configured; may legitimately be a reserved key
+<span class="nc" id="L74">                        metadata.addTrusted(mappings.get(n), val);</span>
+                    }
+<span class="nc" id="L76">                } else {</span>
+<span class="nc" id="L77">                    metadata.remove(n);</span>
+                }
+            }
+        } else {
+<span class="nc bnc" id="L81" title="All 2 branches missed.">            for (String n : metadata.names()) {</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">                if (mappings.containsKey(n)) {</span>
+<span class="nc" id="L83">                    String[] vals = metadata.getValues(n);</span>
+<span class="nc" id="L84">                    metadata.remove(n);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">                    for (String val : vals) {</span>
+<span class="nc" id="L86">                        metadata.addTrusted(mappings.get(n), val);</span>
+                    }
+                }
+            }
+        }
+<span class="nc" id="L91">    }</span>
+
+    /**
+     * If this is &lt;code&gt;true&lt;/code&gt; (default), this means that only the fields that
+     * have a &quot;from&quot; value in the mapper will be passed through.  Otherwise,
+     * this will pass through all keys/values and mutate the keys
+     * that exist in the mappings.
+     *
+     * @param excludeUnmapped
+     */
+    public void setExcludeUnmapped(boolean excludeUnmapped) {
+<span class="nc" id="L102">        this.excludeUnmapped = excludeUnmapped;</span>
+<span class="nc" id="L103">    }</span>
+
+    public void setMappings(Map&lt;String, String&gt; mappings) {
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        for (Map.Entry&lt;String, String&gt; e : mappings.entrySet()) {</span>
+<span class="nc" id="L107">            this.mappings.put(e.getKey(), e.getValue());</span>
+<span class="nc" id="L108">        }</span>
+<span class="nc" id="L109">    }</span>
+
+    public Map&lt;String, String&gt; getMappins() {
+<span class="nc" id="L112">        return mappings;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L117">        return &quot;FieldNameMappingFilter{&quot; + &quot;mappings=&quot; + mappings + &quot;, excludeUnmapped=&quot; + excludeUnmapped + '}';</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

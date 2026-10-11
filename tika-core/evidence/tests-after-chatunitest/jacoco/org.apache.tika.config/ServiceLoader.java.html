@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServiceLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">ServiceLoader.java</span></div><h1>ServiceLoader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+import aQute.bnd.annotation.spi.ServiceConsumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.tika.detect.Detector;
+import org.apache.tika.detect.EncodingDetector;
+import org.apache.tika.exception.TikaConfigException;
+import org.apache.tika.language.detect.LanguageDetector;
+import org.apache.tika.metadata.filter.MetadataFilter;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.utils.ServiceLoaderUtils;
+
+/**
+ * Internal utility class that Tika uses to look up service providers.
+ * Supports both static service loading using the {@link ServiceLoader} mechanism (and via
+ * &lt;a href=&quot;https://docs.osgi.org/specification/osgi.cmpn/7.0.0/service.loader.html&quot;&gt;OSGi Service Loader Mediator&lt;/a&gt;)
+ * as well as dynamic loading via OSGi service tracking (from the {@link TikaActivator} class).
+ *
+ * @since Apache Tika 0.9
+ */
+@ServiceConsumer(Parser.class)
+@ServiceConsumer(Detector.class)
+@ServiceConsumer(EncodingDetector.class)
+@ServiceConsumer(LanguageDetector.class)
+@ServiceConsumer(MetadataFilter.class)
+public class ServiceLoader {
+
+<span class="fc" id="L64">    private static final Logger LOG = LoggerFactory.getLogger(ServiceLoader.class);</span>
+
+    /**
+     * The dynamic set of services available in an OSGi environment.
+     * Managed by the {@link TikaActivator} class and used as an additional
+     * source of service instances in the {@link #loadServiceProviders(Class)}
+     * method.
+     */
+<span class="fc" id="L72">    private static final Map&lt;Object, RankedService&gt; SERVICES = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L73">    private static final Pattern COMMENT = Pattern.compile(&quot;#.*&quot;);</span>
+<span class="fc" id="L74">    private static final Pattern WHITESPACE = Pattern.compile(&quot;\\s+&quot;);</span>
+    /**
+     * The default context class loader to use for all threads, or
+     * &lt;code&gt;null&lt;/code&gt; to automatically select the context class loader.
+     */
+<span class="fc" id="L79">    private static volatile ClassLoader CONTEXT_CLASS_LOADER = null;</span>
+    private final ClassLoader loader;
+    private final boolean dynamic;
+
+<span class="fc" id="L83">    public ServiceLoader(ClassLoader loader, boolean dynamic) {</span>
+<span class="fc" id="L84">        this.loader = loader;</span>
+<span class="fc" id="L85">        this.dynamic = dynamic;</span>
+
+<span class="fc" id="L87">    }</span>
+
+    public ServiceLoader(ClassLoader loader) {
+<span class="nc" id="L90">        this(loader, true);</span>
+<span class="nc" id="L91">    }</span>
+
+    public ServiceLoader() {
+<span class="fc" id="L94">        this(getContextClassLoader(), true);</span>
+<span class="fc" id="L95">    }</span>
+
+    /**
+     * Returns the context class loader of the current thread. If such
+     * a class loader is not available, then the loader of this class or
+     * finally the system class loader is returned.
+     *
+     * @return context class loader, or &lt;code&gt;null&lt;/code&gt; if no loader
+     * is available
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-441&quot;&gt;TIKA-441&lt;/a&gt;
+     */
+    static ClassLoader getContextClassLoader() {
+<span class="fc" id="L107">        ClassLoader loader = CONTEXT_CLASS_LOADER;</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (loader == null) {</span>
+<span class="fc" id="L109">            loader = ServiceLoader.class.getClassLoader();</span>
+        }
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        if (loader == null) {</span>
+<span class="nc" id="L112">            loader = ClassLoader.getSystemClassLoader();</span>
+        }
+<span class="fc" id="L114">        return loader;</span>
+    }
+
+    /**
+     * Sets the context class loader to use for all threads that access
+     * this class. Used for example in an OSGi environment to avoid problems
+     * with the default context class loader.
+     *
+     * @param loader default context class loader,
+     *               or &lt;code&gt;null&lt;/code&gt; to automatically pick the loader
+     */
+    public static void setContextClassLoader(ClassLoader loader) {
+<span class="fc" id="L126">        CONTEXT_CLASS_LOADER = loader;</span>
+<span class="fc" id="L127">    }</span>
+
+    static void addService(Object reference, Object service, int rank) {
+<span class="nc" id="L130">        synchronized (SERVICES) {</span>
+<span class="nc" id="L131">            SERVICES.put(reference, new RankedService(service, rank));</span>
+<span class="nc" id="L132">        }</span>
+<span class="nc" id="L133">    }</span>
+
+    static Object removeService(Object reference) {
+<span class="nc" id="L136">        synchronized (SERVICES) {</span>
+<span class="nc" id="L137">            return SERVICES.remove(reference);</span>
+        }
+    }
+
+    /**
+     * Returns if the service loader is static or dynamic
+     *
+     * @return dynamic or static loading
+     * @since Apache Tika 1.10
+     */
+    public boolean isDynamic() {
+<span class="fc" id="L148">        return dynamic;</span>
+    }
+
+    /**
+     * Returns an input stream for reading the specified resource from the
+     * configured class loader.
+     *
+     * @param name resource name
+     * @return input stream, or &lt;code&gt;null&lt;/code&gt; if the resource was not found
+     * @see ClassLoader#getResourceAsStream(String)
+     * @since Apache Tika 1.1
+     */
+    public InputStream getResourceAsStream(String name) {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (loader != null) {</span>
+<span class="nc" id="L162">            return loader.getResourceAsStream(name);</span>
+        } else {
+<span class="nc" id="L164">            return null;</span>
+        }
+    }
+
+    /**
+     * @return ClassLoader used by this ServiceLoader
+     * @see #getContextClassLoader() for the context's ClassLoader
+     * @since Apache Tika 1.15.1
+     */
+    public ClassLoader getLoader() {
+<span class="nc" id="L174">        return loader;</span>
+    }
+
+    /**
+     * Loads and returns the named service class that's expected to implement
+     * the given interface.
+     * &lt;p&gt;
+     *
+     * @param iface service interface
+     * @param name  service class name
+     * @return service class
+     * @throws ClassNotFoundException if the service class can not be found
+     *                                or does not implement the given interface
+     * @see Class#forName(String, boolean, ClassLoader)
+     * @since Apache Tika 1.1
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; Class&lt;? extends T&gt; getServiceClass(Class&lt;T&gt; iface, String name)
+            throws ClassNotFoundException {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (loader == null) {</span>
+<span class="nc" id="L194">            throw new ClassNotFoundException(&quot;Service class &quot; + name + &quot; is not available&quot;);</span>
+        }
+<span class="nc" id="L196">        Class&lt;?&gt; klass = Class.forName(name, true, loader);</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        if (klass.isInterface()) {</span>
+<span class="nc" id="L198">            throw new ClassNotFoundException(&quot;Service class &quot; + name + &quot; is an interface&quot;);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        } else if (!iface.isAssignableFrom(klass)) {</span>
+<span class="nc" id="L200">            throw new ClassNotFoundException(</span>
+<span class="nc" id="L201">                    &quot;Service class &quot; + name + &quot; does not implement &quot; + iface.getName());</span>
+        } else {
+<span class="nc" id="L203">            return (Class&lt;? extends T&gt;) klass;</span>
+        }
+    }
+
+    /**
+     * Returns all the available service resources matching the
+     * given pattern, such as all instances of tika-mimetypes.xml
+     * on the classpath, or all org.apache.tika.parser.Parser
+     * service files.
+     */
+    public Enumeration&lt;URL&gt; findServiceResources(String filePattern) {
+        try {
+<span class="fc" id="L215">            return loader.getResources(filePattern);</span>
+<span class="nc" id="L216">        } catch (IOException ignore) {</span>
+            // We couldn't get the list of service resource files
+<span class="nc" id="L218">            List&lt;URL&gt; empty = Collections.emptyList();</span>
+<span class="nc" id="L219">            return Collections.enumeration(empty);</span>
+        }
+    }
+
+    /**
+     * Returns all the available service providers of the given type.
+     *
+     * As of versions after 2.4.1, this removes duplicate classes
+     *
+     * @param iface service provider interface
+     * @return available service providers
+     */
+    public &lt;T&gt; List&lt;T&gt; loadServiceProviders(Class&lt;T&gt; iface) {
+<span class="fc" id="L232">        List&lt;T&gt; tmp = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L233">        tmp.addAll(loadDynamicServiceProviders(iface));</span>
+<span class="fc" id="L234">        tmp.addAll(loadStaticServiceProviders(iface));</span>
+
+<span class="fc" id="L236">        List&lt;T&gt; providers = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L237">        Set&lt;String&gt; seen = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">        for (T provider : tmp) {</span>
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">            if (! seen.contains(provider.getClass().getCanonicalName())) {</span>
+<span class="fc" id="L240">                providers.add(provider);</span>
+<span class="fc" id="L241">                seen.add(provider.getClass().getCanonicalName());</span>
+            }
+<span class="fc" id="L243">        }</span>
+<span class="fc" id="L244">        return providers;</span>
+    }
+
+    /**
+     * Returns the available dynamic service providers of the given type.
+     * The returned list is newly allocated and may be freely modified
+     * by the caller.
+     *
+     * @param iface service provider interface
+     * @return dynamic service providers
+     * @since Apache Tika 1.2
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; List&lt;T&gt; loadDynamicServiceProviders(Class&lt;T&gt; iface) {
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">        if (dynamic) {</span>
+<span class="fc" id="L259">            synchronized (SERVICES) {</span>
+<span class="fc" id="L260">                List&lt;RankedService&gt; list = new ArrayList&lt;&gt;(SERVICES.values());</span>
+<span class="fc" id="L261">                Collections.sort(list);</span>
+
+<span class="fc" id="L263">                List&lt;T&gt; providers = new ArrayList&lt;&gt;(list.size());</span>
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">                for (RankedService service : list) {</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                    if (service.isInstanceOf(iface)) {</span>
+<span class="nc" id="L266">                        providers.add((T) service.service);</span>
+                    }
+<span class="nc" id="L268">                }</span>
+<span class="fc" id="L269">                return providers;</span>
+            }
+        } else {
+<span class="nc" id="L272">            return Collections.EMPTY_LIST;</span>
+        }
+    }
+
+    /**
+     * Returns the defined static service providers of the given type, without
+     * attempting to load them.
+     * The providers are loaded using the service provider mechanism using
+     * the configured class loader (if any).
+     *
+     * @param iface service provider interface
+     * @return static list of uninitialised service providers
+     * @since Apache Tika 1.6
+     */
+    protected &lt;T&gt; List&lt;String&gt; identifyStaticServiceProviders(Class&lt;T&gt; iface) {
+<span class="fc" id="L287">        List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+
+<span class="pc bpc" id="L289" title="1 of 2 branches missed.">        if (loader != null) {</span>
+<span class="fc" id="L290">            String serviceName = iface.getName();</span>
+<span class="fc" id="L291">            Enumeration&lt;URL&gt; resources = findServiceResources(&quot;META-INF/services/&quot; + serviceName);</span>
+<span class="fc bfc" id="L292" title="All 2 branches covered.">            for (URL resource : Collections.list(resources)) {</span>
+                try {
+<span class="fc" id="L294">                    collectServiceClassNames(resource, names);</span>
+<span class="nc" id="L295">                } catch (IOException e) {</span>
+                    //TODO -- swallow log? or don't catch?
+<span class="fc" id="L297">                }</span>
+<span class="fc" id="L298">            }</span>
+        }
+
+<span class="fc" id="L301">        return names;</span>
+    }
+
+    public &lt;T&gt; List&lt;T&gt; loadStaticServiceProviders(Class&lt;T&gt; iface) {
+<span class="fc" id="L305">        return loadStaticServiceProviders(iface, Collections.EMPTY_SET);</span>
+    }
+
+    /**
+     * Returns the available static service providers of the given type.
+     * The providers are loaded using the service provider mechanism using
+     * the configured class loader (if any). The returned list is newly
+     * allocated and may be freely modified by the caller.
+     *
+     * @param iface    service provider interface
+     * @param excludes -- do not load these classes
+     * @return static service providers
+     * @since Apache Tika 1.2
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; List&lt;T&gt; loadStaticServiceProviders(Class&lt;T&gt; iface,
+                                                  Collection&lt;Class&lt;? extends T&gt;&gt; excludes) {
+<span class="fc" id="L322">        List&lt;T&gt; providers = new ArrayList&lt;&gt;();</span>
+
+<span class="pc bpc" id="L324" title="1 of 2 branches missed.">        if (loader != null) {</span>
+<span class="fc" id="L325">            List&lt;String&gt; names = identifyStaticServiceProviders(iface);</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">            for (String name : names) {</span>
+                try {
+<span class="fc" id="L328">                    Class&lt;?&gt; klass = loader.loadClass(name);</span>
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">                    if (iface.isAssignableFrom(klass)) {</span>
+<span class="fc" id="L330">                        boolean shouldExclude = false;</span>
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">                        for (Class&lt;? extends T&gt; ex : excludes) {</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">                            if (ex.isAssignableFrom(klass)) {</span>
+<span class="nc" id="L333">                                shouldExclude = true;</span>
+<span class="nc" id="L334">                                break;</span>
+                            }
+<span class="nc" id="L336">                        }</span>
+<span class="pc bpc" id="L337" title="1 of 2 branches missed.">                        if (!shouldExclude) {</span>
+<span class="fc" id="L338">                            T instance = ServiceLoaderUtils.newInstance(klass, this);</span>
+<span class="fc" id="L339">                            providers.add(instance);</span>
+                        }
+<span class="fc" id="L341">                    } else {</span>
+<span class="nc" id="L342">                        throw new TikaConfigException(</span>
+                                &quot;Class &quot; + name + &quot; is not of type: &quot; + iface);
+                    }
+<span class="nc" id="L345">                } catch (Throwable t) {</span>
+                    // Swallowed so one bad provider cannot break loading of the rest,
+                    // but logged: an SPI class that silently fails to load looks exactly
+                    // like one that was never registered.
+<span class="nc" id="L349">                    LOG.warn(&quot;failed to load service provider {} for {}&quot;, name, iface, t);</span>
+<span class="fc" id="L350">                }</span>
+<span class="fc" id="L351">            }</span>
+        }
+<span class="fc" id="L353">        return providers;</span>
+    }
+
+    private void collectServiceClassNames(URL resource, Collection&lt;String&gt; names)
+            throws IOException {
+<span class="fc" id="L358">        try (InputStream stream = resource.openStream();</span>
+<span class="fc" id="L359">                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, UTF_8))) {</span>
+<span class="fc" id="L360">            String line = reader.readLine();</span>
+<span class="fc bfc" id="L361" title="All 2 branches covered.">            while (line != null) {</span>
+<span class="fc" id="L362">                line = COMMENT.matcher(line).replaceFirst(&quot;&quot;);</span>
+<span class="fc" id="L363">                line = WHITESPACE.matcher(line).replaceAll(&quot;&quot;);</span>
+<span class="fc bfc" id="L364" title="All 2 branches covered.">                if (line.length() &gt; 0) {</span>
+<span class="fc" id="L365">                    names.add(line);</span>
+                }
+<span class="fc" id="L367">                line = reader.readLine();</span>
+            }
+        }
+<span class="fc" id="L370">    }</span>
+
+    private static class RankedService implements Comparable&lt;RankedService&gt; {
+        private final Object service;
+        private final int rank;
+
+<span class="nc" id="L376">        public RankedService(Object service, int rank) {</span>
+<span class="nc" id="L377">            this.service = service;</span>
+<span class="nc" id="L378">            this.rank = rank;</span>
+<span class="nc" id="L379">        }</span>
+
+        public boolean isInstanceOf(Class&lt;?&gt; iface) {
+<span class="nc" id="L382">            return iface.isAssignableFrom(service.getClass());</span>
+        }
+
+        public int compareTo(RankedService that) {
+<span class="nc" id="L386">            return that.rank - rank; // highest number first</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

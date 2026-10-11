@@ -1,0 +1,447 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StandardMetadataLimiter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.writefilter</a> &gt; <span class="el_source">StandardMetadataLimiter.java</span></div><h1>StandardMetadataLimiter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.writefilter;
+
+import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.tika.metadata.AccessPermissions;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.utils.StringUtils;
+
+/**
+ * Standard implementation of {@link MetadataWriteLimiter} that limits the amount of metadata
+ * a parser can add based on {@link #maxTotalEstimatedSize}, {@link #maxFieldSize},
+ * {@link #maxValuesPerField}, and {@link #maxKeySize}. This can also be used to limit which
+ * fields are stored in the metadata object at write-time with {@link #includeFields}.
+ *
+ * &lt;p&gt;All sizes are measured in UTF-16 bytes. The size is estimated as a rough order of magnitude
+ * of what is required to store the string in memory in Java. We recognize that Java uses more
+ * bytes to store length, offset etc. for strings, but the extra overhead varies by Java version
+ * and implementation, and we just need a basic estimate. We also recognize actual memory usage
+ * is affected by interning strings, etc.
+ * Please forgive us ... or consider writing your own limiter. :)
+ *
+ * &lt;p&gt;&lt;b&gt;NOTE:&lt;/b&gt; Fields in {@link #ALWAYS_SET_FIELDS} are always set no matter the current
+ * state of {@link #maxTotalEstimatedSize}. Except for {@link TikaCoreProperties#TIKA_CONTENT},
+ * they are truncated at {@link #maxFieldSize}, and their sizes contribute to the
+ * {@link #maxTotalEstimatedSize}.
+ *
+ * &lt;p&gt;&lt;b&gt;NOTE:&lt;/b&gt; Fields in {@link #ALWAYS_ADD_FIELDS} are always added no matter the current
+ * state of {@link #maxTotalEstimatedSize}. Except for {@link TikaCoreProperties#TIKA_CONTENT},
+ * each addition is truncated at {@link #maxFieldSize}, and their sizes contribute to the
+ * {@link #maxTotalEstimatedSize}.
+ *
+ * &lt;p&gt;This class uses {@link #minimumMaxFieldSizeInAlwaysFields} to protect the
+ * {@link #ALWAYS_ADD_FIELDS} and {@link #ALWAYS_SET_FIELDS}. If we didn't have this and a user
+ * sets the {@link #maxFieldSize} to, say, 10 bytes, the internal parser behavior would be broken
+ * because parsers rely on {@link Metadata#CONTENT_TYPE} to determine which parser to call.
+ *
+ * &lt;p&gt;&lt;b&gt;NOTE:&lt;/b&gt; as with {@link Metadata}, this object is not thread safe.
+ *
+ * @since Apache Tika 4.0 (renamed from StandardWriteFilter)
+ */
+public class StandardMetadataLimiter implements MetadataWriteLimiter, Serializable {
+
+<span class="nc" id="L69">    public static final Set&lt;String&gt; ALWAYS_SET_FIELDS = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L70">    public static final Set&lt;String&gt; ALWAYS_ADD_FIELDS = new HashSet&lt;&gt;();</span>
+
+    static {
+<span class="nc" id="L73">        ALWAYS_SET_FIELDS.add(Metadata.CONTENT_LENGTH.getName());</span>
+<span class="nc" id="L74">        ALWAYS_SET_FIELDS.add(Metadata.CONTENT_TYPE.getName());</span>
+<span class="nc" id="L75">        ALWAYS_SET_FIELDS.add(Metadata.CONTENT_ENCODING.getName());</span>
+<span class="nc" id="L76">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.CONTENT_TYPE_USER_OVERRIDE.getName());</span>
+<span class="nc" id="L77">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.CONTENT_TYPE_PARSER_OVERRIDE.getName());</span>
+<span class="nc" id="L78">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.CONTENT_TYPE_HINT.getName());</span>
+<span class="nc" id="L79">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.TIKA_CONTENT.getName());</span>
+<span class="nc" id="L80">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.RESOURCE_NAME_KEY.getName());</span>
+<span class="nc" id="L81">        ALWAYS_SET_FIELDS.add(AccessPermissions.EXTRACT_CONTENT.getName());</span>
+<span class="nc" id="L82">        ALWAYS_SET_FIELDS.add(AccessPermissions.EXTRACT_FOR_ACCESSIBILITY.getName());</span>
+<span class="nc" id="L83">        ALWAYS_SET_FIELDS.add(Metadata.CONTENT_DISPOSITION.getName());</span>
+<span class="nc" id="L84">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.CONTAINER_EXCEPTION.getName());</span>
+<span class="nc" id="L85">        ALWAYS_SET_FIELDS.add(TikaCoreProperties.EMBEDDED_EXCEPTION.getName());</span>
+        //Metadata.CONTENT_LOCATION? used by the html parser
+    }
+
+    static {
+<span class="nc" id="L90">        ALWAYS_ADD_FIELDS.add(TikaCoreProperties.TIKA_PARSED_BY.getName());</span>
+    }
+
+<span class="nc" id="L93">    private static final String METADATA_TRUNCATED_KEY =</span>
+<span class="nc" id="L94">            TikaCoreProperties.TRUNCATED_METADATA.getName();</span>
+<span class="nc" id="L95">    private static final String TIKA_CONTENT_KEY = TikaCoreProperties.TIKA_CONTENT.getName();</span>
+<span class="nc" id="L96">    private static final String[] TRUE = new String[]{&quot;true&quot;};</span>
+
+    //allow at least these many bytes in the &quot;always&quot; fields.
+    //As of 2022-03, the longest mime is 146.  Doubling that gives
+    //us some leeway.  If a mime is truncated, bad things will happen.
+<span class="nc" id="L101">    private final int minimumMaxFieldSizeInAlwaysFields = 300;</span>
+
+
+    private final boolean includeEmpty;
+    private final int maxTotalEstimatedSize;
+    private final int maxValuesPerField;
+    private final int maxFieldSize;
+    private final int maxKeySize;
+
+
+    private final Set&lt;String&gt; includeFields;
+    private final Set&lt;String&gt; excludeFields;
+
+<span class="nc" id="L114">    private Map&lt;String, Integer&gt; fieldSizes = new HashMap&lt;&gt;();</span>
+
+    //tracks the estimated size in utf16 bytes. Can be &gt; maxEstimated size
+<span class="nc" id="L117">    int estimatedSize = 0;</span>
+
+    /**
+     * @param maxKeySize maximum key size in UTF-16 bytes-- keys will be truncated to this
+     *                   length; if less than 0, keys will not be truncated
+     * @param maxEstimatedSize maximum total estimated size in UTF-16 bytes
+     * @param includeFields if null or empty, all fields are included; otherwise, which fields
+     *                      to add to the metadata object.
+     * @param excludeFields these fields will not be included (unless they're in {@link StandardMetadataLimiter#ALWAYS_SET_FIELDS})
+     * @param includeEmpty if &lt;code&gt;true&lt;/code&gt;, this will set or add an empty value to the
+     *                     metadata object.
+     */
+    protected StandardMetadataLimiter(int maxKeySize, int maxFieldSize, int maxEstimatedSize,
+                               int maxValuesPerField,
+                               Set&lt;String&gt; includeFields,
+                               Set&lt;String&gt; excludeFields,
+<span class="nc" id="L133">                               boolean includeEmpty) {</span>
+
+<span class="nc" id="L135">        this.maxKeySize = maxKeySize;</span>
+<span class="nc" id="L136">        this.maxFieldSize = maxFieldSize;</span>
+<span class="nc" id="L137">        this.maxTotalEstimatedSize = maxEstimatedSize;</span>
+<span class="nc" id="L138">        this.maxValuesPerField = maxValuesPerField;</span>
+        // Defensive copies to prevent external modification
+<span class="nc bnc" id="L140" title="All 2 branches missed.">        this.includeFields = includeFields != null ? new HashSet&lt;&gt;(includeFields) : new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        this.excludeFields = excludeFields != null ? new HashSet&lt;&gt;(excludeFields) : new HashSet&lt;&gt;();</span>
+<span class="nc" id="L142">        this.includeEmpty = includeEmpty;</span>
+<span class="nc" id="L143">    }</span>
+
+    @Override
+    public void set(String field, String value, Map&lt;String, String[]&gt; data) {
+        //legacy behavior is that setting(null) removes the key
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L149">            data.remove(field);</span>
+<span class="nc" id="L150">            return;</span>
+        }
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (! include(field, value)) {</span>
+<span class="nc" id="L153">            return;</span>
+        }
+<span class="nc bnc" id="L155" title="All 4 branches missed.">        if (ALWAYS_SET_FIELDS.contains(field) || ALWAYS_ADD_FIELDS.contains(field)) {</span>
+<span class="nc" id="L156">            setAlwaysInclude(field, value, data);</span>
+<span class="nc" id="L157">            return;</span>
+        }
+
+<span class="nc" id="L160">        StringSizePair filterKey = filterKey(field, value, data);</span>
+<span class="nc" id="L161">        setFilterKey(filterKey, value, data);</span>
+<span class="nc" id="L162">    }</span>
+
+    private void setAlwaysInclude(String field, String value, Map&lt;String, String[]&gt; data) {
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        if (TIKA_CONTENT_KEY.equals(field)) {</span>
+<span class="nc" id="L166">            data.put(field, new String[]{ value });</span>
+<span class="nc" id="L167">            return;</span>
+        }
+<span class="nc" id="L169">        int sizeToAdd = estimateSize(value);</span>
+        //if the maxFieldSize is &lt; minimumMaxFieldSizeInAlwaysFields, use the minmax
+        //we do not want to truncate a mime!
+<span class="nc" id="L172">        int alwaysMaxFieldLength = Math.max(minimumMaxFieldSizeInAlwaysFields, maxFieldSize);</span>
+<span class="nc" id="L173">        String toSet = value;</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (sizeToAdd &gt; alwaysMaxFieldLength) {</span>
+<span class="nc" id="L175">            toSet = truncate(value, alwaysMaxFieldLength, data);</span>
+<span class="nc" id="L176">            sizeToAdd = estimateSize(toSet);</span>
+        }
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        int totalAdded = data.containsKey(field) ? 0 : estimateSize(field);</span>
+<span class="nc" id="L179">        totalAdded += sizeToAdd;</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        if (data.containsKey(field)) {</span>
+<span class="nc" id="L181">            String[] vals = data.get(field);</span>
+            //this should only ever be single valued!!!
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if (vals.length &gt; 0) {</span>
+<span class="nc" id="L184">                totalAdded -= estimateSize(vals[0]);</span>
+            }
+        }
+<span class="nc" id="L187">        estimatedSize += totalAdded;</span>
+<span class="nc" id="L188">        data.put(field, new String[]{toSet});</span>
+<span class="nc" id="L189">    }</span>
+
+    private void addAlwaysInclude(String field, String value, Map&lt;String, String[]&gt; data) {
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (TIKA_CONTENT_KEY.equals(field)) {</span>
+<span class="nc" id="L193">            data.put(field, new String[]{ value });</span>
+<span class="nc" id="L194">            return;</span>
+        }
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        if (! data.containsKey(field)) {</span>
+<span class="nc" id="L197">            setAlwaysInclude(field, value, data);</span>
+<span class="nc" id="L198">            return;</span>
+        }
+        //TODO: should we limit the number of field values?
+
+<span class="nc" id="L202">        int toAddSize = estimateSize(value);</span>
+        //if the maxFieldSize is &lt; minimumMaxFieldSizeInAlwaysFields, use the minmax
+        //we do not want to truncate a mime!
+<span class="nc" id="L205">        int alwaysMaxFieldLength = Math.max(minimumMaxFieldSizeInAlwaysFields, maxFieldSize);</span>
+<span class="nc" id="L206">        String toAddValue = value;</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        if (toAddSize &gt; alwaysMaxFieldLength) {</span>
+<span class="nc" id="L208">            toAddValue = truncate(value, alwaysMaxFieldLength, data);</span>
+<span class="nc" id="L209">            toAddSize = estimateSize(toAddValue);</span>
+        }
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        int totalAdded = data.containsKey(field) ? 0 : estimateSize(field);</span>
+<span class="nc" id="L212">        totalAdded += toAddSize;</span>
+<span class="nc" id="L213">        estimatedSize += totalAdded;</span>
+
+<span class="nc" id="L215">        data.put(field, appendValue(data.get(field), toAddValue));</span>
+<span class="nc" id="L216">    }</span>
+
+
+    //calculate the max field length allowed if we are
+    //setting a value
+    private int maxAllowedToSet(StringSizePair filterKey) {
+<span class="nc" id="L222">        Integer existingSizeInt = fieldSizes.get(filterKey.string);</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        int existingSize = existingSizeInt == null ? 0 : existingSizeInt;</span>
+
+        //this is how much is allowed by the overall total limit
+<span class="nc" id="L226">        int allowedByMaxTotal = maxTotalEstimatedSize - estimatedSize;</span>
+
+        //if we're overwriting a value, that value's data size is now available
+<span class="nc" id="L229">        allowedByMaxTotal += existingSize;</span>
+
+        //if we're adding a key, we need to subtract that value
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        allowedByMaxTotal -= existingSizeInt == null ? filterKey.size : 0;</span>
+
+<span class="nc" id="L234">        return Math.min(maxFieldSize, allowedByMaxTotal);</span>
+    }
+
+
+    @Override
+    public void add(String field, String value, Map&lt;String, String[]&gt; data) {
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (! include(field, value)) {</span>
+<span class="nc" id="L241">            return;</span>
+        }
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        if (ALWAYS_SET_FIELDS.contains(field)) {</span>
+<span class="nc" id="L244">            setAlwaysInclude(field, value, data);</span>
+<span class="nc" id="L245">            return;</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">        } else if (ALWAYS_ADD_FIELDS.contains(field)) {</span>
+<span class="nc" id="L247">            addAlwaysInclude(field, value, data);</span>
+<span class="nc" id="L248">            return;</span>
+        }
+<span class="nc" id="L250">        StringSizePair filterKey = filterKey(field, value, data);</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        if (! data.containsKey(filterKey.string)) {</span>
+<span class="nc" id="L252">            setFilterKey(filterKey, value, data);</span>
+<span class="nc" id="L253">            return;</span>
+        }
+
+<span class="nc" id="L256">        String[] vals = data.get(filterKey.string);</span>
+
+<span class="nc bnc" id="L258" title="All 4 branches missed.">        if (vals != null &amp;&amp; vals.length &gt;= maxValuesPerField) {</span>
+<span class="nc" id="L259">            setTruncated(data);</span>
+<span class="nc" id="L260">            return;</span>
+        }
+
+<span class="nc" id="L263">        Integer fieldSizeInteger = fieldSizes.get(filterKey.string);</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        int fieldSize = fieldSizeInteger == null ? 0 : fieldSizeInteger;</span>
+<span class="nc" id="L265">        int maxAllowed = maxAllowedToAdd(filterKey);</span>
+        // if == 1, then only one byte of two would be allowed, which lands us in &quot;&quot;, so needs to be &lt;=
+<span class="nc bnc" id="L267" title="All 2 branches missed.">        if (maxAllowed &lt;= 1) {</span>
+<span class="nc" id="L268">            setTruncated(data);</span>
+<span class="nc" id="L269">            return;</span>
+        }
+<span class="nc" id="L271">        int valueLength = estimateSize(value);</span>
+<span class="nc" id="L272">        String toAdd = value;</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">        if (valueLength &gt; maxAllowed) {</span>
+<span class="nc" id="L274">            toAdd = truncate(value, maxAllowed, data);</span>
+<span class="nc" id="L275">            valueLength = estimateSize(toAdd);</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            if (valueLength == 0) {</span>
+<span class="nc" id="L277">                return;</span>
+            }
+        }
+
+<span class="nc" id="L281">        int addedOverall = valueLength;</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">        if (fieldSizeInteger == null) {</span>
+            //if there was no value before, we're adding
+            //a key.  If there was a value before, do not
+            //add the key length.
+<span class="nc" id="L286">            addedOverall += filterKey.size;</span>
+        }
+<span class="nc" id="L288">        estimatedSize += addedOverall;</span>
+
+<span class="nc" id="L290">        fieldSizes.put(filterKey.string, valueLength + fieldSize);</span>
+
+<span class="nc" id="L292">        data.put(filterKey.string, appendValue(data.get(filterKey.string), toAdd ));</span>
+<span class="nc" id="L293">    }</span>
+
+    private String[] appendValue(String[] values, final String value) {
+<span class="nc bnc" id="L296" title="All 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L297">            return values;</span>
+        }
+<span class="nc" id="L299">        String[] newValues = new String[values.length + 1];</span>
+<span class="nc" id="L300">        System.arraycopy(values, 0, newValues, 0, values.length);</span>
+<span class="nc" id="L301">        newValues[newValues.length - 1] = value;</span>
+<span class="nc" id="L302">        return newValues;</span>
+    }
+
+    //calculate the max field length allowed if we are
+    //adding a value
+    private int maxAllowedToAdd(StringSizePair filterKey) {
+<span class="nc" id="L308">        Integer existingSizeInt = fieldSizes.get(filterKey.string);</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">        int existingSize = existingSizeInt == null ? 0 : existingSizeInt;</span>
+        //how much can we add to this field
+<span class="nc" id="L311">        int allowedByMaxField = maxFieldSize - existingSize;</span>
+
+        //this is how much is allowed by the overall total limit
+<span class="nc" id="L314">        int allowedByMaxTotal = maxTotalEstimatedSize - estimatedSize - 1;</span>
+
+        //if we're adding a new key, we need to subtract that value
+<span class="nc bnc" id="L317" title="All 2 branches missed.">        allowedByMaxTotal -= existingSizeInt == null ? filterKey.size : 0;</span>
+
+<span class="nc" id="L319">        return Math.min(allowedByMaxField, allowedByMaxTotal);</span>
+    }
+
+    private void setFilterKey(StringSizePair filterKey, String value,
+                              Map&lt;String, String[]&gt; data) {
+        //if you can't even add the key, give up now
+<span class="nc bnc" id="L325" title="All 4 branches missed.">        if (! data.containsKey(filterKey.string) &amp;&amp;</span>
+                (filterKey.size + estimatedSize &gt; maxTotalEstimatedSize)) {
+<span class="nc" id="L327">            setTruncated(data);</span>
+<span class="nc" id="L328">            return;</span>
+        }
+
+<span class="nc" id="L331">        Integer fieldSizeInteger = fieldSizes.get(filterKey.string);</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">        int fieldSize = fieldSizeInteger == null ? 0 : fieldSizeInteger;</span>
+<span class="nc" id="L333">        int maxAllowed = maxAllowedToSet(filterKey);</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">        if (maxAllowed &lt;= 0) {</span>
+<span class="nc" id="L335">            setTruncated(data);</span>
+<span class="nc" id="L336">            return;</span>
+        }
+<span class="nc" id="L338">        int valueLength = estimateSize(value);</span>
+<span class="nc" id="L339">        String toSet = value;</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">        if (valueLength &gt; maxAllowed) {</span>
+<span class="nc" id="L341">            toSet = truncate(value, maxAllowed, data);</span>
+<span class="nc" id="L342">            valueLength = estimateSize(toSet);</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">            if (valueLength == 0) {</span>
+<span class="nc" id="L344">                return;</span>
+            }
+        }
+
+<span class="nc" id="L348">        int addedOverall = 0;</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">        if (fieldSizeInteger == null) {</span>
+            //if there was no value before, we're adding
+            //a key.  If there was a value before, do not
+            //add the key length.
+<span class="nc" id="L353">            addedOverall += filterKey.size;</span>
+        }
+<span class="nc" id="L355">        addedOverall += valueLength - fieldSize;</span>
+<span class="nc" id="L356">        estimatedSize += addedOverall;</span>
+
+<span class="nc" id="L358">        fieldSizes.put(filterKey.string, valueLength);</span>
+
+<span class="nc" id="L360">        data.put(filterKey.string, new String[]{ toSet });</span>
+
+<span class="nc" id="L362">    }</span>
+
+    private void setTruncated(Map&lt;String, String[]&gt; data) {
+<span class="nc" id="L365">        data.put(METADATA_TRUNCATED_KEY, TRUE);</span>
+<span class="nc" id="L366">    }</span>
+
+    private StringSizePair filterKey(String field, String value, Map&lt;String, String[]&gt; data) {
+<span class="nc" id="L369">        int size = estimateSize(field);</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">        if (size &lt;= maxKeySize) {</span>
+<span class="nc" id="L371">            return new StringSizePair(field, size, false);</span>
+        }
+
+<span class="nc" id="L374">        String toWrite = truncate(field, maxKeySize, data);</span>
+<span class="nc" id="L375">        return new StringSizePair(toWrite,</span>
+<span class="nc" id="L376">                estimateSize(toWrite),</span>
+                true);
+    }
+
+    private String truncate(String value, int length, Map&lt;String, String[]&gt; data) {
+<span class="nc" id="L381">        setTruncated(data);</span>
+
+        //correctly handle multibyte characters
+<span class="nc" id="L384">        byte[] bytes = value.getBytes(StandardCharsets.UTF_16BE);</span>
+<span class="nc" id="L385">        ByteBuffer bb = ByteBuffer.wrap(bytes, 0, length);</span>
+<span class="nc" id="L386">        CharBuffer cb = CharBuffer.allocate(length);</span>
+<span class="nc" id="L387">        CharsetDecoder decoder = StandardCharsets.UTF_16BE.newDecoder();</span>
+        // Ignore last (potentially) incomplete character
+<span class="nc" id="L389">        decoder.onMalformedInput(CodingErrorAction.IGNORE);</span>
+<span class="nc" id="L390">        decoder.decode(bb, cb, true);</span>
+<span class="nc" id="L391">        decoder.flush(cb);</span>
+<span class="nc" id="L392">        return new String(cb.array(), 0, cb.position());</span>
+    }
+
+    private boolean include(String field, String value) {
+<span class="nc bnc" id="L396" title="All 4 branches missed.">        return includeField(field) &amp;&amp; includeValue(value);</span>
+    }
+
+    /**
+     * Tests for null or empty. Does not check for length
+     * @param value
+     * @return
+     */
+    private boolean includeValue(String value) {
+<span class="nc bnc" id="L405" title="All 2 branches missed.">        if (includeEmpty) {</span>
+<span class="nc" id="L406">            return true;</span>
+        }
+<span class="nc bnc" id="L408" title="All 2 branches missed.">        if (StringUtils.isBlank(value)) {</span>
+<span class="nc" id="L409">            return false;</span>
+        }
+<span class="nc" id="L411">        return true;</span>
+    }
+
+    private boolean includeField(String name) {
+<span class="nc bnc" id="L415" title="All 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L416">            throw new NullPointerException(&quot;property name must not be null&quot;);</span>
+        }
+        // Check both ALWAYS_SET_FIELDS and ALWAYS_ADD_FIELDS - these must always pass
+<span class="nc bnc" id="L419" title="All 4 branches missed.">        if (ALWAYS_SET_FIELDS.contains(name) || ALWAYS_ADD_FIELDS.contains(name)) {</span>
+<span class="nc" id="L420">            return true;</span>
+        }
+<span class="nc bnc" id="L422" title="All 2 branches missed.">        if (excludeFields.contains(name)) {</span>
+<span class="nc" id="L423">            return false;</span>
+        }
+<span class="nc bnc" id="L425" title="All 4 branches missed.">        return includeFields.isEmpty() || includeFields.contains(name);</span>
+    }
+
+    private static int estimateSize(String s) {
+<span class="nc bnc" id="L429" title="All 2 branches missed.">        if (s == null) {</span>
+<span class="nc" id="L430">            return 0;</span>
+        }
+<span class="nc" id="L432">        return 2 * s.length();</span>
+    }
+
+    private static class StringSizePair {
+        final String string;
+        final int size;//utf-16 bytes -- estimated
+        final boolean truncated;
+
+<span class="nc" id="L440">        public StringSizePair(String string, int size, boolean truncated) {</span>
+<span class="nc" id="L441">            this.string = string;</span>
+<span class="nc" id="L442">            this.size = size;</span>
+<span class="nc" id="L443">            this.truncated = truncated;</span>
+<span class="nc" id="L444">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

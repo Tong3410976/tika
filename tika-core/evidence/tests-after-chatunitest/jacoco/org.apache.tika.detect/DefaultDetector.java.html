@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">DefaultDetector.java</span></div><h1>DefaultDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ServiceLoader;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.mime.MimeTypes;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.ServiceLoaderUtils;
+
+/**
+ * A composite detector that orchestrates the detection pipeline:
+ * &lt;ol&gt;
+ *   &lt;li&gt;MimeTypes (magic byte) detection&lt;/li&gt;
+ *   &lt;li&gt;Container and other detectors loaded via SPI&lt;/li&gt;
+ *   &lt;li&gt;TextDetector as fallback for unknown types&lt;/li&gt;
+ *   &lt;li&gt;Returns the most specific type detected&lt;/li&gt;
+ * &lt;/ol&gt;
+ * &lt;p&gt;
+ * Detectors are loaded and returned in a specified order, of user supplied
+ * followed by non-MimeType Tika detectors.
+ * If you need to control the order of the Detectors, you should instead
+ * construct your own {@link CompositeDetector} and pass in the list
+ * of Detectors in the required order.
+ * &lt;p&gt;
+ * Individual detectors that need random access (e.g., for container inspection)
+ * handle their own spooling by calling {@link TikaInputStream#getFile()}.
+ *
+ * @since Apache Tika 0.9
+ */
+@TikaComponent(spi = false)
+public class DefaultDetector extends CompositeDetector {
+
+    private static final long serialVersionUID = -8170114575326908027L;
+
+    private transient final ServiceLoader loader;
+    private final Collection&lt;Class&lt;? extends Detector&gt;&gt; excludedClasses;
+    private final MimeTypes mimeTypes;
+    private final TextDetector textDetector;
+
+    public DefaultDetector(MimeTypes types, ServiceLoader loader,
+                           Collection&lt;Class&lt;? extends Detector&gt;&gt; excludeDetectors) {
+<span class="fc" id="L68">        super(types.getMediaTypeRegistry(), getDefaultDetectors(loader, excludeDetectors));</span>
+<span class="fc" id="L69">        this.loader = loader;</span>
+<span class="fc" id="L70">        this.mimeTypes = types;</span>
+<span class="fc" id="L71">        this.textDetector = new TextDetector();</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        this.excludedClasses = excludeDetectors != null ?</span>
+<span class="fc" id="L73">                Collections.unmodifiableCollection(new ArrayList&lt;&gt;(excludeDetectors)) :</span>
+<span class="pc" id="L74">                Collections.emptySet();</span>
+<span class="fc" id="L75">    }</span>
+
+    public DefaultDetector(MimeTypes types, ServiceLoader loader) {
+<span class="fc" id="L78">        this(types, loader, Collections.emptySet());</span>
+<span class="fc" id="L79">    }</span>
+
+    public DefaultDetector(MimeTypes types, ClassLoader loader) {
+<span class="nc" id="L82">        this(types, new ServiceLoader(loader));</span>
+<span class="nc" id="L83">    }</span>
+
+    public DefaultDetector(ClassLoader loader) {
+<span class="nc" id="L86">        this(MimeTypes.getDefaultMimeTypes(), loader);</span>
+<span class="nc" id="L87">    }</span>
+
+    public DefaultDetector(MimeTypes types) {
+<span class="fc" id="L90">        this(types, new ServiceLoader());</span>
+<span class="fc" id="L91">    }</span>
+
+    public DefaultDetector() {
+<span class="fc" id="L94">        this(MimeTypes.getDefaultMimeTypes());</span>
+<span class="fc" id="L95">    }</span>
+
+    /**
+     * Finds all statically loadable detectors and sort the list by name,
+     * rather than discovery order. Detectors are used in the given order,
+     * so put the Tika parsers last so that non-Tika (user supplied)
+     * parsers can take precedence.
+     * &lt;p&gt;
+     * If an {@link OverrideDetector} is loaded, it takes precedence over
+     * all other detectors.
+     * &lt;p&gt;
+     * Note: MimeTypes is handled separately in the detect() method, not included here.
+     *
+     * @param loader service loader
+     * @return ordered list of statically loadable detectors
+     */
+    private static List&lt;Detector&gt; getDefaultDetectors(ServiceLoader loader,
+                                                      Collection&lt;Class&lt;? extends Detector&gt;&gt;
+                                                              excludeDetectors) {
+<span class="fc" id="L114">        List&lt;Detector&gt; detectors =</span>
+<span class="fc" id="L115">                loader.loadStaticServiceProviders(Detector.class, excludeDetectors);</span>
+
+<span class="fc" id="L117">        ServiceLoaderUtils.sortLoadedClasses(detectors);</span>
+        //look for the override index and put that first
+<span class="fc" id="L119">        int overrideIndex = -1;</span>
+<span class="fc" id="L120">        int i = 0;</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        for (Detector detector : detectors) {</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if (detector instanceof OverrideDetector) {</span>
+<span class="nc" id="L123">                overrideIndex = i;</span>
+<span class="nc" id="L124">                break;</span>
+            }
+<span class="nc" id="L126">            i++;</span>
+<span class="nc" id="L127">        }</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if (overrideIndex &gt; -1) {</span>
+<span class="nc" id="L129">            Detector detector = detectors.remove(overrideIndex);</span>
+<span class="nc" id="L130">            detectors.add(0, detector);</span>
+        }
+<span class="fc" id="L132">        return detectors;</span>
+    }
+
+    @Override
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext parseContext)
+            throws IOException {
+        // 1. Magic detection via MimeTypes
+<span class="fc" id="L139">        MediaType magicType = mimeTypes.detect(tis, metadata, parseContext);</span>
+<span class="fc" id="L140">        metadata.set(TikaCoreProperties.CONTENT_TYPE_MAGIC_DETECTED, magicType.toString());</span>
+
+        // 2. Run other detectors (container detectors, etc.)
+        // Note: Container detectors that need random access handle their own spooling
+<span class="fc" id="L144">        MediaType detectedType = super.detect(tis, metadata, parseContext);</span>
+
+        // 3. Text detection - only if still unknown
+<span class="fc" id="L147">        MediaType textType = null;</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">        if (MediaType.OCTET_STREAM.equals(detectedType) &amp;&amp;</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">                MediaType.OCTET_STREAM.equals(magicType)) {</span>
+<span class="fc" id="L150">            textType = textDetector.detect(tis, metadata, parseContext);</span>
+        }
+
+        // 4. Return most specific
+<span class="fc" id="L154">        return mostSpecific(magicType, detectedType, textType);</span>
+    }
+
+    private MediaType mostSpecific(MediaType magicType, MediaType detectedType, MediaType textType) {
+<span class="fc" id="L158">        MediaTypeRegistry registry = mimeTypes.getMediaTypeRegistry();</span>
+
+        // Collect non-null, non-octet-stream candidates
+<span class="fc" id="L161">        MediaType best = MediaType.OCTET_STREAM;</span>
+
+        // Start with magic type as baseline if valid
+<span class="pc bpc" id="L164" title="1 of 4 branches missed.">        if (magicType != null &amp;&amp; !MediaType.OCTET_STREAM.equals(magicType)) {</span>
+<span class="fc" id="L165">            best = magicType;</span>
+        }
+
+        // Container detectors may find more specific types (e.g., OLE -&gt; msword)
+        // or less specific (e.g., commons-compress tar vs magic gtar)
+        // Use the registry to determine which is more specific
+<span class="pc bpc" id="L171" title="2 of 4 branches missed.">        if (detectedType != null &amp;&amp; !MediaType.OCTET_STREAM.equals(detectedType)) {</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">            if (MediaType.OCTET_STREAM.equals(best)) {</span>
+<span class="nc" id="L173">                best = detectedType;</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">            } else if (registry.isSpecializationOf(detectedType, best)) {</span>
+                // detectedType is more specific than best
+<span class="nc" id="L176">                best = detectedType;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            } else if (!registry.isSpecializationOf(best, detectedType)) {</span>
+                // Neither is a specialization of the other - prefer container detection
+                // for unrelated types (e.g., different format families)
+<span class="nc" id="L180">                best = detectedType;</span>
+            }
+            // else: best is already more specific than detectedType, keep best
+        }
+
+        // Text detection as fallback only if still unknown
+<span class="pc bpc" id="L186" title="1 of 4 branches missed.">        if (MediaType.OCTET_STREAM.equals(best) &amp;&amp; textType != null &amp;&amp;</span>
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">                !MediaType.OCTET_STREAM.equals(textType)) {</span>
+<span class="nc" id="L188">            best = textType;</span>
+        }
+
+<span class="fc" id="L191">        return best;</span>
+    }
+
+    @Override
+    public List&lt;Detector&gt; getDetectors() {
+<span class="pc bpc" id="L196" title="2 of 4 branches missed.">        if (loader != null &amp;&amp; loader.isDynamic()) {</span>
+<span class="fc" id="L197">            List&lt;Detector&gt; detectors = loader.loadDynamicServiceProviders(Detector.class);</span>
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">            if (!detectors.isEmpty()) {</span>
+<span class="nc" id="L199">                detectors.addAll(super.getDetectors());</span>
+<span class="nc" id="L200">                return detectors;</span>
+            } else {
+<span class="fc" id="L202">                return super.getDetectors();</span>
+            }
+        } else {
+<span class="nc" id="L205">            return super.getDetectors();</span>
+        }
+    }
+
+    /**
+     * Returns the classes that were explicitly excluded when constructing this detector.
+     * Used for round-trip serialization to preserve exclusion configuration.
+     *
+     * @return unmodifiable collection of excluded detector classes, never null
+     */
+    public Collection&lt;Class&lt;? extends Detector&gt;&gt; getExcludedClasses() {
+<span class="nc" id="L216">        return excludedClasses;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

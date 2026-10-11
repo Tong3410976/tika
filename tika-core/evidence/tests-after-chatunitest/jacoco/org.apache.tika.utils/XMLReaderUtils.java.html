@@ -1,0 +1,1307 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XMLReaderUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">XMLReaderUtils.java</span></div><h1>XMLReaderUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.Serializable;
+import java.io.StringReader;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLResolver;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.TransformerFactoryConfigurationError;
+import javax.xml.transform.sax.SAXTransformerFactory;
+
+import org.apache.commons.io.input.UnsynchronizedByteArrayInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.DTDHandler;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.sax.OfflineContentHandler;
+
+
+/**
+ * Utility functions for reading XML.
+ */
+<span class="nc" id="L69">public class XMLReaderUtils implements Serializable {</span>
+
+    /**
+     * Default size for the pool of SAX Parsers
+     * and the pool of DOM builders
+     */
+    public static final int DEFAULT_POOL_SIZE = 10;
+    public static final int DEFAULT_MAX_ENTITY_EXPANSIONS = 20;
+    public static final int DEFAULT_NUM_REUSES = 100;
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 6110455808615143122L;
+<span class="fc" id="L82">    private static final Logger LOG = LoggerFactory.getLogger(XMLReaderUtils.class);</span>
+    private static final String XERCES_SECURITY_MANAGER = &quot;org.apache.xerces.util.SecurityManager&quot;;
+    private static final String XERCES_SECURITY_MANAGER_PROPERTY =
+            &quot;http://apache.org/xml/properties/security-manager&quot;;
+
+<span class="fc" id="L87">    private static final AtomicBoolean HAS_WARNED_STAX = new AtomicBoolean(false);</span>
+<span class="fc" id="L88">    private static final ContentHandler IGNORING_CONTENT_HANDLER = new DefaultHandler();</span>
+<span class="fc" id="L89">    private static final DTDHandler IGNORING_DTD_HANDLER = new DTDHandler() {</span>
+        @Override
+        public void notationDecl(String name, String publicId, String systemId)
+                throws SAXException {
+
+<span class="nc" id="L94">        }</span>
+
+        @Override
+        public void unparsedEntityDecl(String name, String publicId, String systemId,
+                                       String notationName) throws SAXException {
+
+<span class="nc" id="L100">        }</span>
+    };
+<span class="fc" id="L102">    private static final ErrorHandler IGNORING_ERROR_HANDLER = new ErrorHandler() {</span>
+        @Override
+        public void warning(SAXParseException exception) throws SAXException {
+
+<span class="nc" id="L106">        }</span>
+
+        @Override
+        public void error(SAXParseException exception) throws SAXException {
+
+<span class="nc" id="L111">        }</span>
+
+        @Override
+        public void fatalError(SAXParseException exception) throws SAXException {
+
+<span class="nc" id="L116">        }</span>
+    };
+    private static final String JAXP_ENTITY_EXPANSION_LIMIT_KEY = &quot;jdk.xml.entityExpansionLimit&quot;;
+    //TODO: figure out if the rw lock is any better than a simple lock
+    //these lock the pool arrayblocking queues so that there isn't a race condition
+    //of trying to acquire a parser while the pool is being resized
+<span class="fc" id="L122">    private static final ReentrantReadWriteLock SAX_POOL_LOCK = new ReentrantReadWriteLock();</span>
+<span class="fc" id="L123">    private static final ReentrantReadWriteLock DOM_POOL_LOCK = new ReentrantReadWriteLock();</span>
+<span class="fc" id="L124">    private static final AtomicInteger POOL_GENERATION = new AtomicInteger();</span>
+<span class="fc" id="L125">    private static final EntityResolver IGNORING_SAX_ENTITY_RESOLVER =</span>
+<span class="nc" id="L126">            (publicId, systemId) -&gt; new InputSource(new StringReader(&quot;&quot;));</span>
+
+    //BE CAREFUL with the return type. Some parsers will silently ignore an unexpected return type: CVE-2025-54988
+<span class="fc" id="L129">    private static final XMLResolver IGNORING_STAX_ENTITY_RESOLVER =</span>
+            (publicID, systemID, baseURI, namespace) -&gt;
+<span class="nc" id="L131">                    UnsynchronizedByteArrayInputStream.nullInputStream();</span>
+    /**
+     * Parser pool size
+     */
+<span class="fc" id="L135">    private static int POOL_SIZE = DEFAULT_POOL_SIZE;</span>
+<span class="fc" id="L136">    private static int MAX_NUM_REUSES = DEFAULT_NUM_REUSES;</span>
+<span class="fc" id="L137">    private static long LAST_LOG = -1;</span>
+<span class="fc" id="L138">    private static volatile int MAX_ENTITY_EXPANSIONS = determineMaxEntityExpansions();</span>
+<span class="fc" id="L139">    private static ArrayBlockingQueue&lt;PoolSAXParser&gt; SAX_PARSERS =</span>
+            new ArrayBlockingQueue&lt;&gt;(POOL_SIZE);
+<span class="fc" id="L141">    private static ArrayBlockingQueue&lt;PoolDOMBuilder&gt; DOM_BUILDERS =</span>
+            new ArrayBlockingQueue&lt;&gt;(POOL_SIZE);
+
+    static {
+        try {
+<span class="fc" id="L146">            setPoolSize(POOL_SIZE);</span>
+<span class="nc" id="L147">        } catch (TikaException e) {</span>
+<span class="nc" id="L148">            throw new RuntimeException(&quot;problem initializing SAXParser and DOMBuilder pools&quot;, e);</span>
+<span class="fc" id="L149">        }</span>
+<span class="fc" id="L150">    }</span>
+
+    private static int determineMaxEntityExpansions() {
+<span class="fc" id="L153">        String expansionLimit = System.getProperty(JAXP_ENTITY_EXPANSION_LIMIT_KEY);</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">        if (expansionLimit != null) {</span>
+            try {
+<span class="nc" id="L156">                return Integer.parseInt(expansionLimit);</span>
+<span class="nc" id="L157">            } catch (NumberFormatException e) {</span>
+<span class="nc" id="L158">                LOG.warn(</span>
+                        &quot;Couldn't parse an integer for the entity expansion limit: {}; &quot; +
+                                &quot;backing off to default: {}&quot;,
+<span class="nc" id="L161">                        expansionLimit, DEFAULT_MAX_ENTITY_EXPANSIONS);</span>
+            }
+        }
+<span class="fc" id="L164">        return DEFAULT_MAX_ENTITY_EXPANSIONS;</span>
+    }
+
+    /**
+     * Returns the XMLReader specified in this parsing context. If a reader
+     * is not explicitly specified, then one is created using the specified
+     * or the default SAX parser.
+     *
+     * @return XMLReader
+     * @throws TikaException
+     * @see #getSAXParser()
+     * @since Apache Tika 1.13
+     */
+    public static XMLReader getXMLReader() throws TikaException {
+        XMLReader reader;
+        try {
+<span class="nc" id="L180">            reader = getSAXParser().getXMLReader();</span>
+<span class="nc" id="L181">        } catch (SAXException e) {</span>
+<span class="nc" id="L182">            throw new TikaException(&quot;Unable to create an XMLReader&quot;, e);</span>
+<span class="nc" id="L183">        }</span>
+<span class="nc" id="L184">        reader.setEntityResolver(IGNORING_SAX_ENTITY_RESOLVER);</span>
+<span class="nc" id="L185">        return reader;</span>
+    }
+
+    /**
+     * Returns the SAX parser specified in this parsing context. If a parser
+     * is not explicitly specified, then one is created using the specified
+     * or the default SAX parser factory.
+     * &lt;p&gt;
+     * If you call reset() on the parser, make sure to replace the
+     * SecurityManager which will be cleared by xerces2 on reset().
+     * &lt;/p&gt;
+     *
+     * @return SAX parser
+     * @throws TikaException if a SAX parser could not be created
+     * @see #getSAXParserFactory()
+     * @since Apache Tika 0.8
+     */
+    public static SAXParser getSAXParser() throws TikaException {
+        try {
+<span class="nc" id="L204">            SAXParser parser = getSAXParserFactory().newSAXParser();</span>
+<span class="nc" id="L205">            trySetXercesSecurityManager(parser);</span>
+<span class="nc" id="L206">            return parser;</span>
+<span class="nc" id="L207">        } catch (ParserConfigurationException e) {</span>
+<span class="nc" id="L208">            throw new TikaException(&quot;Unable to configure a SAX parser&quot;, e);</span>
+<span class="nc" id="L209">        } catch (SAXException e) {</span>
+<span class="nc" id="L210">            throw new TikaException(&quot;Unable to create a SAX parser&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Returns the SAX parser factory specified in this parsing context.
+     * If a factory is not explicitly specified, then a default factory
+     * instance is created and returned. The default factory instance is
+     * configured to be namespace-aware, not validating, and to use
+     * {@link XMLConstants#FEATURE_SECURE_PROCESSING secure XML processing}.
+     *
+     * @return SAX parser factory
+     * @since Apache Tika 0.8
+     */
+    public static SAXParserFactory getSAXParserFactory() {
+<span class="fc" id="L225">        SAXParserFactory factory = SAXParserFactory.newInstance();</span>
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">        if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L227">            LOG.debug(&quot;SAXParserFactory class {}&quot;, factory.getClass());</span>
+        }
+<span class="fc" id="L229">        factory.setNamespaceAware(true);</span>
+<span class="fc" id="L230">        factory.setValidating(false);</span>
+<span class="fc" id="L231">        trySetSAXFeature(factory, XMLConstants.FEATURE_SECURE_PROCESSING, true);</span>
+<span class="fc" id="L232">        trySetSAXFeature(factory, &quot;http://xml.org/sax/features/external-general-entities&quot;, false);</span>
+<span class="fc" id="L233">        trySetSAXFeature(factory, &quot;http://xml.org/sax/features/external-parameter-entities&quot;, false);</span>
+<span class="fc" id="L234">        trySetSAXFeature(factory, &quot;http://apache.org/xml/features/nonvalidating/load-external-dtd&quot;,</span>
+                false);
+<span class="fc" id="L236">        trySetSAXFeature(factory, &quot;http://apache.org/xml/features/nonvalidating/load-dtd-grammar&quot;,</span>
+                false);
+
+<span class="fc" id="L239">        return factory;</span>
+    }
+
+    /**
+     * Returns the DOM builder factory specified in this parsing context.
+     * If a factory is not explicitly specified, then a default factory
+     * instance is created and returned. The default factory instance is
+     * configured to be namespace-aware and to apply reasonable security
+     * features.
+     *
+     * @return DOM parser factory
+     * @since Apache Tika 1.13
+     */
+    public static DocumentBuilderFactory getDocumentBuilderFactory() {
+        //borrowed from Apache POI
+<span class="fc" id="L254">        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();</span>
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">        if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L256">            LOG.debug(&quot;DocumentBuilderFactory class {}&quot;, factory.getClass());</span>
+        }
+
+<span class="fc" id="L259">        factory.setExpandEntityReferences(false);</span>
+<span class="fc" id="L260">        factory.setNamespaceAware(true);</span>
+<span class="fc" id="L261">        factory.setValidating(false);</span>
+
+<span class="fc" id="L263">        trySetSAXFeature(factory, XMLConstants.FEATURE_SECURE_PROCESSING, true);</span>
+<span class="fc" id="L264">        trySetSAXFeature(factory, &quot;http://xml.org/sax/features/external-general-entities&quot;, false);</span>
+<span class="fc" id="L265">        trySetSAXFeature(factory, &quot;http://xml.org/sax/features/external-parameter-entities&quot;, false);</span>
+<span class="fc" id="L266">        trySetSAXFeature(factory, &quot;http://apache.org/xml/features/nonvalidating/load-external-dtd&quot;,</span>
+                false);
+<span class="fc" id="L268">        trySetSAXFeature(factory, &quot;http://apache.org/xml/features/nonvalidating/load-dtd-grammar&quot;,</span>
+                false);
+<span class="fc" id="L270">        trySetXercesSecurityManager(factory);</span>
+<span class="fc" id="L271">        return factory;</span>
+    }
+
+    /**
+     * Returns the DOM builder specified in this parsing context.
+     * If a builder is not explicitly specified, then a builder
+     * instance is created and returned. The builder instance is
+     * configured to apply an {@link #IGNORING_SAX_ENTITY_RESOLVER},
+     * and it sets the ErrorHandler to &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return DOM Builder
+     * @since Apache Tika 1.13
+     */
+    public static DocumentBuilder getDocumentBuilder() throws TikaException {
+        try {
+<span class="fc" id="L286">            DocumentBuilderFactory documentBuilderFactory = getDocumentBuilderFactory();</span>
+<span class="fc" id="L287">            DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();</span>
+<span class="fc" id="L288">            documentBuilder.setEntityResolver(IGNORING_SAX_ENTITY_RESOLVER);</span>
+<span class="fc" id="L289">            documentBuilder.setErrorHandler(null);</span>
+<span class="fc" id="L290">            return documentBuilder;</span>
+<span class="nc" id="L291">        } catch (ParserConfigurationException e) {</span>
+<span class="nc" id="L292">            throw new TikaException(&quot;XML parser not available&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Returns the StAX input factory specified in this parsing context.
+     * If a factory is not explicitly specified, then a default factory
+     * instance is created and returned. The default factory instance is
+     * configured to be namespace-aware and to apply reasonable security
+     * precautions.
+     *
+     * @return StAX input factory
+     * @since Apache Tika 1.13
+     */
+    public static XMLInputFactory getXMLInputFactory() {
+<span class="fc" id="L307">        XMLInputFactory factory = XMLInputFactory.newFactory();</span>
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">        if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L309">            LOG.debug(&quot;XMLInputFactory class {}&quot;, factory.getClass());</span>
+        }
+
+<span class="fc" id="L312">        tryToSetStaxProperty(factory, XMLInputFactory.IS_NAMESPACE_AWARE, true);</span>
+
+        //try to configure secure processing
+<span class="fc" id="L315">        tryToSetStaxProperty(factory, XMLConstants.ACCESS_EXTERNAL_DTD, &quot;&quot;);</span>
+<span class="fc" id="L316">        tryToSetStaxProperty(factory, XMLInputFactory.IS_VALIDATING, false);</span>
+<span class="fc" id="L317">        tryToSetStaxProperty(factory, XMLInputFactory.SUPPORT_DTD, false);</span>
+<span class="fc" id="L318">        tryToSetStaxProperty(factory, XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);</span>
+
+        //defense in depth
+<span class="fc" id="L321">        factory.setXMLResolver(IGNORING_STAX_ENTITY_RESOLVER);</span>
+<span class="fc" id="L322">        trySetStaxSecurityManager(factory);</span>
+<span class="fc" id="L323">        return factory;</span>
+    }
+
+    private static void trySetTransformerAttribute(TransformerFactory transformerFactory,
+                                                   String attribute, String value) {
+        try {
+<span class="nc" id="L329">            transformerFactory.setAttribute(attribute, value);</span>
+<span class="nc" id="L330">        } catch (SecurityException e) {</span>
+<span class="nc" id="L331">            throw e;</span>
+<span class="nc" id="L332">        } catch (Exception e) {</span>
+<span class="nc" id="L333">            LOG.warn(&quot;Transformer Attribute unsupported: {}&quot;, attribute, e);</span>
+<span class="nc" id="L334">        } catch (AbstractMethodError ame) {</span>
+<span class="nc" id="L335">            LOG.warn(</span>
+                    &quot;Cannot set Transformer attribute because outdated XML parser in classpath: {}&quot;,
+                    attribute, ame);
+<span class="nc" id="L338">        }</span>
+<span class="nc" id="L339">    }</span>
+
+    private static void trySetSAXFeature(SAXParserFactory saxParserFactory, String feature,
+                                         boolean enabled) {
+        try {
+<span class="fc" id="L344">            saxParserFactory.setFeature(feature, enabled);</span>
+<span class="nc" id="L345">        } catch (SecurityException e) {</span>
+<span class="nc" id="L346">            throw e;</span>
+<span class="nc" id="L347">        } catch (Exception e) {</span>
+<span class="nc" id="L348">            LOG.warn(&quot;SAX Feature unsupported: {}&quot;, feature, e);</span>
+<span class="nc" id="L349">        } catch (AbstractMethodError ame) {</span>
+<span class="nc" id="L350">            LOG.warn(&quot;Cannot set SAX feature because outdated XML parser in classpath: {}&quot;, feature,</span>
+                    ame);
+<span class="pc" id="L352">        }</span>
+<span class="fc" id="L353">    }</span>
+
+    private static void trySetSAXFeature(DocumentBuilderFactory documentBuilderFactory,
+                                         String feature, boolean enabled) {
+        try {
+<span class="fc" id="L358">            documentBuilderFactory.setFeature(feature, enabled);</span>
+<span class="nc" id="L359">        } catch (Exception e) {</span>
+<span class="nc" id="L360">            LOG.warn(&quot;SAX Feature unsupported: {}&quot;, feature, e);</span>
+<span class="nc" id="L361">        } catch (AbstractMethodError ame) {</span>
+<span class="nc" id="L362">            LOG.warn(&quot;Cannot set SAX feature because outdated XML parser in classpath: {}&quot;, feature,</span>
+                    ame);
+<span class="pc" id="L364">        }</span>
+<span class="fc" id="L365">    }</span>
+
+    private static void tryToSetStaxProperty(XMLInputFactory factory, String key, boolean value) {
+        try {
+<span class="fc" id="L369">            factory.setProperty(key, value);</span>
+<span class="nc" id="L370">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L371">            LOG.warn(&quot;StAX Feature unsupported: {}&quot;, key, e);</span>
+<span class="fc" id="L372">        }</span>
+<span class="fc" id="L373">    }</span>
+
+    private static void tryToSetStaxProperty(XMLInputFactory factory, String key, String value) {
+        try {
+<span class="fc" id="L377">            factory.setProperty(key, value);</span>
+<span class="nc" id="L378">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L379">            LOG.warn(&quot;StAX Feature unsupported: {}&quot;, key, e);</span>
+<span class="fc" id="L380">        }</span>
+<span class="fc" id="L381">    }</span>
+
+    /**
+     * Returns a new transformer
+     * &lt;p&gt;
+     * The transformer instance is configured to to use
+     * {@link XMLConstants#FEATURE_SECURE_PROCESSING secure XML processing}.
+     *
+     * @return Transformer
+     * @throws TikaException when the transformer can not be created
+     * @since Apache Tika 1.17
+     */
+    public static Transformer getTransformer() throws TikaException {
+<span class="nc" id="L394">        TransformerFactory transformerFactory = getTransformerFactory();</span>
+        try {
+<span class="nc" id="L396">            return transformerFactory.newTransformer();</span>
+<span class="nc" id="L397">        } catch (TransformerConfigurationException e) {</span>
+<span class="nc" id="L398">            throw new TikaException(&quot;Transformer not available&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Returns a TransformerFactory. The factory is configured with
+     * {@link XMLConstants#FEATURE_SECURE_PROCESSING secure XML processing} and other
+     * settings to prevent XXE.
+     *
+     * @return TransformerFactory
+     * @throws TikaException
+     */
+    public static TransformerFactory getTransformerFactory() throws TikaException {
+        try {
+
+<span class="nc" id="L413">            TransformerFactory transformerFactory = TransformerFactory.newInstance();</span>
+<span class="nc" id="L414">            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);</span>
+<span class="nc" id="L415">            trySetTransformerAttribute(transformerFactory, XMLConstants.ACCESS_EXTERNAL_DTD, &quot;&quot;);</span>
+<span class="nc" id="L416">            trySetTransformerAttribute(transformerFactory, XMLConstants.ACCESS_EXTERNAL_STYLESHEET, &quot;&quot;);</span>
+<span class="nc" id="L417">            return transformerFactory;</span>
+<span class="nc" id="L418">        } catch (TransformerConfigurationException | TransformerFactoryConfigurationError e) {</span>
+<span class="nc" id="L419">            throw new TikaException(&quot;Transformer not available&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Returns a SAXTransformerFactory. The factory is configured with
+     * {@link XMLConstants#FEATURE_SECURE_PROCESSING secure XML processing} and other
+     * settings to prevent XXE.
+     *
+     * @return TransformerFactory
+     * @throws TikaException
+     */
+    public static SAXTransformerFactory getSAXTransformerFactory() throws TikaException {
+        try {
+
+<span class="nc" id="L434">            SAXTransformerFactory transformerFactory = (SAXTransformerFactory) SAXTransformerFactory.newInstance();</span>
+<span class="nc" id="L435">            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);</span>
+<span class="nc" id="L436">            trySetTransformerAttribute(transformerFactory, XMLConstants.ACCESS_EXTERNAL_DTD, &quot;&quot;);</span>
+<span class="nc" id="L437">            trySetTransformerAttribute(transformerFactory, XMLConstants.ACCESS_EXTERNAL_STYLESHEET, &quot;&quot;);</span>
+<span class="nc" id="L438">            return transformerFactory;</span>
+<span class="nc" id="L439">        } catch (TransformerConfigurationException | TransformerFactoryConfigurationError e) {</span>
+<span class="nc" id="L440">            throw new TikaException(&quot;Transformer not available&quot;, e);</span>
+        }
+    }
+
+    /**
+     * This checks context for a user specified {@link DocumentBuilder}.
+     * If one is not found, this reuses a DocumentBuilder from the pool.
+     *
+     * @param is      InputStream to parse
+     * @param context context to use
+     * @return a document
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 1.19
+     */
+    public static Document buildDOM(InputStream is, ParseContext context)
+            throws TikaException, IOException, SAXException {
+<span class="fc" id="L458">        DocumentBuilder builder = context.get(DocumentBuilder.class);</span>
+<span class="fc" id="L459">        PoolDOMBuilder poolBuilder = null;</span>
+<span class="pc bpc" id="L460" title="1 of 2 branches missed.">        if (builder == null) {</span>
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">            if (POOL_SIZE == 0) {</span>
+<span class="nc" id="L462">                builder = getDocumentBuilder();</span>
+            } else {
+<span class="fc" id="L464">                poolBuilder = acquireDOMBuilder();</span>
+<span class="pc bpc" id="L465" title="1 of 2 branches missed.">                if (poolBuilder != null) {</span>
+<span class="fc" id="L466">                    builder = poolBuilder.getDocumentBuilder();</span>
+                } else {
+<span class="nc" id="L468">                    builder = getDocumentBuilder();</span>
+                }
+            }
+        }
+
+        try {
+<span class="fc" id="L474">            return builder.parse(is);</span>
+        } finally {
+<span class="fc" id="L476">            releaseDOMBuilder(poolBuilder);</span>
+        }
+    }
+
+    /**
+     * This checks context for a user specified {@link DocumentBuilder}.
+     * If one is not found, this reuses a DocumentBuilder from the pool.
+     *
+     * @param reader  reader (character stream) to parse
+     * @param context context to use
+     * @return a document
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 2.5
+     */
+    public static Document buildDOM(Reader reader, ParseContext context)
+            throws TikaException, IOException, SAXException {
+<span class="nc" id="L494">        DocumentBuilder builder = context.get(DocumentBuilder.class);</span>
+<span class="nc" id="L495">        PoolDOMBuilder poolBuilder = null;</span>
+<span class="nc bnc" id="L496" title="All 2 branches missed.">        if (builder == null) {</span>
+<span class="nc bnc" id="L497" title="All 2 branches missed.">            if (POOL_SIZE == 0) {</span>
+<span class="nc" id="L498">                builder = getDocumentBuilder();</span>
+            } else {
+<span class="nc" id="L500">                poolBuilder = acquireDOMBuilder();</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">                if (poolBuilder != null) {</span>
+<span class="nc" id="L502">                    builder = poolBuilder.getDocumentBuilder();</span>
+                } else {
+<span class="nc" id="L504">                    builder = getDocumentBuilder();</span>
+                }
+            }
+        }
+
+        try {
+<span class="nc" id="L510">            return builder.parse(new InputSource(reader));</span>
+        } finally {
+<span class="nc" id="L512">            releaseDOMBuilder(poolBuilder);</span>
+        }
+    }
+
+    /**
+     * Builds a Document with a DocumentBuilder from the pool
+     *
+     * @param path path to parse
+     * @return a document
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 1.19.1
+     */
+    public static Document buildDOM(Path path) throws TikaException, IOException, SAXException {
+<span class="nc" id="L527">        try (InputStream is = Files.newInputStream(path)) {</span>
+<span class="nc" id="L528">            return buildDOM(is);</span>
+        }
+    }
+
+    /**
+     * Builds a Document with a DocumentBuilder from the pool
+     *
+     * @param uriString uriString to process
+     * @return a document
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 1.19.1
+     */
+    public static Document buildDOM(String uriString)
+            throws TikaException, IOException, SAXException {
+<span class="nc" id="L544">        PoolDOMBuilder poolBuilder = null;</span>
+<span class="nc" id="L545">        DocumentBuilder builder = null;</span>
+<span class="nc bnc" id="L546" title="All 2 branches missed.">        if (POOL_SIZE == 0) {</span>
+<span class="nc" id="L547">            builder = getDocumentBuilder();</span>
+        } else {
+<span class="nc" id="L549">            poolBuilder = acquireDOMBuilder();</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">            if (poolBuilder != null) {</span>
+<span class="nc" id="L551">                builder = poolBuilder.getDocumentBuilder();</span>
+            } else {
+<span class="nc" id="L553">                builder = getDocumentBuilder();</span>
+            }
+        }
+
+        try {
+<span class="nc" id="L558">            return builder.parse(uriString);</span>
+        } finally {
+<span class="nc" id="L560">            releaseDOMBuilder(poolBuilder);</span>
+        }
+    }
+
+    /**
+     * Builds a Document with a DocumentBuilder from the pool
+     *
+     * @return a document
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 1.19.1
+     */
+    public static Document buildDOM(InputStream is)
+            throws TikaException, IOException, SAXException {
+<span class="nc" id="L575">        PoolDOMBuilder poolBuilder = null;</span>
+<span class="nc" id="L576">        DocumentBuilder builder = null;</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">        if (POOL_SIZE == 0) {</span>
+<span class="nc" id="L578">            builder = getDocumentBuilder();</span>
+        } else {
+<span class="nc" id="L580">            poolBuilder = acquireDOMBuilder();</span>
+<span class="nc bnc" id="L581" title="All 2 branches missed.">            if (poolBuilder != null) {</span>
+<span class="nc" id="L582">                builder = poolBuilder.getDocumentBuilder();</span>
+            } else {
+<span class="nc" id="L584">                builder = getDocumentBuilder();</span>
+            }
+        }
+
+        try {
+<span class="nc" id="L589">            return builder.parse(is);</span>
+        } finally {
+<span class="nc" id="L591">            releaseDOMBuilder(poolBuilder);</span>
+        }
+    }
+
+    /**
+     * This checks context for a user specified {@link SAXParser}.
+     * If one is not found, this reuses a SAXParser from the pool.
+     *
+     * @param is             InputStream to parse
+     * @param contentHandler handler to use; this wraps a {@link OfflineContentHandler}
+     *                       to the content handler as an extra layer of defense against
+     *                       external entity vulnerabilities
+     * @param context        context to use
+     * @return
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 1.19
+     */
+    public static void parseSAX(InputStream is, ContentHandler contentHandler, ParseContext context)
+            throws TikaException, IOException, SAXException {
+<span class="fc" id="L612">        SAXParser saxParser = context.get(SAXParser.class);</span>
+<span class="fc" id="L613">        PoolSAXParser poolSAXParser = null;</span>
+<span class="pc bpc" id="L614" title="1 of 2 branches missed.">        if (saxParser == null) {</span>
+<span class="pc bpc" id="L615" title="1 of 2 branches missed.">            if (POOL_SIZE == 0) {</span>
+<span class="nc" id="L616">                saxParser = getSAXParser();</span>
+            } else {
+<span class="fc" id="L618">                poolSAXParser = acquireSAXParser();</span>
+<span class="pc bpc" id="L619" title="1 of 2 branches missed.">                if (poolSAXParser != null) {</span>
+<span class="fc" id="L620">                    saxParser = poolSAXParser.getSAXParser();</span>
+                } else {
+<span class="nc" id="L622">                    saxParser = getSAXParser();</span>
+                }
+            }
+        }
+        try {
+<span class="fc" id="L627">            saxParser.parse(is, new OfflineContentHandler(contentHandler));</span>
+        } finally {
+<span class="fc" id="L629">            releaseParser(poolSAXParser);</span>
+        }
+<span class="fc" id="L631">    }</span>
+
+    /**
+     * This checks context for a user specified {@link SAXParser}.
+     * If one is not found, this reuses a SAXParser from the pool.
+     *
+     * @param reader         reader (character stream) to parse
+     * @param contentHandler handler to use; this wraps a {@link OfflineContentHandler}
+     *                       to the content handler as an extra layer of defense against
+     *                       external entity vulnerabilities
+     * @param context        context to use
+     * @return
+     * @throws TikaException
+     * @throws IOException
+     * @throws SAXException
+     * @since Apache Tika 2.5
+     */
+    public static void parseSAX(Reader reader, ContentHandler contentHandler, ParseContext context)
+            throws TikaException, IOException, SAXException {
+<span class="nc" id="L650">        SAXParser saxParser = context.get(SAXParser.class);</span>
+<span class="nc" id="L651">        PoolSAXParser poolSAXParser = null;</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">        if (saxParser == null) {</span>
+<span class="nc bnc" id="L653" title="All 2 branches missed.">            if (POOL_SIZE == 0) {</span>
+<span class="nc" id="L654">                saxParser = getSAXParser();</span>
+            } else {
+<span class="nc" id="L656">                poolSAXParser = acquireSAXParser();</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">                if (poolSAXParser != null) {</span>
+<span class="nc" id="L658">                    saxParser = poolSAXParser.getSAXParser();</span>
+                } else {
+<span class="nc" id="L660">                    saxParser = getSAXParser();</span>
+                }
+            }
+        }
+        try {
+<span class="nc" id="L665">            saxParser.parse(new InputSource(reader), new OfflineContentHandler(contentHandler));</span>
+        } finally {
+<span class="nc" id="L667">            releaseParser(poolSAXParser);</span>
+        }
+<span class="nc" id="L669">    }</span>
+
+    /**
+     * Acquire a DOMBuilder from the pool.  Make sure to
+     * {@link #releaseDOMBuilder(PoolDOMBuilder)} in
+     * a &lt;code&gt;finally&lt;/code&gt; block every time you call this.
+     *
+     * @return a DocumentBuilder or null if no DOMBuilders are available
+     * @throws TikaException
+     */
+    private static PoolDOMBuilder acquireDOMBuilder() throws TikaException {
+
+<span class="fc" id="L681">        PoolDOMBuilder builder = null;</span>
+<span class="fc" id="L682">        DOM_POOL_LOCK</span>
+<span class="fc" id="L683">                .readLock()</span>
+<span class="fc" id="L684">                .lock();</span>
+        try {
+<span class="fc" id="L686">            builder = DOM_BUILDERS.poll();</span>
+        } finally {
+<span class="fc" id="L688">            DOM_POOL_LOCK</span>
+<span class="fc" id="L689">                    .readLock()</span>
+<span class="fc" id="L690">                    .unlock();</span>
+        }
+<span class="pc bpc" id="L692" title="1 of 2 branches missed.">        if (builder == null) {</span>
+<span class="nc" id="L693">            LOG.warn(&quot;Contention waiting for a DOMBuilder. &quot; +</span>
+                    &quot;Consider increasing the XMLReaderUtils.POOL_SIZE&quot;);
+
+        }
+<span class="fc" id="L697">        return builder;</span>
+    }
+
+    /**
+     * Return parser to the pool for reuse.
+     *
+     * @param builder builder to return
+     */
+    private static void releaseDOMBuilder(PoolDOMBuilder builder) {
+<span class="pc bpc" id="L706" title="1 of 2 branches missed.">        if (builder == null) {</span>
+<span class="nc" id="L707">            return;</span>
+        }
+<span class="pc bpc" id="L709" title="1 of 2 branches missed.">        if (builder.getPoolGeneration() != POOL_GENERATION.get()) {</span>
+<span class="nc" id="L710">            return;</span>
+        }
+        try {
+<span class="fc" id="L713">            builder.reset();</span>
+<span class="nc" id="L714">        } catch (UnsupportedOperationException e) {</span>
+            //ignore
+<span class="fc" id="L716">        }</span>
+<span class="fc" id="L717">        DOM_POOL_LOCK</span>
+<span class="fc" id="L718">                .readLock().lock();</span>
+<span class="fc" id="L719">        builder.incrementUses();</span>
+<span class="pc bpc" id="L720" title="1 of 2 branches missed.">        if (builder.numUses &gt;= MAX_NUM_REUSES) {</span>
+            try {
+<span class="nc" id="L722">                builder = new PoolDOMBuilder(builder.getPoolGeneration(), getDocumentBuilderFactory().newDocumentBuilder());</span>
+<span class="nc" id="L723">            } catch (ParserConfigurationException e) {</span>
+<span class="nc" id="L724">                LOG.warn(&quot;Exception trying to configure a new dom builder?!&quot;, e);</span>
+<span class="nc" id="L725">                return;</span>
+<span class="nc" id="L726">            }</span>
+        }
+        try {
+            //if there are extra parsers (e.g. after a reset of the pool to a smaller size),
+            // this parser will not be added and will then be gc'd
+<span class="fc" id="L731">            boolean success = DOM_BUILDERS.offer(builder);</span>
+<span class="pc bpc" id="L732" title="1 of 2 branches missed.">            if (!success) {</span>
+<span class="nc" id="L733">                LOG.warn(</span>
+                        &quot;DocumentBuilder not taken back into pool.  If you haven't resized the &quot; +
+                                &quot;pool, this could be a sign that there are more calls to &quot; +
+                                &quot;'acquire' than to 'release'&quot;);
+            }
+        } finally {
+<span class="fc" id="L739">            DOM_POOL_LOCK</span>
+<span class="fc" id="L740">                    .readLock().unlock();</span>
+        }
+<span class="fc" id="L742">    }</span>
+
+    /**
+     * Acquire a SAXParser from the pool.  Make sure to
+     * {@link #releaseParser(PoolSAXParser)} in
+     * a &lt;code&gt;finally&lt;/code&gt; block every time you call this.
+     *
+     * @return a SAXParser or null if a parser is not available
+     * @throws TikaException
+     */
+    private static PoolSAXParser acquireSAXParser() throws TikaException {
+<span class="fc" id="L753">        PoolSAXParser parser = null;</span>
+
+        //this locks around the pool so that there's
+        //no race condition with it being resized
+<span class="fc" id="L757">        SAX_POOL_LOCK</span>
+<span class="fc" id="L758">                .readLock()</span>
+<span class="fc" id="L759">                .lock();</span>
+        try {
+<span class="fc" id="L761">            parser = SAX_PARSERS.poll();</span>
+        } finally {
+<span class="fc" id="L763">            SAX_POOL_LOCK</span>
+<span class="fc" id="L764">                    .readLock()</span>
+<span class="fc" id="L765">                    .unlock();</span>
+        }
+<span class="pc bpc" id="L767" title="1 of 2 branches missed.">        if (parser == null) {</span>
+<span class="nc" id="L768">            LOG.warn(&quot;Contention waiting for a SAXParser. &quot; +</span>
+                    &quot;Consider increasing the XMLReaderUtils.POOL_SIZE&quot;);
+        }
+<span class="fc" id="L771">        return parser;</span>
+    }
+
+    /**
+     * Return parser to the pool for reuse
+     *
+     * @param parser parser to return
+     */
+    private static void releaseParser(PoolSAXParser parser) {
+<span class="pc bpc" id="L780" title="1 of 2 branches missed.">        if (parser == null) {</span>
+<span class="nc" id="L781">            return;</span>
+        }
+        try {
+<span class="fc" id="L784">            parser.reset();</span>
+<span class="nc" id="L785">        } catch (UnsupportedOperationException e) {</span>
+            //TIKA-3009 -- we really shouldn't have to do this... :(
+<span class="fc" id="L787">        }</span>
+        //if this is a different generation, don't put it back
+        //in the pool
+<span class="pc bpc" id="L790" title="1 of 2 branches missed.">        if (parser.getGeneration() != POOL_GENERATION.get()) {</span>
+<span class="nc" id="L791">            return;</span>
+        }
+<span class="fc" id="L793">        SAX_POOL_LOCK</span>
+<span class="fc" id="L794">                .readLock().lock();</span>
+        try {
+<span class="fc" id="L796">            parser.incrementUses();</span>
+<span class="pc bpc" id="L797" title="1 of 2 branches missed.">            if (parser.numUses &gt;= MAX_NUM_REUSES) {</span>
+                try {
+<span class="nc" id="L799">                    parser = buildPoolParser(parser.getGeneration(), getSAXParserFactory().newSAXParser());</span>
+<span class="nc" id="L800">                } catch (SAXException | ParserConfigurationException e) {</span>
+<span class="nc" id="L801">                    LOG.warn(&quot;Couldn't build new SAXParser after hitting max reuses&quot;, e);</span>
+<span class="nc" id="L802">                    return;</span>
+<span class="nc" id="L803">                }</span>
+            }
+            //if there are extra parsers (e.g. after a reset of the pool to a smaller size),
+            // this parser will not be added and will then be gc'd
+<span class="fc" id="L807">            boolean success = SAX_PARSERS.offer(parser);</span>
+<span class="pc bpc" id="L808" title="1 of 2 branches missed.">            if (!success) {</span>
+<span class="nc" id="L809">                LOG.warn(</span>
+                        &quot;SAXParser not taken back into pool.  If you haven't resized the pool &quot; +
+                                &quot;this could be a sign that there are more calls to 'acquire' &quot; +
+                                &quot;than to 'release'&quot;);
+            }
+        } finally {
+<span class="fc" id="L815">            SAX_POOL_LOCK</span>
+<span class="fc" id="L816">                    .readLock().unlock();</span>
+        }
+<span class="fc" id="L818">    }</span>
+
+    private static void trySetXercesSecurityManager(DocumentBuilderFactory factory) {
+        //from POI
+        // Try built-in JVM one first, standalone if not
+<span class="fc bfc" id="L823" title="All 2 branches covered.">        for (String securityManagerClassName : new String[]{</span>
+                //&quot;com.sun.org.apache.xerces.internal.util.SecurityManager&quot;,
+                XERCES_SECURITY_MANAGER}) {
+            try {
+<span class="fc" id="L827">                Object mgr =</span>
+<span class="nc" id="L828">                        Class.forName(securityManagerClassName).getDeclaredConstructor().newInstance();</span>
+<span class="nc" id="L829">                Method setLimit = mgr.getClass().getMethod(&quot;setEntityExpansionLimit&quot;,</span>
+                        Integer.TYPE);
+<span class="nc" id="L831">                setLimit.invoke(mgr, MAX_ENTITY_EXPANSIONS);</span>
+<span class="nc" id="L832">                factory.setAttribute(XERCES_SECURITY_MANAGER_PROPERTY, mgr);</span>
+                // Stop once one can be setup without error
+<span class="nc" id="L834">                return;</span>
+<span class="fc" id="L835">            } catch (ClassNotFoundException e) {</span>
+                // continue without log, this is expected in some setups
+<span class="nc" id="L837">            } catch (Throwable e) {     // NOSONAR - also catch things like NoClassDefError here</span>
+                // throttle the log somewhat as it can spam the log otherwise
+<span class="nc bnc" id="L839" title="All 2 branches missed.">                if (System.currentTimeMillis() &gt; LAST_LOG + TimeUnit.MINUTES.toMillis(5)) {</span>
+<span class="nc" id="L840">                    LOG.warn(</span>
+                            &quot;SAX Security Manager could not be setup [log suppressed for 5 &quot; +
+                                    &quot;minutes]&quot;,
+                            e);
+<span class="nc" id="L844">                    LAST_LOG = System.currentTimeMillis();</span>
+                }
+<span class="fc" id="L846">            }</span>
+        }
+
+        // separate old version of Xerces not found =&gt; use the builtin way of setting the property
+        try {
+<span class="fc" id="L851">            factory.setAttribute(&quot;http://www.oracle.com/xml/jaxp/properties/entityExpansionLimit&quot;,</span>
+<span class="fc" id="L852">                    MAX_ENTITY_EXPANSIONS);</span>
+<span class="nc" id="L853">        } catch (IllegalArgumentException e) {</span>
+            // NOSONAR - also catch things like NoClassDefError here
+            // throttle the log somewhat as it can spam the log otherwise
+<span class="nc bnc" id="L856" title="All 2 branches missed.">            if (System.currentTimeMillis() &gt; LAST_LOG + TimeUnit.MINUTES.toMillis(5)) {</span>
+<span class="nc" id="L857">                LOG.warn(&quot;SAX Security Manager could not be setup [log suppressed for 5 minutes]&quot;,</span>
+                        e);
+<span class="nc" id="L859">                LAST_LOG = System.currentTimeMillis();</span>
+            }
+<span class="fc" id="L861">        }</span>
+<span class="fc" id="L862">    }</span>
+
+    private static void trySetXercesSecurityManager(SAXParser parser) {
+        //from POI
+        // Try built-in JVM one first, standalone if not
+<span class="nc bnc" id="L867" title="All 2 branches missed.">        for (String securityManagerClassName : new String[]{</span>
+                //&quot;com.sun.org.apache.xerces.internal.util.SecurityManager&quot;,
+                XERCES_SECURITY_MANAGER}) {
+            try {
+<span class="nc" id="L871">                Object mgr =</span>
+<span class="nc" id="L872">                        Class.forName(securityManagerClassName).getDeclaredConstructor().newInstance();</span>
+<span class="nc" id="L873">                Method setLimit = mgr.getClass().getMethod(&quot;setEntityExpansionLimit&quot;, Integer.TYPE);</span>
+<span class="nc" id="L874">                setLimit.invoke(mgr, MAX_ENTITY_EXPANSIONS);</span>
+
+<span class="nc" id="L876">                parser.setProperty(XERCES_SECURITY_MANAGER_PROPERTY, mgr);</span>
+                // Stop once one can be setup without error
+<span class="nc" id="L878">                return;</span>
+<span class="nc" id="L879">            } catch (ClassNotFoundException e) {</span>
+                // continue without log, this is expected in some setups
+<span class="nc" id="L881">            } catch (Throwable e) {</span>
+                // NOSONAR - also catch things like NoClassDefError here
+                // throttle the log somewhat as it can spam the log otherwise
+<span class="nc bnc" id="L884" title="All 2 branches missed.">                if (System.currentTimeMillis() &gt; LAST_LOG + TimeUnit.MINUTES.toMillis(5)) {</span>
+<span class="nc" id="L885">                    LOG.warn(</span>
+                            &quot;SAX Security Manager could not be setup [log suppressed for 5 &quot; +
+                                    &quot;minutes]&quot;,
+                            e);
+<span class="nc" id="L889">                    LAST_LOG = System.currentTimeMillis();</span>
+                }
+<span class="nc" id="L891">            }</span>
+        }
+
+        // separate old version of Xerces not found =&gt; use the builtin way of setting the property
+        try {
+<span class="nc" id="L896">            parser.setProperty(&quot;http://www.oracle.com/xml/jaxp/properties/entityExpansionLimit&quot;,</span>
+<span class="nc" id="L897">                    MAX_ENTITY_EXPANSIONS);</span>
+<span class="nc" id="L898">        } catch (SAXException e) {     // NOSONAR - also catch things like NoClassDefError here</span>
+            // throttle the log somewhat as it can spam the log otherwise
+<span class="nc bnc" id="L900" title="All 2 branches missed.">            if (System.currentTimeMillis() &gt; LAST_LOG + TimeUnit.MINUTES.toMillis(5)) {</span>
+<span class="nc" id="L901">                LOG.warn(&quot;SAX Security Manager could not be setup [log suppressed for 5 minutes]&quot;,</span>
+                        e);
+<span class="nc" id="L903">                LAST_LOG = System.currentTimeMillis();</span>
+            }
+<span class="nc" id="L905">        }</span>
+<span class="nc" id="L906">    }</span>
+
+    private static void trySetStaxSecurityManager(XMLInputFactory inputFactory) {
+        //try default java entity expansion, then fallback to woodstox, then warn...once.
+        try {
+<span class="fc" id="L911">            inputFactory.setProperty(&quot;http://www.oracle.com/xml/jaxp/properties/entityExpansionLimit&quot;,</span>
+<span class="fc" id="L912">                    MAX_ENTITY_EXPANSIONS);</span>
+<span class="nc" id="L913">        } catch (IllegalArgumentException e) {</span>
+            try {
+<span class="nc" id="L915">                inputFactory.setProperty(&quot;com.ctc.wstx.maxEntityCount&quot;, MAX_ENTITY_EXPANSIONS);</span>
+<span class="nc" id="L916">            } catch (IllegalArgumentException e2) {</span>
+<span class="nc bnc" id="L917" title="All 2 branches missed.">                if (HAS_WARNED_STAX.getAndSet(true) == false) {</span>
+<span class="nc" id="L918">                    LOG.warn(&quot;Could not set limit on maximum entity expansions for: &quot; + inputFactory.getClass());</span>
+                }
+<span class="nc" id="L920">            }</span>
+
+<span class="fc" id="L922">        }</span>
+<span class="fc" id="L923">    }</span>
+
+    /**
+     * Get the maximum number of times a SAXParser or DOMBuilder may be reused.
+     *
+     * @return
+     */
+    public static int getMaxNumReuses() {
+<span class="nc" id="L931">        return MAX_NUM_REUSES;</span>
+    }
+
+    public static void setMaxNumReuses(int maxNumReuses) {
+<span class="nc" id="L935">        MAX_NUM_REUSES = maxNumReuses;</span>
+<span class="nc" id="L936">    }</span>
+
+    public static int getPoolSize() {
+<span class="nc" id="L939">        return POOL_SIZE;</span>
+    }
+
+    /**
+     * Set the pool size for cached XML parsers.  This has a side
+     * effect of locking the pool, and rebuilding the pool from
+     * scratch with the most recent settings, such as {@link #MAX_ENTITY_EXPANSIONS}
+     *
+     * As of Tika 3.2.1, if a value of &lt;code&gt;0&lt;/code&gt; is passed in, no SAXParsers or DOMBuilders
+     * will be pooled, and a new parser/builder will be built for each parse.
+     *
+     * @param poolSize
+     * @since Apache Tika 1.19
+     */
+    public static void setPoolSize(int poolSize) throws TikaException {
+<span class="pc bpc" id="L954" title="1 of 2 branches missed.">        if (poolSize &lt; 0) {</span>
+<span class="nc" id="L955">            throw new IllegalArgumentException(&quot;PoolSize must be &gt;= 0&quot;);</span>
+        }
+        //stop the world with a write lock.
+        //parsers that are currently in use will be offered later (once the lock is released),
+        //but not accepted and will be gc'd.  We have to do this locking and
+        //the read locking in case one thread resizes the pool when the
+        //parsers have already started.  We could have an NPE on SAX_PARSERS
+        //if we didn't lock.
+<span class="fc" id="L963">        SAX_POOL_LOCK</span>
+<span class="fc" id="L964">                .writeLock().lock();</span>
+        try {
+            //free up any resources before emptying SAX_PARSERS
+<span class="pc bpc" id="L967" title="1 of 2 branches missed.">            for (PoolSAXParser parser : SAX_PARSERS) {</span>
+<span class="nc" id="L968">                parser.reset();</span>
+<span class="nc" id="L969">            }</span>
+<span class="fc" id="L970">            SAX_PARSERS.clear();</span>
+<span class="pc bpc" id="L971" title="1 of 2 branches missed.">            if (poolSize &gt; 0) {</span>
+<span class="fc" id="L972">                SAX_PARSERS = new ArrayBlockingQueue&lt;&gt;(poolSize);</span>
+<span class="fc" id="L973">                int generation = POOL_GENERATION.incrementAndGet();</span>
+<span class="fc bfc" id="L974" title="All 2 branches covered.">                for (int i = 0; i &lt; poolSize; i++) {</span>
+                    try {
+<span class="fc" id="L976">                        SAX_PARSERS.offer(buildPoolParser(generation, getSAXParserFactory().newSAXParser()));</span>
+<span class="nc" id="L977">                    } catch (SAXException | ParserConfigurationException e) {</span>
+<span class="nc" id="L978">                        throw new TikaException(&quot;problem creating sax parser&quot;, e);</span>
+<span class="fc" id="L979">                    }</span>
+                }
+            }
+        } finally {
+<span class="fc" id="L983">            SAX_POOL_LOCK</span>
+<span class="fc" id="L984">                    .writeLock().unlock();</span>
+        }
+
+<span class="fc" id="L987">        DOM_POOL_LOCK</span>
+<span class="fc" id="L988">                .writeLock().lock();</span>
+        try {
+<span class="fc" id="L990">            DOM_BUILDERS.clear();</span>
+<span class="pc bpc" id="L991" title="1 of 2 branches missed.">            if (poolSize &gt; 0) {</span>
+<span class="fc" id="L992">                DOM_BUILDERS = new ArrayBlockingQueue&lt;&gt;(poolSize);</span>
+<span class="fc bfc" id="L993" title="All 2 branches covered.">                for (int i = 0; i &lt; poolSize; i++) {</span>
+<span class="fc" id="L994">                    DOM_BUILDERS.offer(new PoolDOMBuilder(POOL_GENERATION.get(), getDocumentBuilder()));</span>
+                }
+            }
+        } finally {
+<span class="fc" id="L998">            DOM_POOL_LOCK</span>
+<span class="fc" id="L999">                    .writeLock().unlock();</span>
+        }
+<span class="fc" id="L1001">        POOL_SIZE = poolSize;</span>
+<span class="fc" id="L1002">    }</span>
+
+    public static int getMaxEntityExpansions() {
+<span class="nc" id="L1005">        return MAX_ENTITY_EXPANSIONS;</span>
+    }
+
+    /**
+     * Set the maximum number of entity expansions allowable in SAX/DOM/StAX parsing.
+     * &lt;b&gt;NOTE:&lt;/b&gt;A value less than or equal to zero indicates no limit.
+     * This will override the system property {@link #JAXP_ENTITY_EXPANSION_LIMIT_KEY}
+     * and the {@link #DEFAULT_MAX_ENTITY_EXPANSIONS} value for allowable entity expansions
+     * &lt;p&gt;
+     * &lt;b&gt;NOTE:&lt;/b&gt; To trigger a rebuild of the pool of parsers with this setting,
+     * the client must call {@link #setPoolSize(int)} to rebuild the SAX and DOM parsers
+     * with this setting.
+     * &lt;/p&gt;
+     *
+     * @param maxEntityExpansions -- maximum number of allowable entity expansions
+     * @since Apache Tika 1.19
+     */
+    public static void setMaxEntityExpansions(int maxEntityExpansions) {
+<span class="nc" id="L1023">        MAX_ENTITY_EXPANSIONS = maxEntityExpansions;</span>
+<span class="nc" id="L1024">    }</span>
+
+    /**
+     * @param localName
+     * @param atts
+     * @return attribute value with that local name or &lt;code&gt;null&lt;/code&gt; if not found
+     */
+    public static String getAttrValue(String localName, Attributes atts) {
+<span class="nc bnc" id="L1032" title="All 2 branches missed.">        for (int i = 0; i &lt; atts.getLength(); i++) {</span>
+<span class="nc bnc" id="L1033" title="All 2 branches missed.">            if (localName.equals(atts.getLocalName(i))) {</span>
+<span class="nc" id="L1034">                return atts.getValue(i);</span>
+            }
+        }
+<span class="nc" id="L1037">        return null;</span>
+    }
+
+    private static PoolSAXParser buildPoolParser(int generation, SAXParser parser) {
+<span class="fc" id="L1041">        boolean canReset = false;</span>
+        try {
+<span class="fc" id="L1043">            parser.reset();</span>
+<span class="fc" id="L1044">            canReset = true;</span>
+<span class="nc" id="L1045">        } catch (UnsupportedOperationException e) {</span>
+<span class="nc" id="L1046">            canReset = false;</span>
+<span class="fc" id="L1047">        }</span>
+<span class="fc" id="L1048">        boolean hasSecurityManager = false;</span>
+        try {
+<span class="fc" id="L1050">            Object mgr =</span>
+<span class="nc" id="L1051">                    Class.forName(XERCES_SECURITY_MANAGER).getDeclaredConstructor().newInstance();</span>
+<span class="nc" id="L1052">            Method setLimit = mgr.getClass().getMethod(&quot;setEntityExpansionLimit&quot;, Integer.TYPE);</span>
+<span class="nc" id="L1053">            setLimit.invoke(mgr, MAX_ENTITY_EXPANSIONS);</span>
+
+<span class="nc" id="L1055">            parser.setProperty(XERCES_SECURITY_MANAGER_PROPERTY, mgr);</span>
+<span class="nc" id="L1056">            hasSecurityManager = true;</span>
+<span class="nc" id="L1057">        } catch (SecurityException e) {</span>
+            //don't swallow security exceptions
+<span class="nc" id="L1059">            throw e;</span>
+<span class="fc" id="L1060">        } catch (ClassNotFoundException e) {</span>
+            // continue without log, this is expected in some setups
+<span class="nc" id="L1062">        } catch (Throwable e) {</span>
+            // NOSONAR - also catch things like NoClassDefError here
+            // throttle the log somewhat as it can spam the log otherwise
+<span class="nc bnc" id="L1065" title="All 2 branches missed.">            if (System.currentTimeMillis() &gt; LAST_LOG + TimeUnit.MINUTES.toMillis(5)) {</span>
+<span class="nc" id="L1066">                LOG.warn(&quot;SAX Security Manager could not be setup [log suppressed for 5 minutes]&quot;,</span>
+                        e);
+<span class="nc" id="L1068">                LAST_LOG = System.currentTimeMillis();</span>
+            }
+<span class="pc" id="L1070">        }</span>
+
+<span class="fc" id="L1072">        boolean canSetJaxPEntity = false;</span>
+<span class="pc bpc" id="L1073" title="1 of 2 branches missed.">        if (!hasSecurityManager) {</span>
+            // use the builtin way of setting the property
+            try {
+<span class="fc" id="L1076">                parser.setProperty(&quot;http://www.oracle.com/xml/jaxp/properties/entityExpansionLimit&quot;,</span>
+<span class="fc" id="L1077">                        MAX_ENTITY_EXPANSIONS);</span>
+<span class="fc" id="L1078">                canSetJaxPEntity = true;</span>
+<span class="nc" id="L1079">            } catch (SAXException e) {     // NOSONAR - also catch things like NoClassDefError here</span>
+                // throttle the log somewhat as it can spam the log otherwise
+<span class="nc bnc" id="L1081" title="All 2 branches missed.">                if (System.currentTimeMillis() &gt; LAST_LOG + TimeUnit.MINUTES.toMillis(5)) {</span>
+<span class="nc" id="L1082">                    LOG.warn(</span>
+                            &quot;SAX Security Manager could not be setup [log suppressed for 5 &quot; +
+                                    &quot;minutes]&quot;,
+                            e);
+<span class="nc" id="L1086">                    LAST_LOG = System.currentTimeMillis();</span>
+                }
+<span class="fc" id="L1088">            }</span>
+        }
+
+<span class="pc bpc" id="L1091" title="3 of 4 branches missed.">        if (!canReset &amp;&amp; hasSecurityManager) {</span>
+<span class="nc" id="L1092">            return new XercesPoolSAXParser(generation, parser);</span>
+<span class="pc bpc" id="L1093" title="2 of 4 branches missed.">        } else if (canReset &amp;&amp; hasSecurityManager) {</span>
+<span class="nc" id="L1094">            return new Xerces2PoolSAXParser(generation, parser);</span>
+<span class="pc bpc" id="L1095" title="3 of 6 branches missed.">        } else if (canReset &amp;&amp; !hasSecurityManager &amp;&amp; canSetJaxPEntity) {</span>
+<span class="fc" id="L1096">            return new BuiltInPoolSAXParser(generation, parser);</span>
+        } else {
+<span class="nc" id="L1098">            return new UnrecognizedPoolSAXParser(generation, parser);</span>
+        }
+
+    }
+
+    private static void clearReader(XMLReader reader) {
+<span class="pc bpc" id="L1104" title="1 of 2 branches missed.">        if (reader == null) {</span>
+<span class="nc" id="L1105">            return;</span>
+        }
+<span class="fc" id="L1107">        reader.setContentHandler(IGNORING_CONTENT_HANDLER);</span>
+<span class="fc" id="L1108">        reader.setDTDHandler(IGNORING_DTD_HANDLER);</span>
+<span class="fc" id="L1109">        reader.setEntityResolver(IGNORING_SAX_ENTITY_RESOLVER);</span>
+<span class="fc" id="L1110">        reader.setErrorHandler(IGNORING_ERROR_HANDLER);</span>
+<span class="fc" id="L1111">    }</span>
+
+    private static class PoolDOMBuilder {
+        private final int poolGeneration;
+        private final DocumentBuilder documentBuilder;
+<span class="fc" id="L1116">        int numUses = 0;</span>
+
+<span class="fc" id="L1118">        PoolDOMBuilder(int poolGeneration, DocumentBuilder documentBuilder) {</span>
+<span class="fc" id="L1119">            this.poolGeneration = poolGeneration;</span>
+<span class="fc" id="L1120">            this.documentBuilder = documentBuilder;</span>
+<span class="fc" id="L1121">        }</span>
+
+        public int getPoolGeneration() {
+<span class="fc" id="L1124">            return poolGeneration;</span>
+        }
+
+        public DocumentBuilder getDocumentBuilder() {
+<span class="fc" id="L1128">            return documentBuilder;</span>
+        }
+
+        public void reset() {
+<span class="fc" id="L1132">            documentBuilder.reset();</span>
+<span class="fc" id="L1133">            documentBuilder.setEntityResolver(IGNORING_SAX_ENTITY_RESOLVER);</span>
+<span class="fc" id="L1134">            documentBuilder.setErrorHandler(null);</span>
+<span class="fc" id="L1135">        }</span>
+
+        void incrementUses() {
+<span class="fc" id="L1138">            numUses = 0;</span>
+<span class="fc" id="L1139">        }</span>
+    }
+
+    private abstract static class PoolSAXParser {
+        final int poolGeneration;
+        final SAXParser saxParser;
+<span class="fc" id="L1145">        int numUses = 0;</span>
+<span class="fc" id="L1146">        PoolSAXParser(int poolGeneration, SAXParser saxParser) {</span>
+<span class="fc" id="L1147">            this.poolGeneration = poolGeneration;</span>
+<span class="fc" id="L1148">            this.saxParser = saxParser;</span>
+<span class="fc" id="L1149">        }</span>
+
+        abstract void reset();
+
+        public int getGeneration() {
+<span class="fc" id="L1154">            return poolGeneration;</span>
+        }
+
+        public SAXParser getSAXParser() {
+<span class="fc" id="L1158">            return saxParser;</span>
+        }
+
+        void incrementUses() {
+<span class="fc" id="L1162">            numUses++;</span>
+<span class="fc" id="L1163">        }</span>
+
+    }
+
+    private static class XercesPoolSAXParser extends PoolSAXParser {
+        public XercesPoolSAXParser(int generation, SAXParser parser) {
+<span class="nc" id="L1169">            super(generation, parser);</span>
+<span class="nc" id="L1170">        }</span>
+
+        @Override
+        public void reset() {
+            //don't do anything
+            try {
+<span class="nc" id="L1176">                XMLReader reader = saxParser.getXMLReader();</span>
+<span class="nc" id="L1177">                clearReader(reader);</span>
+<span class="nc" id="L1178">            } catch (SAXException e) {</span>
+                //swallow
+<span class="nc" id="L1180">            }</span>
+<span class="nc" id="L1181">        }</span>
+    }
+
+    private static class Xerces2PoolSAXParser extends PoolSAXParser {
+        public Xerces2PoolSAXParser(int generation, SAXParser parser) {
+<span class="nc" id="L1186">            super(generation, parser);</span>
+<span class="nc" id="L1187">        }</span>
+
+        @Override
+        void reset() {
+            try {
+<span class="nc" id="L1192">                Object object = saxParser.getProperty(XERCES_SECURITY_MANAGER_PROPERTY);</span>
+<span class="nc" id="L1193">                saxParser.reset();</span>
+<span class="nc" id="L1194">                saxParser.setProperty(XERCES_SECURITY_MANAGER_PROPERTY, object);</span>
+<span class="nc" id="L1195">            } catch (SAXException e) {</span>
+<span class="nc" id="L1196">                LOG.warn(&quot;problem resetting sax parser&quot;, e);</span>
+<span class="nc" id="L1197">            }</span>
+            try {
+<span class="nc" id="L1199">                XMLReader reader = saxParser.getXMLReader();</span>
+<span class="nc" id="L1200">                clearReader(reader);</span>
+<span class="nc" id="L1201">            } catch (SAXException e) {</span>
+                // ignored
+<span class="nc" id="L1203">            }</span>
+<span class="nc" id="L1204">        }</span>
+    }
+
+    private static class BuiltInPoolSAXParser extends PoolSAXParser {
+        public BuiltInPoolSAXParser(int generation, SAXParser parser) {
+<span class="fc" id="L1209">            super(generation, parser);</span>
+<span class="fc" id="L1210">        }</span>
+
+        @Override
+        void reset() {
+<span class="fc" id="L1214">            saxParser.reset();</span>
+            try {
+<span class="fc" id="L1216">                XMLReader reader = saxParser.getXMLReader();</span>
+<span class="fc" id="L1217">                clearReader(reader);</span>
+<span class="nc" id="L1218">            } catch (SAXException e) {</span>
+                // ignored
+<span class="fc" id="L1220">            }</span>
+<span class="fc" id="L1221">        }</span>
+    }
+
+    private static class UnrecognizedPoolSAXParser extends PoolSAXParser {
+        //if unrecognized, try to set all protections
+        //and try to reset every time
+        public UnrecognizedPoolSAXParser(int generation, SAXParser parser) {
+<span class="nc" id="L1228">            super(generation, parser);</span>
+<span class="nc" id="L1229">        }</span>
+
+        @Override
+        void reset() {
+            try {
+<span class="nc" id="L1234">                saxParser.reset();</span>
+<span class="nc" id="L1235">            } catch (UnsupportedOperationException e) {</span>
+                // ignored
+<span class="nc" id="L1237">            }</span>
+            try {
+<span class="nc" id="L1239">                XMLReader reader = saxParser.getXMLReader();</span>
+<span class="nc" id="L1240">                clearReader(reader);</span>
+<span class="nc" id="L1241">            } catch (SAXException e) {</span>
+                // ignored
+<span class="nc" id="L1243">            }</span>
+<span class="nc" id="L1244">            trySetXercesSecurityManager(saxParser);</span>
+<span class="nc" id="L1245">        }</span>
+    }
+
+    /**
+     * Returns the DOM builder specified in this parsing context.
+     * If a builder is not explicitly specified, then a builder
+     * instance is created and returned. The builder instance is
+     * configured to apply an {@link XMLReaderUtils#IGNORING_SAX_ENTITY_RESOLVER},
+     * and it sets the ErrorHandler to &lt;code&gt;null&lt;/code&gt;.
+     * Consider using {@link XMLReaderUtils#buildDOM(InputStream, ParseContext)}
+     * instead for more efficient reuse of document builders.
+     *
+     * @return DOM Builder
+     */
+    public static DocumentBuilder getDocumentBuilder(ParseContext context) throws TikaException {
+<span class="fc" id="L1260">        DocumentBuilder documentBuilder = context.get(DocumentBuilder.class);</span>
+<span class="pc bpc" id="L1261" title="1 of 2 branches missed.">        if (documentBuilder != null) {</span>
+<span class="nc" id="L1262">            return documentBuilder;</span>
+        } else {
+<span class="fc" id="L1264">            return XMLReaderUtils.getDocumentBuilder();</span>
+        }
+    }
+
+    /**
+     * Returns the StAX input factory specified in this parsing context.
+     * If a factory is not explicitly specified, then a default factory
+     * instance is created and returned. The default factory instance is
+     * configured to be namespace-aware and to apply reasonable security
+     * precautions.
+     *
+     * @return StAX input factory
+     */
+    public static XMLInputFactory getXMLInputFactory(ParseContext context) {
+<span class="fc" id="L1278">        XMLInputFactory factory = context.get(XMLInputFactory.class);</span>
+<span class="pc bpc" id="L1279" title="1 of 2 branches missed.">        if (factory != null) {</span>
+<span class="nc" id="L1280">            return factory;</span>
+        }
+<span class="fc" id="L1282">        return XMLReaderUtils.getXMLInputFactory();</span>
+    }
+
+
+    /**
+     * Returns the transformer specified in this parsing context.
+     * &lt;p&gt;
+     * If a transformer is not explicitly specified, then a default transformer
+     * instance is created and returned. The default transformer instance is
+     * configured to to use
+     * {@link XMLConstants#FEATURE_SECURE_PROCESSING secure XML processing}.
+     *
+     * @return Transformer
+     * @throws TikaException when the transformer can not be created
+     */
+    public static Transformer getTransformer(ParseContext context) throws TikaException {
+
+<span class="nc" id="L1299">        Transformer transformer = context.get(Transformer.class);</span>
+<span class="nc bnc" id="L1300" title="All 2 branches missed.">        if (transformer != null) {</span>
+<span class="nc" id="L1301">            return transformer;</span>
+        }
+
+<span class="nc" id="L1304">        return XMLReaderUtils.getTransformer();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

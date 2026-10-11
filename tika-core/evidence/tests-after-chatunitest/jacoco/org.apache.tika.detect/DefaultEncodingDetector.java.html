@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultEncodingDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">DefaultEncodingDetector.java</span></div><h1>DefaultEncodingDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.util.Collection;
+import javax.imageio.spi.ServiceRegistry;
+
+import org.apache.tika.config.ServiceLoader;
+
+/**
+ * A composite encoding detector over all {@link EncodingDetector}
+ * implementations available through the
+ * {@link ServiceRegistry service provider mechanism}.
+ *
+ * &lt;p&gt;The 4.x default chain (via {@code META-INF/services}): BOM and
+ * metadata-charset detectors (tika-core), the HTML {@code &lt;meta&gt;} detector,
+ * MojibusterEncodingDetector, and JunkFilterEncodingDetector — a
+ * {@link MetaEncodingDetector} that arbitrates the candidates by decode quality
+ * and always runs last, so detector order is irrelevant.&lt;/p&gt;
+ *
+ * &lt;p&gt;UniversalEncodingDetector and Icu4jEncodingDetector are no longer
+ * distributed by default and are not auto-discovered; add the jar and enable
+ * them in a {@code tika-config} to use them.&lt;/p&gt;
+ *
+ * @since Apache Tika 1.15
+ */
+public class DefaultEncodingDetector extends CompositeEncodingDetector {
+
+    public DefaultEncodingDetector() {
+<span class="nc" id="L44">        this(new ServiceLoader(DefaultEncodingDetector.class.getClassLoader()));</span>
+<span class="nc" id="L45">    }</span>
+
+    public DefaultEncodingDetector(ServiceLoader loader) {
+<span class="fc" id="L48">        super(loader.loadServiceProviders(EncodingDetector.class));</span>
+<span class="fc" id="L49">    }</span>
+
+    public DefaultEncodingDetector(ServiceLoader loader,
+                                   Collection&lt;Class&lt;? extends EncodingDetector&gt;&gt;
+                                           excludeEncodingDetectors) {
+<span class="nc" id="L54">        super(loader.loadServiceProviders(EncodingDetector.class),</span>
+                excludeEncodingDetectors);
+<span class="nc" id="L56">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

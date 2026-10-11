@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MimeTypesReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">MimeTypesReader.java</span></div><h1>MimeTypesReader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.sax.SAXResult;
+
+import org.apache.commons.io.input.UnsynchronizedByteArrayInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.utils.XMLReaderUtils;
+
+/**
+ * A reader for XML files compliant with the freedesktop MIME-info DTD.
+ *
+ * &lt;pre&gt;
+ *  &amp;lt;!DOCTYPE mime-info [
+ *    &amp;lt;!ELEMENT mime-info (mime-type)+&amp;gt;
+ *    &amp;lt;!ATTLIST mime-info xmlns CDATA #FIXED
+ *    &amp;quot;http://www.freedesktop.org/standards/shared-mime-info&amp;quot;&amp;gt;
+ *
+ *    &amp;lt;!ELEMENT mime-type
+ *     (comment|acronym|expanded-acronym|glob|magic|root-XML|alias|sub-class-of)*&amp;gt;
+ *    &amp;lt;!ATTLIST mime-type type CDATA #REQUIRED&amp;gt;
+ *
+ *    &amp;lt;!-- a comment describing a document with the respective MIME type. Example:
+ *    &amp;quot;WMV video&amp;quot; --&amp;gt;
+ *    &amp;lt;!ELEMENT _comment (#PCDATA)&amp;gt;
+ *    &amp;lt;!ATTLIST _comment xml:lang CDATA #IMPLIED&amp;gt;
+ *
+ *    &amp;lt;!-- a comment describing a the respective unexpanded MIME type acronym. Example:
+ *    &amp;quot;WMV&amp;quot; --&amp;gt;
+ *    &amp;lt;!ELEMENT acronym (#PCDATA)&amp;gt;
+ *    &amp;lt;!ATTLIST acronym xml:lang CDATA #IMPLIED&amp;gt;
+ *
+ *    &amp;lt;!-- a comment describing a the respective unexpanded MIME type acronym. Example:
+ *    &amp;quot;Windows Media Video&amp;quot; --&amp;gt;
+ *    &amp;lt;!ELEMENT expanded-acronym (#PCDATA)&amp;gt;
+ *    &amp;lt;!ATTLIST expanded-acronym xml:lang CDATA #IMPLIED&amp;gt;
+ *
+ *    &amp;lt;!ELEMENT glob EMPTY&amp;gt;
+ *    &amp;lt;!ATTLIST glob pattern CDATA #REQUIRED&amp;gt;
+ *    &amp;lt;!ATTLIST glob isregex CDATA #IMPLIED&amp;gt;
+ *
+ *    &amp;lt;!ELEMENT magic (match)+&amp;gt;
+ *    &amp;lt;!ATTLIST magic priority CDATA #IMPLIED&amp;gt;
+ *
+ *    &amp;lt;!ELEMENT match (match)*&amp;gt;
+ *    &amp;lt;!ATTLIST match offset CDATA #REQUIRED&amp;gt;
+ *    &amp;lt;!ATTLIST match type
+ *        (string|big16|big32|little16|little32|host16|host32|byte) #REQUIRED&amp;gt;
+ *    &amp;lt;!ATTLIST match value CDATA #REQUIRED&amp;gt;
+ *    &amp;lt;!ATTLIST match mask CDATA #IMPLIED&amp;gt;
+ *
+ *    &amp;lt;!ELEMENT root-XML EMPTY&amp;gt;
+ *    &amp;lt;!ATTLIST root-XML
+ *          namespaceURI CDATA #REQUIRED
+ *          localName CDATA #REQUIRED&amp;gt;
+ *
+ *    &amp;lt;!ELEMENT alias EMPTY&amp;gt;
+ *    &amp;lt;!ATTLIST alias
+ *          type CDATA #REQUIRED&amp;gt;
+ *
+ *   &amp;lt;!ELEMENT sub-class-of EMPTY&amp;gt;
+ *   &amp;lt;!ATTLIST sub-class-of
+ *         type CDATA #REQUIRED&amp;gt;
+ *  ]&amp;gt;
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * In addition to the standard fields, this will also read two Tika specific fields:
+ * - link
+ * - uti
+ *
+ * @see &lt;a href=&quot;https://freedesktop.org/wiki/Specifications/shared-mime-info-spec/&quot;&gt;https://freedesktop.org/wiki/Specifications/shared-mime-info-spec/&lt;/a&gt;
+ */
+public class MimeTypesReader extends DefaultHandler implements MimeTypesReaderMetKeys {
+<span class="fc" id="L114">    private static final ReentrantReadWriteLock READ_WRITE_LOCK = new ReentrantReadWriteLock();</span>
+    /**
+     * Parser pool size
+     */
+<span class="fc" id="L118">    private static int POOL_SIZE = 10;</span>
+<span class="fc" id="L119">    private static ArrayBlockingQueue&lt;SAXParser&gt; SAX_PARSERS = new ArrayBlockingQueue&lt;&gt;(POOL_SIZE);</span>
+<span class="fc" id="L120">    static Logger LOG = LoggerFactory.getLogger(MimeTypesReader.class);</span>
+    static {
+        try {
+<span class="fc" id="L123">            setPoolSize(POOL_SIZE);</span>
+<span class="nc" id="L124">        } catch (TikaException e) {</span>
+<span class="nc" id="L125">            throw new RuntimeException(&quot;problem initializing SAXParser pool&quot;, e);</span>
+<span class="fc" id="L126">        }</span>
+<span class="fc" id="L127">    }</span>
+
+    protected final MimeTypes types;
+
+    /**
+     * Current type
+     */
+<span class="fc" id="L134">    protected MimeType type = null;</span>
+
+    protected int priority;
+
+<span class="fc" id="L138">    protected StringBuilder characters = null;</span>
+<span class="fc" id="L139">    private ClauseRecord current = new ClauseRecord(null);</span>
+
+<span class="fc" id="L141">    protected MimeTypesReader(MimeTypes types) {</span>
+<span class="fc" id="L142">        this.types = types;</span>
+<span class="fc" id="L143">    }</span>
+
+    /**
+     * Acquire a SAXParser from the pool; create one if it
+     * doesn't exist.  Make sure to {@link #releaseParser(SAXParser)} in
+     * a &lt;code&gt;finally&lt;/code&gt; block every time you call this.
+     *
+     * @return a SAXParser
+     * @throws TikaException
+     */
+    private static SAXParser acquireSAXParser() throws TikaException {
+        while (true) {
+<span class="fc" id="L155">            SAXParser parser = null;</span>
+            try {
+<span class="fc" id="L157">                READ_WRITE_LOCK.readLock().lock();</span>
+<span class="fc" id="L158">                parser = SAX_PARSERS.poll(10, TimeUnit.MILLISECONDS);</span>
+<span class="nc" id="L159">            } catch (InterruptedException e) {</span>
+<span class="nc" id="L160">                throw new TikaException(&quot;interrupted while waiting for SAXParser&quot;, e);</span>
+            } finally {
+<span class="fc" id="L162">                READ_WRITE_LOCK.readLock().unlock();</span>
+
+            }
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">            if (parser != null) {</span>
+<span class="fc" id="L166">                return parser;</span>
+            }
+<span class="nc" id="L168">        }</span>
+    }
+
+    /**
+     * Return parser to the pool for reuse
+     *
+     * @param parser parser to return
+     */
+    private static void releaseParser(SAXParser parser) {
+        try {
+<span class="fc" id="L178">            parser.reset();</span>
+<span class="nc" id="L179">        } catch (UnsupportedOperationException e) {</span>
+            //ignore
+<span class="fc" id="L181">        }</span>
+        try {
+<span class="fc" id="L183">            READ_WRITE_LOCK.readLock().lock();</span>
+            //if there are extra parsers (e.g. after a reset of the pool to a smaller size),
+            // this parser will not be added and will then be gc'd
+<span class="fc" id="L186">            SAX_PARSERS.offer(parser);</span>
+        } finally {
+<span class="fc" id="L188">            READ_WRITE_LOCK.readLock().unlock();</span>
+        }
+<span class="fc" id="L190">    }</span>
+
+    /**
+     * Set the pool size for cached XML parsers.
+     *
+     * @param poolSize
+     */
+    public static void setPoolSize(int poolSize) throws TikaException {
+        try {
+            //stop the world with a write lock
+            //parsers that are currently in use will be offered, but not
+            //accepted and will be gc'd
+<span class="fc" id="L202">            READ_WRITE_LOCK.writeLock().lock();</span>
+<span class="fc" id="L203">            SAX_PARSERS = new ArrayBlockingQueue&lt;&gt;(poolSize);</span>
+<span class="fc bfc" id="L204" title="All 2 branches covered.">            for (int i = 0; i &lt; poolSize; i++) {</span>
+<span class="fc" id="L205">                SAX_PARSERS.offer(newSAXParser());</span>
+            }
+<span class="fc" id="L207">            POOL_SIZE = poolSize;</span>
+        } finally {
+<span class="fc" id="L209">            READ_WRITE_LOCK.writeLock().unlock();</span>
+        }
+<span class="fc" id="L211">    }</span>
+
+    private static SAXParser newSAXParser() throws TikaException {
+<span class="fc" id="L214">        SAXParserFactory factory = SAXParserFactory.newInstance();</span>
+<span class="fc" id="L215">        factory.setNamespaceAware(false);</span>
+        try {
+<span class="fc" id="L217">            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);</span>
+<span class="nc" id="L218">        } catch (ParserConfigurationException | SAXException e) {</span>
+<span class="nc" id="L219">            LOG.warn(&quot;can't set secure processing feature on: &quot; + factory.getClass() +</span>
+                    &quot;. User assumes responsibility for consequences.&quot;);
+<span class="fc" id="L221">        }</span>
+        try {
+<span class="fc" id="L223">            return factory.newSAXParser();</span>
+<span class="nc" id="L224">        } catch (ParserConfigurationException | SAXException e) {</span>
+<span class="nc" id="L225">            throw new TikaException(&quot;Can't create new sax parser&quot;, e);</span>
+        }
+    }
+
+    public void read(InputStream stream) throws IOException, MimeTypeException {
+<span class="fc" id="L230">        SAXParser parser = null;</span>
+        try {
+
+<span class="fc" id="L233">            parser = acquireSAXParser();</span>
+<span class="fc" id="L234">            parser.parse(stream, this);</span>
+<span class="nc" id="L235">        } catch (TikaException e) {</span>
+<span class="nc" id="L236">            throw new MimeTypeException(&quot;Unable to create an XML parser&quot;, e);</span>
+<span class="nc" id="L237">        } catch (SAXException e) {</span>
+<span class="nc" id="L238">            throw new MimeTypeException(&quot;Invalid type configuration&quot;, e);</span>
+        } finally {
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">            if (parser != null) {</span>
+<span class="fc" id="L241">                releaseParser(parser);</span>
+            }
+        }
+<span class="fc" id="L244">    }</span>
+
+    public void read(Document document) throws MimeTypeException {
+        try {
+<span class="nc" id="L248">            Transformer transformer = XMLReaderUtils.getTransformer();</span>
+<span class="nc" id="L249">            transformer.transform(new DOMSource(document), new SAXResult(this));</span>
+<span class="nc" id="L250">        } catch (TransformerException | TikaException e) {</span>
+<span class="nc" id="L251">            throw new MimeTypeException(&quot;Failed to parse type registry&quot;, e);</span>
+<span class="nc" id="L252">        }</span>
+<span class="nc" id="L253">    }</span>
+
+    @Override
+    public InputSource resolveEntity(String publicId, String systemId) {
+<span class="nc" id="L257">        return new InputSource(UnsynchronizedByteArrayInputStream.nullInputStream());</span>
+    }
+
+    @Override
+    public void startElement(String uri, String localName, String qName, Attributes attributes)
+            throws SAXException {
+<span class="fc bfc" id="L263" title="All 2 branches covered.">        if (type == null) {</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">            if (MIME_TYPE_TAG.equals(qName)) {</span>
+<span class="fc" id="L265">                String name = attributes.getValue(MIME_TYPE_TYPE_ATTR);</span>
+<span class="fc" id="L266">                String interpretedAttr = attributes.getValue(INTERPRETED_ATTR);</span>
+<span class="fc" id="L267">                boolean interpreted = &quot;true&quot;.equals(interpretedAttr);</span>
+                try {
+<span class="fc" id="L269">                    type = types.forName(name);</span>
+<span class="fc" id="L270">                    type.setInterpreted(interpreted);</span>
+<span class="nc" id="L271">                } catch (MimeTypeException e) {</span>
+<span class="nc" id="L272">                    handleMimeError(name, e, qName, attributes);</span>
+<span class="fc" id="L273">                }</span>
+<span class="fc" id="L274">            }</span>
+<span class="fc bfc" id="L275" title="All 2 branches covered.">        } else if (ALIAS_TAG.equals(qName)) {</span>
+<span class="fc" id="L276">            String alias = attributes.getValue(ALIAS_TYPE_ATTR);</span>
+<span class="fc" id="L277">            types.addAlias(type, MediaType.parse(alias));</span>
+<span class="fc bfc" id="L278" title="All 2 branches covered.">        } else if (SUB_CLASS_OF_TAG.equals(qName)) {</span>
+<span class="fc" id="L279">            String parent = attributes.getValue(SUB_CLASS_TYPE_ATTR);</span>
+<span class="fc" id="L280">            types.setSuperType(type, MediaType.parse(parent));</span>
+<span class="fc bfc" id="L281" title="All 4 branches covered.">        } else if (ACRONYM_TAG.equals(qName) || COMMENT_TAG.equals(qName) ||</span>
+<span class="fc bfc" id="L282" title="All 4 branches covered.">                TIKA_LINK_TAG.equals(qName) || TIKA_UTI_TAG.equals(qName)) {</span>
+<span class="fc" id="L283">            characters = new StringBuilder();</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">        } else if (GLOB_TAG.equals(qName)) {</span>
+<span class="fc" id="L285">            String pattern = attributes.getValue(PATTERN_ATTR);</span>
+<span class="fc" id="L286">            String isRegex = attributes.getValue(ISREGEX_ATTR);</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">            if (pattern != null) {</span>
+                try {
+<span class="fc" id="L289">                    types.addPattern(type, pattern, Boolean.parseBoolean(isRegex));</span>
+<span class="fc" id="L290">                } catch (MimeTypeException e) {</span>
+<span class="fc" id="L291">                    handleGlobError(type, pattern, e, qName, attributes);</span>
+<span class="fc" id="L292">                }</span>
+            }
+<span class="fc bfc" id="L294" title="All 2 branches covered.">        } else if (ROOT_XML_TAG.equals(qName)) {</span>
+<span class="fc" id="L295">            String namespace = attributes.getValue(NS_URI_ATTR);</span>
+<span class="fc" id="L296">            String name = attributes.getValue(LOCAL_NAME_ATTR);</span>
+<span class="fc" id="L297">            type.addRootXML(namespace, name);</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">        } else if (MATCH_TAG.equals(qName)) {</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">            if (attributes.getValue(MATCH_MINSHOULDMATCH_ATTR) != null) {</span>
+<span class="fc" id="L300">                current = new ClauseRecord(new MinShouldMatchVal(</span>
+<span class="fc" id="L301">                        Integer.parseInt(attributes.getValue(MATCH_MINSHOULDMATCH_ATTR))));</span>
+            } else {
+<span class="fc" id="L303">                String kind = attributes.getValue(MATCH_TYPE_ATTR);</span>
+<span class="fc" id="L304">                String offset = attributes.getValue(MATCH_OFFSET_ATTR);</span>
+<span class="fc" id="L305">                String value = attributes.getValue(MATCH_VALUE_ATTR);</span>
+<span class="fc" id="L306">                String mask = attributes.getValue(MATCH_MASK_ATTR);</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">                if (kind == null) {</span>
+<span class="fc" id="L308">                    kind = &quot;string&quot;;</span>
+                }
+<span class="fc" id="L310">                current =</span>
+<span class="fc" id="L311">                        new ClauseRecord(new MagicMatch(type.getType(), kind, offset, value, mask));</span>
+<span class="fc" id="L312">            }</span>
+<span class="fc bfc" id="L313" title="All 2 branches covered.">        } else if (MAGIC_TAG.equals(qName)) {</span>
+<span class="fc" id="L314">            String value = attributes.getValue(MAGIC_PRIORITY_ATTR);</span>
+<span class="pc bpc" id="L315" title="1 of 4 branches missed.">            if (value != null &amp;&amp; value.length() &gt; 0) {</span>
+<span class="fc" id="L316">                priority = Integer.parseInt(value);</span>
+            } else {
+<span class="fc" id="L318">                priority = 50;</span>
+            }
+<span class="fc" id="L320">            current = new ClauseRecord(null);</span>
+        }
+<span class="fc" id="L322">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String qName) {
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        if (type != null) {</span>
+<span class="fc bfc" id="L327" title="All 2 branches covered.">            if (MIME_TYPE_TAG.equals(qName)) {</span>
+<span class="fc" id="L328">                type = null;</span>
+<span class="fc bfc" id="L329" title="All 2 branches covered.">            } else if (COMMENT_TAG.equals(qName)) {</span>
+<span class="fc" id="L330">                type.setDescription(characters.toString().trim());</span>
+<span class="fc" id="L331">                characters = null;</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">            } else if (ACRONYM_TAG.equals(qName)) {</span>
+<span class="fc" id="L333">                type.setAcronym(characters.toString().trim());</span>
+<span class="fc" id="L334">                characters = null;</span>
+<span class="fc bfc" id="L335" title="All 2 branches covered.">            } else if (TIKA_UTI_TAG.equals(qName)) {</span>
+<span class="fc" id="L336">                type.setUniformTypeIdentifier(characters.toString().trim());</span>
+<span class="fc" id="L337">                characters = null;</span>
+<span class="fc bfc" id="L338" title="All 2 branches covered.">            } else if (TIKA_LINK_TAG.equals(qName)) {</span>
+                try {
+<span class="fc" id="L340">                    type.addLink(new URI(characters.toString().trim()));</span>
+<span class="nc" id="L341">                } catch (URISyntaxException e) {</span>
+<span class="nc" id="L342">                    throw new IllegalArgumentException(&quot;unable to parse link: &quot; + characters, e);</span>
+<span class="fc" id="L343">                }</span>
+<span class="fc" id="L344">                characters = null;</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">            } else if (MATCH_TAG.equals(qName)) {</span>
+<span class="fc" id="L346">                current.stop();</span>
+<span class="fc bfc" id="L347" title="All 2 branches covered.">            } else if (MAGIC_TAG.equals(qName)) {</span>
+<span class="fc bfc" id="L348" title="All 2 branches covered.">                for (Clause clause : current.getClauses()) {</span>
+<span class="fc" id="L349">                    type.addMagic(new Magic(type, priority, clause));</span>
+<span class="fc" id="L350">                }</span>
+<span class="fc" id="L351">                current = null;</span>
+            }
+        }
+<span class="fc" id="L354">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) {
+<span class="fc bfc" id="L358" title="All 2 branches covered.">        if (characters != null) {</span>
+<span class="fc" id="L359">            characters.append(ch, start, length);</span>
+        }
+<span class="fc" id="L361">    }</span>
+
+    protected void handleMimeError(String input, MimeTypeException ex, String qName,
+                                   Attributes attributes) throws SAXException {
+<span class="nc" id="L365">        throw new SAXException(ex);</span>
+    }
+
+    protected void handleGlobError(MimeType type, String pattern, MimeTypeException ex,
+                                   String qName, Attributes attributes) throws SAXException {
+<span class="nc" id="L370">        throw new SAXException(ex);</span>
+    }
+
+    /**
+     * Shim class used during building of actual classes.
+     * This temporarily holds the value of the minShouldMatchClause
+     * so that the actual MinShouldMatchClause can have a cleaner/immutable
+     * initialization.
+     */
+    private static class MinShouldMatchVal implements Clause {
+
+        private final int val;
+
+<span class="fc" id="L383">        MinShouldMatchVal(int val) {</span>
+<span class="fc" id="L384">            this.val = val;</span>
+<span class="fc" id="L385">        }</span>
+
+        int getVal() {
+<span class="fc" id="L388">            return val;</span>
+        }
+
+        @Override
+        public boolean eval(byte[] data) {
+<span class="nc" id="L393">            throw new IllegalStateException(</span>
+                    &quot;This should never be used &quot; + &quot;on this placeholder class&quot;);
+        }
+
+        @Override
+        public int size() {
+<span class="nc" id="L399">            return 0;</span>
+        }
+    }
+
+    private class ClauseRecord {
+
+        private final ClauseRecord parent;
+
+        private Clause clause;
+
+<span class="fc" id="L409">        private List&lt;Clause&gt; subclauses = null;</span>
+
+<span class="fc" id="L411">        public ClauseRecord(Clause clause) {</span>
+<span class="fc" id="L412">            this.parent = current;</span>
+<span class="fc" id="L413">            this.clause = clause;</span>
+<span class="fc" id="L414">        }</span>
+
+        public void stop() {
+<span class="fc bfc" id="L417" title="All 2 branches covered.">            if (clause instanceof MinShouldMatchVal) {</span>
+<span class="fc" id="L418">                clause =</span>
+<span class="fc" id="L419">                        new MinShouldMatchClause(((MinShouldMatchVal) clause).getVal(), subclauses);</span>
+<span class="fc bfc" id="L420" title="All 2 branches covered.">            } else if (subclauses != null) {</span>
+                Clause subclause;
+<span class="fc bfc" id="L422" title="All 2 branches covered.">                if (subclauses.size() == 1) {</span>
+<span class="fc" id="L423">                    subclause = subclauses.get(0);</span>
+                } else {
+<span class="fc" id="L425">                    subclause = new OrClause(subclauses);</span>
+                }
+<span class="fc" id="L427">                clause = new AndClause(clause, subclause);</span>
+            }
+
+<span class="fc bfc" id="L430" title="All 2 branches covered.">            if (parent.subclauses == null) {</span>
+<span class="fc" id="L431">                parent.subclauses = Collections.singletonList(clause);</span>
+            } else {
+<span class="fc bfc" id="L433" title="All 2 branches covered.">                if (parent.subclauses.size() == 1) {</span>
+<span class="fc" id="L434">                    parent.subclauses = new ArrayList&lt;&gt;(parent.subclauses);</span>
+                }
+<span class="fc" id="L436">                parent.subclauses.add(clause);</span>
+            }
+
+<span class="fc" id="L439">            current = current.parent;</span>
+<span class="fc" id="L440">        }</span>
+
+        public List&lt;Clause&gt; getClauses() {
+<span class="fc" id="L443">            return subclauses;</span>
+        }
+
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

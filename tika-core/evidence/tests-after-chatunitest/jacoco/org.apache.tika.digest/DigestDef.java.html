@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DigestDef.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.digest</a> &gt; <span class="el_source">DigestDef.java</span></div><h1>DigestDef.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.digest;
+
+import org.apache.tika.metadata.TikaCoreProperties;
+
+/**
+ * Defines a digest algorithm with its output encoding.
+ * &lt;p&gt;
+ * Example JSON configuration:
+ * &lt;pre&gt;
+ * {
+ *   &quot;digests&quot;: [
+ *     { &quot;algorithm&quot;: &quot;MD5&quot; },
+ *     { &quot;algorithm&quot;: &quot;SHA256&quot;, &quot;encoding&quot;: &quot;BASE32&quot; }
+ *   ]
+ * }
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * The metadata key format is:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code tk:digest:MD5} - for HEX encoding (default)&lt;/li&gt;
+ *   &lt;li&gt;{@code tk:digest:SHA256:BASE32} - for non-default encodings&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public class DigestDef {
+
+    /**
+     * Supported digest algorithms.
+     * &lt;p&gt;
+     * Note: SHA3 algorithms require BouncyCastle provider (use BouncyCastleDigester).
+     * CommonsDigester only supports MD2, MD5, SHA1, SHA256, SHA384, SHA512.
+     */
+<span class="nc" id="L48">    public enum Algorithm {</span>
+<span class="nc" id="L49">        MD2(&quot;MD2&quot;),</span>
+<span class="nc" id="L50">        MD5(&quot;MD5&quot;),</span>
+<span class="nc" id="L51">        SHA1(&quot;SHA-1&quot;),</span>
+<span class="nc" id="L52">        SHA256(&quot;SHA-256&quot;),</span>
+<span class="nc" id="L53">        SHA384(&quot;SHA-384&quot;),</span>
+<span class="nc" id="L54">        SHA512(&quot;SHA-512&quot;),</span>
+<span class="nc" id="L55">        SHA3_256(&quot;SHA3-256&quot;),</span>
+<span class="nc" id="L56">        SHA3_384(&quot;SHA3-384&quot;),</span>
+<span class="nc" id="L57">        SHA3_512(&quot;SHA3-512&quot;);</span>
+
+        private final String javaName;
+
+<span class="nc" id="L61">        Algorithm(String javaName) {</span>
+<span class="nc" id="L62">            this.javaName = javaName;</span>
+<span class="nc" id="L63">        }</span>
+
+        /**
+         * Returns the Java Security name for this algorithm
+         * (for use with MessageDigest.getInstance()).
+         */
+        public String getJavaName() {
+<span class="nc" id="L70">            return javaName;</span>
+        }
+    }
+
+    /**
+     * Supported digest output encodings.
+     */
+<span class="nc" id="L77">    public enum Encoding {</span>
+<span class="nc" id="L78">        HEX,</span>
+<span class="nc" id="L79">        BASE32,</span>
+<span class="nc" id="L80">        BASE64</span>
+    }
+
+    private Algorithm algorithm;
+<span class="nc" id="L84">    private Encoding encoding = Encoding.HEX;</span>
+
+<span class="nc" id="L86">    public DigestDef() {</span>
+<span class="nc" id="L87">    }</span>
+
+<span class="nc" id="L89">    public DigestDef(Algorithm algorithm) {</span>
+<span class="nc" id="L90">        this.algorithm = algorithm;</span>
+<span class="nc" id="L91">    }</span>
+
+<span class="nc" id="L93">    public DigestDef(Algorithm algorithm, Encoding encoding) {</span>
+<span class="nc" id="L94">        this.algorithm = algorithm;</span>
+<span class="nc" id="L95">        this.encoding = encoding;</span>
+<span class="nc" id="L96">    }</span>
+
+    public Algorithm getAlgorithm() {
+<span class="nc" id="L99">        return algorithm;</span>
+    }
+
+    public void setAlgorithm(Algorithm algorithm) {
+<span class="nc" id="L103">        this.algorithm = algorithm;</span>
+<span class="nc" id="L104">    }</span>
+
+    public Encoding getEncoding() {
+<span class="nc" id="L107">        return encoding;</span>
+    }
+
+    public void setEncoding(Encoding encoding) {
+<span class="nc" id="L111">        this.encoding = encoding;</span>
+<span class="nc" id="L112">    }</span>
+
+    /**
+     * Returns the metadata key for storing this digest value.
+     * &lt;p&gt;
+     * For HEX encoding (the default), returns {@code tk:digest:ALGORITHM}.
+     * For other encodings, returns {@code tk:digest:ALGORITHM:ENCODING}.
+     *
+     * @return the metadata key
+     */
+    public String metadataKey() {
+<span class="nc" id="L123">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L124">        sb.append(TikaCoreProperties.TIKA_META_PREFIX);</span>
+<span class="nc" id="L125">        sb.append(&quot;digest&quot;);</span>
+<span class="nc" id="L126">        sb.append(TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER);</span>
+<span class="nc" id="L127">        sb.append(algorithm.getJavaName());</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (encoding != Encoding.HEX) {</span>
+<span class="nc" id="L129">            sb.append(&quot;:&quot;);</span>
+<span class="nc" id="L130">            sb.append(encoding.name());</span>
+        }
+<span class="nc" id="L132">        return sb.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

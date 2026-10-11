@@ -1,0 +1,7 @@
+Final complete test suite
+
+Tests run: 775
+Failures: 0
+Errors: 0
+Skipped: 3
+Result: BUILD SUCCESS

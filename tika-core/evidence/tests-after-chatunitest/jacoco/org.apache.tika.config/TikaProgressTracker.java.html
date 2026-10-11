@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TikaProgressTracker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">TikaProgressTracker.java</span></div><h1>TikaProgressTracker.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Tracks parse progress for the two-tier timeout system.
+ * &lt;p&gt;
+ * Parsers call {@link #update(ParseContext)} after completing a unit of work
+ * (e.g., finishing an external process for one page of OCR). The monitoring loop
+ * reads {@link #getLastProgressMillis()} to detect stalled parsers.
+ * &lt;p&gt;
+ * This is runtime-only state (NOT Serializable) — it is placed into
+ * {@link ParseContext} on the server side before submitting a parse task
+ * and is never sent over the wire.
+ *
+ * @since Apache Tika 4.0
+ */
+public class TikaProgressTracker {
+
+    private final AtomicLong lastProgressMillis;
+
+    /**
+     * Creates a tracker initialized to the current time.
+     */
+<span class="fc" id="L43">    public TikaProgressTracker() {</span>
+<span class="fc" id="L44">        this.lastProgressMillis = new AtomicLong(System.currentTimeMillis());</span>
+<span class="fc" id="L45">    }</span>
+
+    /**
+     * Signals progress from a ParseContext. If no tracker is present, this is a no-op.
+     * &lt;p&gt;
+     * This is the preferred way for parsers to signal progress:
+     * &lt;pre&gt;
+     * TikaProgressTracker.update(context);
+     * &lt;/pre&gt;
+     *
+     * @param context the ParseContext (may be null)
+     */
+    public static void update(ParseContext context) {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (context == null) {</span>
+<span class="fc" id="L59">            return;</span>
+        }
+<span class="fc" id="L61">        TikaProgressTracker tracker = context.get(TikaProgressTracker.class);</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (tracker != null) {</span>
+<span class="fc" id="L63">            tracker.update();</span>
+        }
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Signals progress directly on this tracker instance.
+     */
+    public void update() {
+<span class="fc" id="L71">        lastProgressMillis.set(System.currentTimeMillis());</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Returns the epoch millis of the last progress update.
+     *
+     * @return epoch millis of last progress
+     */
+    public long getLastProgressMillis() {
+<span class="fc" id="L80">        return lastProgressMillis.get();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

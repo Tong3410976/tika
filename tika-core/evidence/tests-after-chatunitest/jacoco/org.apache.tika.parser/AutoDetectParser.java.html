@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AutoDetectParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">AutoDetectParser.java</span></div><h1>AutoDetectParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.io.IOException;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.detect.DefaultDetector;
+import org.apache.tika.detect.Detector;
+import org.apache.tika.digest.DigestHelper;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.exception.ZeroByteFileException;
+import org.apache.tika.extractor.EmbeddedDocumentExtractor;
+import org.apache.tika.extractor.EmbeddedDocumentExtractorFactory;
+import org.apache.tika.extractor.EmbeddedDocumentUtil;
+import org.apache.tika.extractor.StandardExtractorFactory;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.sax.SecureContentHandler;
+
+public class AutoDetectParser extends CompositeParser {
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 6110455808615143122L;
+    //private final TikaConfig config;
+
+    /**
+     * The type detector used by this parser to auto-detect the type
+     * of a document.
+     */
+    private Detector detector; // always set in the constructor
+
+    /**
+     * Configuration used when initializing a SecureContentHandler
+     * and the TikaInputStream.
+     */
+    private AutoDetectParserConfig autoDetectParserConfig;
+
+    /**
+     * Creates an auto-detecting parser instance using the default Tika
+     * configuration.
+     */
+    public AutoDetectParser() {
+<span class="fc" id="L64">        this(new DefaultDetector(), new DefaultParser());</span>
+<span class="fc" id="L65">    }</span>
+
+    public AutoDetectParser(Detector detector) {
+<span class="nc" id="L68">        this(detector, new DefaultParser());</span>
+<span class="nc" id="L69">    }</span>
+
+    /**
+     * Creates an auto-detecting parser instance using the specified set of parser.
+     * This allows one to create a Tika configuration where only a subset of the
+     * available parsers have their 3rd party jars included, as otherwise the
+     * use of the default TikaConfig will throw various &quot;ClassNotFound&quot; exceptions.
+     *
+     * @param parsers
+     */
+    public AutoDetectParser(Parser... parsers) {
+<span class="fc" id="L80">        this(new DefaultDetector(), parsers);</span>
+<span class="fc" id="L81">    }</span>
+
+    public AutoDetectParser(Detector detector, Parser... parsers) {
+<span class="fc" id="L84">        super(MediaTypeRegistry.getDefaultRegistry(), parsers);</span>
+<span class="fc" id="L85">        setDetector(detector);</span>
+<span class="fc" id="L86">        setAutoDetectParserConfig(AutoDetectParserConfig.DEFAULT);</span>
+<span class="fc" id="L87">    }</span>
+
+    public AutoDetectParser(MediaTypeRegistry mediaTypeRegistry, Parser parser, Detector detector,
+                             AutoDetectParserConfig autoDetectParserConfig) {
+<span class="nc" id="L91">        super(mediaTypeRegistry, parser);</span>
+<span class="nc" id="L92">        setFallback(getFallbackFrom(parser));</span>
+<span class="nc" id="L93">        setDetector(detector);</span>
+<span class="nc" id="L94">        setAutoDetectParserConfig(autoDetectParserConfig);</span>
+<span class="nc" id="L95">    }</span>
+
+    public static Parser build(CompositeParser parser, Detector detector,
+                               AutoDetectParserConfig autoDetectParserConfig) {
+<span class="nc" id="L99">        return new AutoDetectParser(parser.getMediaTypeRegistry(), parser, detector,</span>
+                autoDetectParserConfig);
+    }
+
+    private static Parser getFallbackFrom(Parser defaultParser) {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (defaultParser instanceof DefaultParser) {</span>
+<span class="nc" id="L105">            return ((DefaultParser) defaultParser).getFallback();</span>
+        }
+<span class="nc" id="L107">        return new EmptyParser();</span>
+    }
+
+    /**
+     * Returns the type detector used by this parser to auto-detect the type
+     * of a document.
+     *
+     * @return type detector
+     * @since Apache Tika 0.4
+     */
+    public Detector getDetector() {
+<span class="fc" id="L118">        return detector;</span>
+    }
+
+    /**
+     * Sets the type detector used by this parser to auto-detect the type
+     * of a document.
+     *
+     * @param detector type detector
+     * @since Apache Tika 0.4
+     */
+    public void setDetector(Detector detector) {
+<span class="fc" id="L129">        this.detector = detector;</span>
+<span class="fc" id="L130">    }</span>
+
+    /**
+     * Sets the configuration that will be used to create SecureContentHandlers
+     * that will be used for parsing.
+     *
+     * @param autoDetectParserConfig type SecureContentHandlerConfig
+     * @since Apache Tika 2.1.1
+     */
+    public void setAutoDetectParserConfig(AutoDetectParserConfig autoDetectParserConfig) {
+<span class="fc" id="L140">        this.autoDetectParserConfig = autoDetectParserConfig;</span>
+<span class="fc" id="L141">    }</span>
+
+    public AutoDetectParserConfig getAutoDetectParserConfig() {
+<span class="nc" id="L144">        return this.autoDetectParserConfig;</span>
+    }
+
+    public void parse(TikaInputStream tis, ContentHandler handler, Metadata metadata,
+                      ParseContext context) throws IOException, SAXException, TikaException {
+        // Compute digests before type detection if configured
+        // DigesterFactory is retrieved from ParseContext (configured via parse-context)
+<span class="fc" id="L151">        DigestHelper.maybeDigest(tis, metadata, context);</span>
+
+        // Signal to detectors that parsing will follow - allows them to prepare
+        // (e.g., salvage corrupted ZIP files for parser reuse)
+<span class="fc" id="L155">        context.set(ParsingIntent.class, ParsingIntent.WILL_PARSE);</span>
+
+        // Automatically detect the MIME type of the document
+<span class="fc" id="L158">        MediaType type = detector.detect(tis, metadata, context);</span>
+        // Normalize OCR routing types (e.g., image/ocr-png -&gt; image/png) so they
+        // don't leak into CONTENT_TYPE
+<span class="fc" id="L161">        metadata.set(Metadata.CONTENT_TYPE,</span>
+<span class="fc" id="L162">                EmbeddedDocumentUtil.normalizeMediaType(type.toString()));</span>
+        // Metadata-only pseudo-parse: register the entry, skip the content parse.
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (context.get(MetadataOnlyParse.class) != null) {</span>
+<span class="nc" id="L165">            return;</span>
+        }
+        //check for zero-byte inputstream
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (tis.getOpenContainer() == null) {</span>
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">            if (autoDetectParserConfig.getThrowOnZeroBytes()) {</span>
+<span class="fc" id="L170">                tis.mark(1);</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">                if (tis.read() == -1) {</span>
+<span class="nc" id="L172">                    throw new ZeroByteFileException(&quot;InputStream must have &gt; 0 bytes&quot;);</span>
+                }
+<span class="fc" id="L174">                tis.reset();</span>
+            }
+        }
+<span class="fc" id="L177">        handler = decorateHandler(handler, metadata, context, autoDetectParserConfig);</span>
+        // TIKA-216: Zip bomb prevention
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        SecureContentHandler sch = handler != null ?</span>
+<span class="pc" id="L180">                createSecureContentHandler(handler, tis, context) : null;</span>
+
+<span class="fc" id="L182">        initializeEmbeddedDocumentExtractor(metadata, context);</span>
+        try {
+            // Parse the document
+<span class="fc" id="L185">            super.parse(tis, sch, metadata, context);</span>
+<span class="fc" id="L186">        } catch (SAXException e) {</span>
+            // Convert zip bomb exceptions to TikaExceptions
+<span class="fc" id="L188">            sch.throwIfCauseOf(e);</span>
+<span class="fc" id="L189">            throw e;</span>
+<span class="fc" id="L190">        }</span>
+<span class="fc" id="L191">    }</span>
+
+    private ContentHandler decorateHandler(ContentHandler handler, Metadata metadata,
+                                           ParseContext context,
+                                           AutoDetectParserConfig autoDetectParserConfig) {
+<span class="fc bfc" id="L196" title="All 2 branches covered.">        if (context.get(RecursiveParserWrapper.RecursivelySecureContentHandler.class) != null) {</span>
+            //using the recursiveparserwrapper. we should decorate this handler
+<span class="fc" id="L198">            return autoDetectParserConfig.getContentHandlerDecoratorFactory()</span>
+<span class="fc" id="L199">                    .decorate(handler, metadata, context);</span>
+        }
+<span class="fc" id="L201">        ParseRecord parseRecord = context.get(ParseRecord.class);</span>
+<span class="pc bpc" id="L202" title="3 of 4 branches missed.">        if (parseRecord == null || parseRecord.getDepth() == 0) {</span>
+<span class="fc" id="L203">            return autoDetectParserConfig.getContentHandlerDecoratorFactory()</span>
+<span class="fc" id="L204">                    .decorate(handler, metadata, context);</span>
+        }
+        //else do not decorate
+<span class="nc" id="L207">        return handler;</span>
+    }
+
+    private void initializeEmbeddedDocumentExtractor(Metadata metadata, ParseContext context) {
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (context.get(EmbeddedDocumentExtractor.class) != null) {</span>
+<span class="nc" id="L212">            return;</span>
+        }
+        // pass in self for embedded documents unless
+        // the caller has specified a parser
+<span class="fc" id="L216">        Parser p = context.get(Parser.class);</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">        if (p == null) {</span>
+<span class="fc" id="L218">            context.set(Parser.class, this);</span>
+        }
+        // pass in own detector for embedded documents unless
+        // the caller has specified one
+<span class="fc" id="L222">        Detector d = context.get(Detector.class);</span>
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">        if (d == null) {</span>
+<span class="fc" id="L224">            context.set(Detector.class, getDetector());</span>
+        }
+<span class="fc" id="L226">        EmbeddedDocumentExtractorFactory edxf = context.get(EmbeddedDocumentExtractorFactory.class);</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">        if (edxf == null) {</span>
+<span class="fc" id="L228">            edxf = new StandardExtractorFactory();</span>
+        }
+<span class="fc" id="L230">        EmbeddedDocumentExtractor edx = edxf.newInstance(metadata, context);</span>
+<span class="fc" id="L231">        context.set(EmbeddedDocumentExtractor.class, edx);</span>
+<span class="fc" id="L232">    }</span>
+
+    public void parse(TikaInputStream tis, ContentHandler handler, Metadata metadata)
+            throws IOException, SAXException, TikaException {
+<span class="nc" id="L236">        ParseContext context = new ParseContext();</span>
+<span class="nc" id="L237">        context.set(Parser.class, this);</span>
+<span class="nc" id="L238">        parse(tis, handler, metadata, context);</span>
+<span class="nc" id="L239">    }</span>
+
+    private SecureContentHandler createSecureContentHandler(ContentHandler handler,
+                                                            TikaInputStream tis,
+                                                            ParseContext context) {
+        // SecureContentHandler reads limits from OutputLimits in ParseContext
+<span class="fc" id="L245">        return SecureContentHandler.newInstance(handler, tis, context);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

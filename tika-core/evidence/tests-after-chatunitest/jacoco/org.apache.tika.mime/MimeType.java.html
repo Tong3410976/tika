@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MimeType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">MimeType.java</span></div><h1>MimeType.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+import java.io.Serializable;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Internet media type.
+ */
+public final class MimeType implements Comparable&lt;MimeType&gt;, Serializable {
+
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = 4357830439860729201L;
+    /**
+     * The normalized media type name.
+     */
+    private final MediaType type;
+    /**
+     * The minimum length of data to provides for magic analyzis
+     */
+<span class="fc" id="L41">    private final int minLength = 0;</span>
+    /**
+     * The MimeType acronym
+     */
+<span class="fc" id="L45">    private String acronym = &quot;&quot;;</span>
+
+    /**
+     * The http://en.wikipedia.org/wiki/Uniform_Type_Identifier
+     */
+<span class="fc" id="L50">    private String uti = &quot;&quot;;</span>
+
+    /**
+     * Documentation Links
+     */
+<span class="fc" id="L55">    private List&lt;URI&gt; links = Collections.emptyList();</span>
+
+    /**
+     * Description of this media type.
+     */
+<span class="fc" id="L60">    private String description = &quot;&quot;;</span>
+
+    /**
+     * The magics associated to this Mime-Type
+     */
+<span class="fc" id="L65">    private List&lt;Magic&gt; magics = null;</span>
+
+    /**
+     * The root-XML associated to this Mime-Type
+     */
+<span class="fc" id="L70">    private List&lt;RootXML&gt; rootXML = null;</span>
+    /**
+     * All known file extensions of this type, in order of preference
+     * (best first).
+     */
+<span class="fc" id="L75">    private List&lt;String&gt; extensions = null;</span>
+    /**
+     * Whether this mime-type is used for server-side scripts,
+     * and thus cannot reliably be used for filename-based type detection
+     */
+<span class="fc" id="L80">    private boolean isInterpreted = false;</span>
+
+    /**
+     * Creates a media type with the give name and containing media type
+     * registry. The name is expected to be valid and normalized to lower
+     * case. This constructor should only be called by
+     * {@link MimeTypes#forName(String)} to keep the media type registry
+     * up to date.
+     *
+     * @param type normalized media type name
+     */
+<span class="fc" id="L91">    MimeType(MediaType type) {</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L93">            throw new IllegalArgumentException(&quot;Media type name is missing&quot;);</span>
+        }
+<span class="fc" id="L95">        this.type = type;</span>
+<span class="fc" id="L96">    }</span>
+
+    /**
+     * Checks that the given string is a valid Internet media type name
+     * based on rules from RFC 2054 section 5.3. For validation purposes the
+     * rules can be simplified to the following:
+     * &lt;pre&gt;
+     * name := token &quot;/&quot; token
+     * token := 1*&amp;lt;any (US-ASCII) CHAR except SPACE, CTLs, or tspecials&amp;gt;
+     * tspecials :=  &quot;(&quot; / &quot;)&quot; / &quot;&amp;lt;&quot; / &quot;&amp;gt;&quot; / &quot;@&quot; / &quot;,&quot; / &quot;;&quot; / &quot;:&quot; /
+     *               &quot;\&quot; / &lt;&quot;&gt; / &quot;/&quot; / &quot;[&quot; / &quot;]&quot; / &quot;?&quot; / &quot;=&quot;
+     * &lt;/pre&gt;
+     *
+     * @param name name string
+     * @return &lt;code&gt;true&lt;/code&gt; if the string is a valid media type name,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     */
+    public static boolean isValid(String name) {
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L115">            throw new IllegalArgumentException(&quot;Name is missing&quot;);</span>
+        }
+
+<span class="nc" id="L118">        boolean slash = false;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (int i = 0; i &lt; name.length(); i++) {</span>
+<span class="nc" id="L120">            char ch = name.charAt(i);</span>
+<span class="nc bnc" id="L121" title="All 32 branches missed.">            if (ch &lt;= ' ' || ch &gt;= 127 || ch == '(' || ch == ')' || ch == '&lt;' || ch == '&gt;' ||</span>
+                    ch == '@' || ch == ',' || ch == ';' || ch == ':' || ch == '\\' || ch == '&quot;' ||
+                    ch == '[' || ch == ']' || ch == '?' || ch == '=') {
+<span class="nc" id="L124">                return false;</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            } else if (ch == '/') {</span>
+<span class="nc bnc" id="L126" title="All 6 branches missed.">                if (slash || i == 0 || i + 1 == name.length()) {</span>
+<span class="nc" id="L127">                    return false;</span>
+                }
+<span class="nc" id="L129">                slash = true;</span>
+            }
+        }
+<span class="nc" id="L132">        return slash;</span>
+    }
+
+    /**
+     * Returns the normalized media type name.
+     *
+     * @return media type
+     */
+    public MediaType getType() {
+<span class="fc" id="L141">        return type;</span>
+    }
+
+    /**
+     * Returns the name of this media type.
+     *
+     * @return media type name (lower case)
+     */
+    public String getName() {
+<span class="fc" id="L150">        return type.toString();</span>
+    }
+
+    /**
+     * Returns the description of this media type.
+     *
+     * @return media type description
+     */
+    public String getDescription() {
+<span class="fc" id="L159">        return description;</span>
+    }
+
+    /**
+     * Set the description of this media type.
+     *
+     * @param description media type description
+     */
+    public void setDescription(String description) {
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (description == null) {</span>
+<span class="nc" id="L169">            throw new IllegalArgumentException(&quot;Description is missing&quot;);</span>
+        }
+<span class="fc" id="L171">        this.description = description;</span>
+<span class="fc" id="L172">    }</span>
+
+
+    /**
+     * Returns an acronym for this mime type.
+     *
+     * @return mime type acronym
+     */
+    public String getAcronym() {
+<span class="fc" id="L181">        return acronym;</span>
+    }
+
+    /**
+     * Set an acronym for the mime type
+     *
+     * @param acronym
+     */
+    void setAcronym(String v) {
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        if (v == null) {</span>
+<span class="nc" id="L191">            throw new IllegalArgumentException(&quot;Acronym is missing&quot;);</span>
+        }
+<span class="fc" id="L193">        acronym = v;</span>
+<span class="fc" id="L194">    }</span>
+
+    /**
+     * Get the UTI for this mime type.
+     *
+     * @return The Uniform Type Identifier
+     * @see &lt;a href=&quot;http://en.wikipedia.org/wiki/Uniform_Type_Identifier&quot;&gt;http://en.wikipedia.org/wiki/Uniform_Type_Identifier&lt;/a&gt;
+     */
+    public String getUniformTypeIdentifier() {
+<span class="fc" id="L203">        return uti;</span>
+    }
+
+    /**
+     * Set The Uniform Type Identifier
+     *
+     * @param uti
+     */
+    void setUniformTypeIdentifier(String v) {
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">        if (v == null) {</span>
+<span class="nc" id="L213">            throw new IllegalArgumentException(&quot;Uniform Type Identifier is missing&quot;);</span>
+        }
+<span class="fc" id="L215">        uti = v;</span>
+<span class="fc" id="L216">    }</span>
+
+    /**
+     * Get a list of links to help document this mime type
+     *
+     * @return an array of links (will never be null)
+     */
+    public List&lt;URI&gt; getLinks() {
+<span class="fc" id="L224">        return links; // this is already unmodifiable</span>
+    }
+
+    /**
+     * Add a link to this mime type
+     *
+     * @param link
+     */
+    void addLink(URI link) {
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if (link == null) {</span>
+<span class="nc" id="L234">            throw new IllegalArgumentException(&quot;Missing Link&quot;);</span>
+        }
+<span class="fc" id="L236">        List&lt;URI&gt; copy = new ArrayList&lt;&gt;(links.size() + 1);</span>
+<span class="fc" id="L237">        copy.addAll(links);</span>
+<span class="fc" id="L238">        copy.add(link);</span>
+<span class="fc" id="L239">        links = Collections.unmodifiableList(copy);</span>
+<span class="fc" id="L240">    }</span>
+
+
+    /**
+     * Add some rootXML info to this mime-type
+     *
+     * @param namespaceURI
+     * @param localName
+     */
+    void addRootXML(String namespaceURI, String localName) {
+<span class="fc bfc" id="L250" title="All 2 branches covered.">        if (rootXML == null) {</span>
+<span class="fc" id="L251">            rootXML = new ArrayList&lt;&gt;();</span>
+        }
+<span class="fc" id="L253">        rootXML.add(new RootXML(this, namespaceURI, localName));</span>
+<span class="fc" id="L254">    }</span>
+
+    boolean matchesXML(String namespaceURI, String localName) {
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">        if (rootXML != null) {</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">            for (RootXML xml : rootXML) {</span>
+<span class="fc bfc" id="L259" title="All 2 branches covered.">                if (xml.matches(namespaceURI, localName)) {</span>
+<span class="fc" id="L260">                    return true;</span>
+                }
+<span class="fc" id="L262">            }</span>
+        }
+<span class="fc" id="L264">        return false;</span>
+    }
+
+    boolean hasRootXML() {
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        return rootXML != null;</span>
+    }
+
+    List&lt;Magic&gt; getMagics() {
+<span class="fc bfc" id="L272" title="All 2 branches covered.">        if (magics != null) {</span>
+<span class="fc" id="L273">            return magics;</span>
+        } else {
+<span class="fc" id="L275">            return Collections.emptyList();</span>
+        }
+    }
+
+    void addMagic(Magic magic) {
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">        if (magic == null) {</span>
+<span class="nc" id="L281">            return;</span>
+        }
+<span class="fc bfc" id="L283" title="All 2 branches covered.">        if (magics == null) {</span>
+<span class="fc" id="L284">            magics = new ArrayList&lt;&gt;();</span>
+        }
+<span class="fc" id="L286">        magics.add(magic);</span>
+<span class="fc" id="L287">    }</span>
+
+    int getMinLength() {
+<span class="nc" id="L290">        return minLength;</span>
+    }
+
+    public boolean hasMagic() {
+<span class="fc bfc" id="L294" title="All 2 branches covered.">        return magics != null;</span>
+    }
+
+    public boolean matchesMagic(byte[] data) {
+<span class="nc bnc" id="L298" title="All 4 branches missed.">        for (int i = 0; magics != null &amp;&amp; i &lt; magics.size(); i++) {</span>
+<span class="nc" id="L299">            Magic magic = magics.get(i);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">            if (magic.eval(data)) {</span>
+<span class="nc" id="L301">                return true;</span>
+            }
+        }
+<span class="nc" id="L304">        return false;</span>
+    }
+
+    public boolean matches(byte[] data) {
+<span class="nc" id="L308">        return matchesMagic(data);</span>
+    }
+
+    /**
+     * whether the type is used as a server-side scripting technology
+     */
+    boolean isInterpreted() {
+<span class="fc" id="L315">        return isInterpreted;</span>
+    }
+
+    void setInterpreted(boolean interpreted) {
+<span class="fc" id="L319">        isInterpreted = interpreted;</span>
+<span class="fc" id="L320">    }</span>
+
+    public int compareTo(MimeType mime) {
+<span class="fc" id="L323">        return type.compareTo(mime.type);</span>
+    }
+
+    //----------------------------------------------------------&lt; Comparable &gt;
+
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">        if (o instanceof MimeType) {</span>
+<span class="fc" id="L330">            MimeType that = (MimeType) o;</span>
+<span class="fc" id="L331">            return this.type.equals(that.type);</span>
+        }
+
+<span class="nc" id="L334">        return false;</span>
+    }
+
+    //--------------------------------------------------------------&lt; Object &gt;
+
+    public int hashCode() {
+<span class="nc" id="L340">        return type.hashCode();</span>
+    }
+
+    /**
+     * Returns the name of this media type.
+     *
+     * @return media type name
+     */
+    public String toString() {
+<span class="fc" id="L349">        return type.toString();</span>
+    }
+
+    /**
+     * Returns the preferred file extension of this type, or an empty string
+     * if no extensions are known. Use the {@link #getExtensions()} method to
+     * get the full list of known extensions of this type.
+     *
+     * @return preferred file extension or empty string
+     * @since Apache Tika 0.9
+     */
+    public String getExtension() {
+<span class="fc bfc" id="L361" title="All 2 branches covered.">        if (extensions == null) {</span>
+<span class="fc" id="L362">            return &quot;&quot;;</span>
+        } else {
+<span class="fc" id="L364">            return extensions.get(0);</span>
+        }
+    }
+
+    /**
+     * Returns the list of all known file extensions of this media type.
+     *
+     * @return known extensions in order of preference (best first)
+     * @since Apache Tika 0.10
+     */
+    public List&lt;String&gt; getExtensions() {
+<span class="fc bfc" id="L375" title="All 2 branches covered.">        if (extensions != null) {</span>
+<span class="fc" id="L376">            return Collections.unmodifiableList(extensions);</span>
+        } else {
+<span class="fc" id="L378">            return Collections.emptyList();</span>
+        }
+    }
+
+    /**
+     * Adds a known file extension to this type.
+     *
+     * @param extension file extension
+     */
+    void addExtension(String extension) {
+<span class="fc bfc" id="L388" title="All 2 branches covered.">        if (extensions == null) {</span>
+<span class="fc" id="L389">            extensions = Collections.singletonList(extension);</span>
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        } else if (extensions.size() == 1) {</span>
+<span class="fc" id="L391">            extensions = new ArrayList&lt;&gt;(extensions);</span>
+        }
+<span class="fc bfc" id="L393" title="All 2 branches covered.">        if (!extensions.contains(extension)) {</span>
+<span class="fc" id="L394">            extensions.add(extension);</span>
+        }
+<span class="fc" id="L396">    }</span>
+
+    /**
+     * Defines a RootXML description. RootXML is made of a localName and/or a
+     * namespaceURI.
+     */
+    static class RootXML implements Serializable {
+
+        /**
+         * Serial version UID.
+         */
+        private static final long serialVersionUID = 5140496601491000730L;
+
+<span class="fc" id="L409">        private MimeType type = null;</span>
+
+<span class="fc" id="L411">        private String namespaceURI = null;</span>
+
+<span class="fc" id="L413">        private String localName = null;</span>
+
+<span class="fc" id="L415">        RootXML(MimeType type, String namespaceURI, String localName) {</span>
+<span class="pc bpc" id="L416" title="1 of 4 branches missed.">            if (isEmpty(namespaceURI) &amp;&amp; isEmpty(localName)) {</span>
+<span class="nc" id="L417">                throw new IllegalArgumentException(</span>
+                        &quot;Both namespaceURI and localName cannot be empty&quot;);
+            }
+<span class="fc" id="L420">            this.type = type;</span>
+<span class="fc" id="L421">            this.namespaceURI = namespaceURI;</span>
+<span class="fc" id="L422">            this.localName = localName;</span>
+<span class="fc" id="L423">        }</span>
+
+        boolean matches(String namespaceURI, String localName) {
+            //Compare namespaces
+<span class="fc bfc" id="L427" title="All 2 branches covered.">            if (!isEmpty(this.namespaceURI)) {</span>
+<span class="fc bfc" id="L428" title="All 2 branches covered.">                if (!this.namespaceURI.equals(namespaceURI)) {</span>
+<span class="fc" id="L429">                    return false;</span>
+                }
+            } else {
+                // else if it was empty then check to see if the provided namespaceURI
+                // is empty. If it is not, then these two aren't equal and return false
+<span class="fc bfc" id="L434" title="All 2 branches covered.">                if (!isEmpty(namespaceURI)) {</span>
+<span class="fc" id="L435">                    return false;</span>
+                }
+            }
+
+            //Compare root element's local name
+<span class="pc bpc" id="L440" title="1 of 2 branches missed.">            if (!isEmpty(this.localName)) {</span>
+<span class="fc" id="L441">                return this.localName.equals(localName);</span>
+            } else {
+                // else if it was empty then check to see if the provided localName
+                // is empty. If it is not, then these two aren't equal and return false
+<span class="nc" id="L445">                return isEmpty(localName);</span>
+            }
+        }
+
+        /**
+         * Checks if a string is null or empty.
+         */
+        private boolean isEmpty(String str) {
+<span class="fc bfc" id="L453" title="All 4 branches covered.">            return (str == null) || (str.equals(&quot;&quot;));</span>
+        }
+
+        MimeType getType() {
+<span class="nc" id="L457">            return type;</span>
+        }
+
+        String getNameSpaceURI() {
+<span class="nc" id="L461">            return namespaceURI;</span>
+        }
+
+        String getLocalName() {
+<span class="nc" id="L465">            return localName;</span>
+        }
+
+        public String toString() {
+<span class="nc" id="L469">            return type + &quot;, &quot; + namespaceURI + &quot;, &quot; + localName;</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

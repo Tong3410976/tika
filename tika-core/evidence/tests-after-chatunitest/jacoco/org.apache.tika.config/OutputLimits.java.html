@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OutputLimits.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">OutputLimits.java</span></div><h1>OutputLimits.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+import java.io.Serializable;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Configuration for output and security limits.
+ * &lt;p&gt;
+ * This controls output size and various security thresholds:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code writeLimit} - maximum characters to write (-1 = unlimited)&lt;/li&gt;
+ *   &lt;li&gt;{@code throwOnWriteLimit} - whether to throw an exception when writeLimit is reached&lt;/li&gt;
+ *   &lt;li&gt;{@code maxXmlDepth} - maximum XML element nesting depth (default: 100)&lt;/li&gt;
+ *   &lt;li&gt;{@code maxPackageEntryDepth} - maximum package entry nesting depth (default: 10)&lt;/li&gt;
+ *   &lt;li&gt;{@code zipBombThreshold} - characters before zip bomb check activates (default: 1,000,000)&lt;/li&gt;
+ *   &lt;li&gt;{@code zipBombRatio} - maximum output:input ratio for zip bomb detection (default: 100)&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * &lt;b&gt;writeLimit behavior:&lt;/b&gt; The writeLimit is the TOTAL characters across all documents
+ * (container + embedded). When the limit is reached:
+ * &lt;ul&gt;
+ *   &lt;li&gt;If {@code throwOnWriteLimit=false}: Output is truncated, {@code X-TIKA-writeLimitReached=true} is set&lt;/li&gt;
+ *   &lt;li&gt;If {@code throwOnWriteLimit=true}: {@code WriteLimitReachedException} is thrown&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * &lt;b&gt;Security limits:&lt;/b&gt; maxXmlDepth, maxPackageEntryDepth, and zipBomb
+ * limits always throw exceptions when exceeded (no silent truncation option).
+ * &lt;p&gt;
+ * Example configuration:
+ * &lt;pre&gt;
+ * {
+ *   &quot;parse-context&quot;: {
+ *     &quot;output-limits&quot;: {
+ *       &quot;writeLimit&quot;: 100000,
+ *       &quot;throwOnWriteLimit&quot;: false,
+ *       &quot;maxXmlDepth&quot;: 100,
+ *       &quot;maxPackageEntryDepth&quot;: 10,
+ *       &quot;zipBombThreshold&quot;: 1000000,
+ *       &quot;zipBombRatio&quot;: 100
+ *     }
+ *   }
+ * }
+ * &lt;/pre&gt;
+ *
+ * @since Apache Tika 4.0
+ */
+@TikaComponent(spi = false)
+public class OutputLimits implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public static final int UNLIMITED = -1;
+
+    // Output limits
+<span class="pc" id="L72">    private int writeLimit = UNLIMITED;</span>
+<span class="pc" id="L73">    private boolean throwOnWriteLimit = false;</span>
+
+    // XML/Security limits
+<span class="pc" id="L76">    private int maxXmlDepth = 100;</span>
+<span class="pc" id="L77">    private int maxPackageEntryDepth = 10;</span>
+<span class="pc" id="L78">    private long zipBombThreshold = 1_000_000;</span>
+<span class="pc" id="L79">    private long zipBombRatio = 100;</span>
+
+    /**
+     * No-arg constructor for Jackson deserialization.
+     */
+<span class="fc" id="L84">    public OutputLimits() {</span>
+<span class="fc" id="L85">    }</span>
+
+    /**
+     * Constructor with all parameters.
+     *
+     * @param writeLimit maximum characters to write (-1 = unlimited)
+     * @param throwOnWriteLimit whether to throw when write limit is reached
+     * @param maxXmlDepth maximum XML element nesting depth
+     * @param maxPackageEntryDepth maximum package entry nesting depth
+     * @param zipBombThreshold characters before zip bomb check activates
+     * @param zipBombRatio maximum output:input ratio
+     */
+    public OutputLimits(int writeLimit, boolean throwOnWriteLimit,
+                        int maxXmlDepth, int maxPackageEntryDepth,
+<span class="nc" id="L99">                        long zipBombThreshold, long zipBombRatio) {</span>
+<span class="nc" id="L100">        this.writeLimit = writeLimit;</span>
+<span class="nc" id="L101">        this.throwOnWriteLimit = throwOnWriteLimit;</span>
+<span class="nc" id="L102">        this.maxXmlDepth = maxXmlDepth;</span>
+<span class="nc" id="L103">        this.maxPackageEntryDepth = maxPackageEntryDepth;</span>
+<span class="nc" id="L104">        this.zipBombThreshold = zipBombThreshold;</span>
+<span class="nc" id="L105">        this.zipBombRatio = zipBombRatio;</span>
+<span class="nc" id="L106">    }</span>
+
+    /**
+     * Gets the maximum characters to write.
+     *
+     * @return maximum characters, or -1 for unlimited
+     */
+    public int getWriteLimit() {
+<span class="nc" id="L114">        return writeLimit;</span>
+    }
+
+    /**
+     * Sets the maximum characters to write.
+     *
+     * @param writeLimit maximum characters, or -1 for unlimited
+     */
+    public void setWriteLimit(int writeLimit) {
+<span class="nc" id="L123">        this.writeLimit = writeLimit;</span>
+<span class="nc" id="L124">    }</span>
+
+    /**
+     * Gets whether to throw an exception when writeLimit is reached.
+     *
+     * @return true if an exception should be thrown
+     */
+    public boolean isThrowOnWriteLimit() {
+<span class="nc" id="L132">        return throwOnWriteLimit;</span>
+    }
+
+    /**
+     * Sets whether to throw an exception when writeLimit is reached.
+     *
+     * @param throwOnWriteLimit true to throw an exception
+     */
+    public void setThrowOnWriteLimit(boolean throwOnWriteLimit) {
+<span class="nc" id="L141">        this.throwOnWriteLimit = throwOnWriteLimit;</span>
+<span class="nc" id="L142">    }</span>
+
+    /**
+     * Gets the maximum XML element nesting depth.
+     *
+     * @return maximum XML depth
+     */
+    public int getMaxXmlDepth() {
+<span class="fc" id="L150">        return maxXmlDepth;</span>
+    }
+
+    /**
+     * Sets the maximum XML element nesting depth.
+     *
+     * @param maxXmlDepth maximum XML depth
+     */
+    public void setMaxXmlDepth(int maxXmlDepth) {
+<span class="nc" id="L159">        this.maxXmlDepth = maxXmlDepth;</span>
+<span class="nc" id="L160">    }</span>
+
+    /**
+     * Gets the maximum package entry nesting depth.
+     *
+     * @return maximum package entry depth
+     */
+    public int getMaxPackageEntryDepth() {
+<span class="fc" id="L168">        return maxPackageEntryDepth;</span>
+    }
+
+    /**
+     * Sets the maximum package entry nesting depth.
+     *
+     * @param maxPackageEntryDepth maximum package entry depth
+     */
+    public void setMaxPackageEntryDepth(int maxPackageEntryDepth) {
+<span class="nc" id="L177">        this.maxPackageEntryDepth = maxPackageEntryDepth;</span>
+<span class="nc" id="L178">    }</span>
+
+    /**
+     * Gets the zip bomb threshold (characters before check activates).
+     *
+     * @return zip bomb threshold
+     */
+    public long getZipBombThreshold() {
+<span class="fc" id="L186">        return zipBombThreshold;</span>
+    }
+
+    /**
+     * Sets the zip bomb threshold (characters before check activates).
+     *
+     * @param zipBombThreshold zip bomb threshold
+     */
+    public void setZipBombThreshold(long zipBombThreshold) {
+<span class="nc" id="L195">        this.zipBombThreshold = zipBombThreshold;</span>
+<span class="nc" id="L196">    }</span>
+
+    /**
+     * Gets the zip bomb ratio (maximum output:input ratio).
+     *
+     * @return zip bomb ratio
+     */
+    public long getZipBombRatio() {
+<span class="fc" id="L204">        return zipBombRatio;</span>
+    }
+
+    /**
+     * Sets the zip bomb ratio (maximum output:input ratio).
+     *
+     * @param zipBombRatio zip bomb ratio
+     */
+    public void setZipBombRatio(long zipBombRatio) {
+<span class="nc" id="L213">        this.zipBombRatio = zipBombRatio;</span>
+<span class="nc" id="L214">    }</span>
+
+    /**
+     * Helper method to get OutputLimits from ParseContext with defaults.
+     *
+     * @param context the ParseContext (may be null)
+     * @return the OutputLimits from context, or a new instance with defaults if not found
+     */
+    public static OutputLimits get(ParseContext context) {
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">        if (context == null) {</span>
+<span class="nc" id="L224">            return new OutputLimits();</span>
+        }
+<span class="fc" id="L226">        OutputLimits limits = context.get(OutputLimits.class);</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">        return limits != null ? limits : new OutputLimits();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L232">        return &quot;OutputLimits{&quot; +</span>
+                &quot;writeLimit=&quot; + writeLimit +
+                &quot;, throwOnWriteLimit=&quot; + throwOnWriteLimit +
+                &quot;, maxXmlDepth=&quot; + maxXmlDepth +
+                &quot;, maxPackageEntryDepth=&quot; + maxPackageEntryDepth +
+                &quot;, zipBombThreshold=&quot; + zipBombThreshold +
+                &quot;, zipBombRatio=&quot; + zipBombRatio +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L245">            return true;</span>
+        }
+<span class="nc bnc" id="L247" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L248">            return false;</span>
+        }
+<span class="nc" id="L250">        OutputLimits that = (OutputLimits) o;</span>
+<span class="nc bnc" id="L251" title="All 12 branches missed.">        return writeLimit == that.writeLimit &amp;&amp;</span>
+                throwOnWriteLimit == that.throwOnWriteLimit &amp;&amp;
+                maxXmlDepth == that.maxXmlDepth &amp;&amp;
+                maxPackageEntryDepth == that.maxPackageEntryDepth &amp;&amp;
+                zipBombThreshold == that.zipBombThreshold &amp;&amp;
+                zipBombRatio == that.zipBombRatio;
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L261">        int result = writeLimit;</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        result = 31 * result + (throwOnWriteLimit ? 1 : 0);</span>
+<span class="nc" id="L263">        result = 31 * result + maxXmlDepth;</span>
+<span class="nc" id="L264">        result = 31 * result + maxPackageEntryDepth;</span>
+<span class="nc" id="L265">        result = 31 * result + (int) (zipBombThreshold ^ (zipBombThreshold &gt;&gt;&gt; 32));</span>
+<span class="nc" id="L266">        result = 31 * result + (int) (zipBombRatio ^ (zipBombRatio &gt;&gt;&gt; 32));</span>
+<span class="nc" id="L267">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

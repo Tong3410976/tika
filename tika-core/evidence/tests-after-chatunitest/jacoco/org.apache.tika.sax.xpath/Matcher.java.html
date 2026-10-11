@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Matcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax.xpath</a> &gt; <span class="el_source">Matcher.java</span></div><h1>Matcher.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax.xpath;
+
+/**
+ * XPath element matcher. A matcher instance encapsulates a specific
+ * state in XPath evaluation.
+ */
+<span class="fc" id="L23">public class Matcher {</span>
+
+    /**
+     * State of a failed XPath evaluation, where nothing is matched.
+     * This matcher instance is used as a sentinel object whenever an
+     * XPath evaluation branch fails.
+     */
+<span class="fc" id="L30">    public static final Matcher FAIL = new Matcher();</span>
+
+    /**
+     * Returns the XPath evaluation state that results from descending
+     * to a child element with the given name.
+     *
+     * @param namespace element namespace or &lt;code&gt;null&lt;/code&gt;
+     * @param name      element name
+     * @return next XPath evaluation state
+     */
+    public Matcher descend(String namespace, String name) {
+<span class="fc" id="L41">        return FAIL;</span>
+    }
+
+    /**
+     * Returns &lt;code&gt;true&lt;/code&gt; if the XPath expression matches
+     * the element associated with this evaluation state.
+     *
+     * @return XPath evaluation state for this element
+     */
+    public boolean matchesElement() {
+<span class="fc" id="L51">        return false;</span>
+    }
+
+    /**
+     * Returns &lt;code&gt;true&lt;/code&gt; if the XPath expression matches the named
+     * attribute of the element associated with this evaluation state.
+     *
+     * @param namespace attribute namespace or &lt;code&gt;null&lt;/code&gt;
+     * @param name      attribute name
+     * @return XPath evaluation state for named attribute of this element
+     */
+    public boolean matchesAttribute(String namespace, String name) {
+<span class="fc" id="L63">        return false;</span>
+    }
+
+    /**
+     * Returns &lt;code&gt;true&lt;/code&gt; if the XPath expression matches all text
+     * nodes whose parent is the element associated with this evaluation
+     * state.
+     *
+     * @return XPath evaluation state for text children of this element
+     */
+    public boolean matchesText() {
+<span class="fc" id="L74">        return false;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

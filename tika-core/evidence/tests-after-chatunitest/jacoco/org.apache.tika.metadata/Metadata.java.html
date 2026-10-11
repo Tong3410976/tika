@@ -1,0 +1,800 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Metadata.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">Metadata.java</span></div><h1>Metadata.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+import static org.apache.tika.utils.DateUtils.formatDate;
+
+import java.io.Serializable;
+import java.text.DateFormat;
+import java.text.DateFormatSymbols;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.TimeZone;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.tika.metadata.Property.PropertyType;
+import org.apache.tika.metadata.writefilter.MetadataWriteLimiter;
+import org.apache.tika.metadata.writefilter.MetadataWriteLimiterFactory;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.DateUtils;
+
+/**
+ * A multi-valued metadata container.
+ */
+public class Metadata
+        implements CreativeCommons, Geographic, HttpHeaders, Message, ClimateForcast, TIFF,
+        TikaMimeKeys, Serializable {
+
+<span class="fc" id="L53">    private static final Logger LOG = LoggerFactory.getLogger(Metadata.class);</span>
+
+<span class="fc" id="L55">    private static final MetadataWriteLimiter ACCEPT_ALL = new MetadataWriteLimiter() {</span>
+        @Override
+        public void add(String field, String value, Map&lt;String, String[]&gt; data) {
+<span class="fc" id="L58">            String[] values = data.get(field);</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">            if (values == null) {</span>
+<span class="fc" id="L60">                set(field, value, data);</span>
+            } else {
+<span class="fc" id="L62">                data.put(field, appendValues(values, value));</span>
+            }
+<span class="fc" id="L64">        }</span>
+
+        //legacy behavior -- remove the field if value is null
+        @Override
+        public void set(String field, String value, Map&lt;String, String[]&gt; data) {
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (value != null) {</span>
+<span class="fc" id="L70">                data.put(field, new String[]{ value });</span>
+            } else {
+<span class="fc" id="L72">                data.remove(field);</span>
+            }
+<span class="fc" id="L74">        }</span>
+
+        private String[] appendValues(String[] values, final String value) {
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">            if (value == null) {</span>
+<span class="nc" id="L78">                return values;</span>
+            }
+<span class="fc" id="L80">            String[] newValues = new String[values.length + 1];</span>
+<span class="fc" id="L81">            System.arraycopy(values, 0, newValues, 0, values.length);</span>
+<span class="fc" id="L82">            newValues[newValues.length - 1] = value;</span>
+<span class="fc" id="L83">            return newValues;</span>
+        }
+    };
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 5623926545693153182L;
+    /**
+     * Some parsers will have the date as a ISO-8601 string
+     * already, and will set that into the Metadata object.
+     */
+<span class="fc" id="L95">    private static final DateUtils DATE_UTILS = new DateUtils();</span>
+    /**
+     * A map of all metadata attributes.
+     */
+<span class="pc" id="L99">    private Map&lt;String, String[]&gt; metadata = null;</span>
+
+
+<span class="pc" id="L102">    private MetadataWriteLimiter writeLimiter = ACCEPT_ALL;</span>
+    /**
+     * Constructs a new, empty metadata.
+     */
+<span class="fc" id="L106">    public Metadata() {</span>
+<span class="fc" id="L107">        metadata = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L108">    }</span>
+
+    /**
+     * Constructs a new, empty metadata with the specified write limiter.
+     * The limiter will be applied to all subsequent writes.
+     *
+     * @param writeLimiter the limiter to apply to metadata writes, or null for no limits
+     * @since Apache Tika 4.0
+     */
+<span class="nc" id="L117">    public Metadata(MetadataWriteLimiter writeLimiter) {</span>
+<span class="nc" id="L118">        metadata = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        this.writeLimiter = writeLimiter != null ? writeLimiter : ACCEPT_ALL;</span>
+<span class="nc" id="L120">    }</span>
+
+    /**
+     * Creates a new Metadata instance configured from the ParseContext.
+     * &lt;p&gt;
+     * If a {@link MetadataWriteLimiterFactory} is present in the context, the returned
+     * Metadata will have a write limiter that enforces those limits. Otherwise,
+     * returns a plain Metadata object with no limits.
+     * &lt;p&gt;
+     * Parsers should use this method instead of {@code new Metadata()} when creating
+     * metadata for embedded documents, to ensure limits are applied at creation time.
+     *
+     * @param context the ParseContext (may be null)
+     * @return a new Metadata instance configured from the context
+     * @since Apache Tika 4.0
+     */
+    public static Metadata newInstance(ParseContext context) {
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">        if (context == null) {</span>
+<span class="nc" id="L138">            return new Metadata();</span>
+        }
+<span class="fc" id="L140">        MetadataWriteLimiterFactory factory = context.get(MetadataWriteLimiterFactory.class);</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        return factory != null ? new Metadata(factory.newInstance()) : new Metadata();</span>
+    }
+
+    private static DateFormat createDateFormat(String format, TimeZone timezone) {
+<span class="nc" id="L145">        SimpleDateFormat sdf = new SimpleDateFormat(format, new DateFormatSymbols(Locale.US));</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (timezone != null) {</span>
+<span class="nc" id="L147">            sdf.setTimeZone(timezone);</span>
+        }
+<span class="nc" id="L149">        return sdf;</span>
+    }
+
+    /**
+     * Parses the given date string. This method is synchronized to prevent
+     * concurrent access to the thread-unsafe date formats.
+     *
+     * @param date date string
+     * @return parsed date, or &lt;code&gt;null&lt;/code&gt; if the date can't be parsed
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-495&quot;&gt;TIKA-495&lt;/a&gt;
+     */
+    private static synchronized Date parseDate(String date) {
+<span class="fc" id="L161">        return DATE_UTILS.tryToParse(date);</span>
+    }
+
+    /**
+     * Returns true if named value is multivalued.
+     *
+     * @param property metadata property
+     * @return true is named value is multivalued, false if single value or null
+     */
+    public boolean isMultiValued(final Property property) {
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        return metadata.get(property.getName()) != null &amp;&amp;</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                metadata.get(property.getName()).length &gt; 1;</span>
+    }
+
+    /**
+     * Returns true if named value is multivalued.
+     *
+     * @param name name of metadata
+     * @return true is named value is multivalued, false if single value or null
+     */
+    public boolean isMultiValued(final String name) {
+<span class="fc bfc" id="L182" title="All 4 branches covered.">        return metadata.get(name) != null &amp;&amp; metadata.get(name).length &gt; 1;</span>
+    }
+
+    /**
+     * Returns an array of the names contained in the metadata.
+     *
+     * @return Metadata names
+     */
+    public String[] names() {
+<span class="fc" id="L191">        return metadata.keySet().toArray(new String[0]);</span>
+    }
+
+    /**
+     * Get the value associated to a metadata name. If many values are associated to the specified
+     * name, then the first one is returned.
+     *
+     * @param name of the metadata.
+     * @return the value associated to the specified metadata name.
+     */
+    public String get(final String name) {
+<span class="fc" id="L202">        String[] values = metadata.get(name);</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">        if (values == null) {</span>
+<span class="fc" id="L204">            return null;</span>
+        } else {
+<span class="fc" id="L206">            return values[0];</span>
+        }
+    }
+
+    /**
+     * Returns the value (if any) of the identified metadata property. If many values are associated
+     * to the specified property, then the first one is returned.
+     *
+     * @param property property definition
+     * @return property value, or &lt;code&gt;null&lt;/code&gt; if the property is not set
+     * @since Apache Tika 0.7
+     */
+    public String get(Property property) {
+<span class="fc" id="L219">        return get(property.getName());</span>
+    }
+
+    /**
+     * Returns the value of the identified Integer based metadata property. If many values are
+     * associated to the specified property, then the first one is returned.
+     *
+     * @param property simple integer property definition
+     * @return property value as a Integer, or &lt;code&gt;null&lt;/code&gt; if the property is not set, or
+     * not a valid Integer
+     * @since Apache Tika 0.8
+     */
+    public Integer getInt(Property property) {
+<span class="fc bfc" id="L232" title="All 2 branches covered.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="fc" id="L233">            return null;</span>
+        }
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.INTEGER) {</span>
+<span class="fc" id="L236">            return null;</span>
+        }
+
+<span class="fc" id="L239">        String v = get(property);</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        if (v == null) {</span>
+<span class="fc" id="L241">            return null;</span>
+        }
+        try {
+<span class="fc" id="L244">            return Integer.valueOf(v);</span>
+<span class="fc" id="L245">        } catch (NumberFormatException e) {</span>
+<span class="fc" id="L246">            return null;</span>
+        }
+    }
+
+    /**
+     * Returns the value of the identified Date based metadata property. If many values are
+     * associated to the specified property, then the first one is returned.
+     *
+     * @param property simple date property definition
+     * @return property value as a Date, or &lt;code&gt;null&lt;/code&gt; if the property is not set, or not
+     * a valid Date
+     * @since Apache Tika 0.8
+     */
+    public Date getDate(Property property) {
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="nc" id="L261">            return null;</span>
+        }
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.DATE) {</span>
+<span class="nc" id="L264">            return null;</span>
+        }
+
+<span class="fc" id="L267">        String v = get(property);</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">        if (v != null) {</span>
+<span class="fc" id="L269">            return parseDate(v);</span>
+        } else {
+<span class="nc" id="L271">            return null;</span>
+        }
+    }
+
+    /**
+     * Get the values associated to a metadata name.
+     *
+     * @param property of the metadata.
+     * @return the values associated to a metadata name.
+     */
+    public String[] getValues(final Property property) {
+<span class="fc" id="L282">        return _getValues(property.getName());</span>
+    }
+
+    /**
+     * Get the values associated to a metadata name.
+     *
+     * @param name of the metadata.
+     * @return the values associated to a metadata name.
+     */
+    public String[] getValues(final String name) {
+<span class="fc" id="L292">        return _getValues(name);</span>
+    }
+
+    private String[] _getValues(final String name) {
+<span class="fc" id="L296">        String[] values = metadata.get(name);</span>
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        if (values == null) {</span>
+<span class="fc" id="L298">            values = new String[0];</span>
+        }
+<span class="fc" id="L300">        return values;</span>
+    }
+
+    /**
+     * Add a metadata name/value mapping. Add the specified value to the list of
+     * values associated to the specified metadata name.
+     *
+     * @param name  the metadata name.
+     * @param value the metadata value.
+     */
+    public void add(final String name, final String value) {
+<span class="fc bfc" id="L311" title="All 2 branches covered.">        if (blockReservedKeyWrite(name)) {</span>
+<span class="fc" id="L312">            return;</span>
+        }
+<span class="fc" id="L314">        addTrusted(name, value);</span>
+<span class="fc" id="L315">    }</span>
+
+    /**
+     * Trusted add, bypassing the reserved-key guard: writes reach reserved Tika-native
+     * ({@code tk:}) keys directly. For internal/known-trusted writers (metadata filters,
+     * clone/merge/deserialize, emit-time enrichment) that legitimately need to assert a
+     * reserved key by name rather than by its {@link Property}.
+     */
+    public void addTrusted(final String name, final String value) {
+<span class="fc" id="L324">        writeLimiter.add(name, value, metadata);</span>
+<span class="fc" id="L325">    }</span>
+
+    /** Drop String writes to reserved Tika-native keys; use their Property or {@link #addTrusted}/{@link #setTrusted(String, String)}. */
+    private boolean blockReservedKeyWrite(String name) {
+<span class="fc bfc" id="L329" title="All 2 branches covered.">        if (ReservedNamespaces.isTikaNative(name)) {</span>
+<span class="fc" id="L330">            LOG.debug(&quot;Dropping String write to reserved metadata key '{}'; use its Property.&quot;, name);</span>
+<span class="fc" id="L331">            return true;</span>
+        }
+<span class="fc" id="L333">        return false;</span>
+    }
+
+    /**
+     * Trusted write for clone/merge/deserialize; reserved keys go via their Property.
+     *
+     * @param append add rather than set
+     */
+    public void reconstruct(String name, String value, boolean append) {
+<span class="fc bfc" id="L342" title="All 2 branches covered.">        if (ReservedNamespaces.isTikaNative(name)) {</span>
+<span class="fc" id="L343">            Property property = Property.get(name);</span>
+<span class="fc bfc" id="L344" title="All 2 branches covered.">            if (property != null) {</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">                if (append) {</span>
+<span class="fc" id="L346">                    add(property, value);</span>
+                } else {
+<span class="fc" id="L348">                    set(property, value);</span>
+                }
+<span class="fc bfc" id="L350" title="All 2 branches covered.">            } else if (append) {</span>
+<span class="fc" id="L351">                addTrusted(name, value);</span>
+            } else {
+<span class="fc" id="L353">                setTrusted(name, value);</span>
+            }
+<span class="fc" id="L355">            return;</span>
+        }
+<span class="fc bfc" id="L357" title="All 2 branches covered.">        if (append) {</span>
+<span class="fc" id="L358">            add(name, value);</span>
+        } else {
+<span class="fc" id="L360">            set(name, value);</span>
+        }
+<span class="fc" id="L362">    }</span>
+
+    /**
+     * Add a metadata name/value mapping. Add the specified value to the list of
+     * values associated to the specified metadata name.
+     *
+     * @param name  the metadata name.
+     * @param newValues the metadata values
+     */
+    protected void add(final String name, final String[] newValues) {
+<span class="nc" id="L372">        String[] values = metadata.get(name);</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        if (values == null) {</span>
+<span class="nc" id="L374">            set(name, newValues);</span>
+        } else {
+<span class="nc bnc" id="L376" title="All 2 branches missed.">            for (String val : newValues) {</span>
+<span class="nc" id="L377">                addTrusted(name, val);</span>
+            }
+        }
+<span class="nc" id="L380">    }</span>
+
+    /**
+     * Add a metadata property/value mapping. Add the specified value to the list of
+     * values associated to the specified metadata property.
+     *
+     * @param property the metadata property.
+     * @param value    the metadata value.
+     */
+    public void add(final Property property, final String value) {
+
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">        if (property == null) {</span>
+<span class="nc" id="L392">            throw new NullPointerException(&quot;property must not be null&quot;);</span>
+        }
+<span class="pc bpc" id="L394" title="1 of 2 branches missed.">        if (property.getPropertyType() == PropertyType.COMPOSITE) {</span>
+<span class="nc" id="L395">            add(property.getPrimaryProperty(), value);</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">            if (property.getSecondaryExtractProperties() != null) {</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">                for (Property secondaryExtractProperty : property.getSecondaryExtractProperties()) {</span>
+<span class="nc" id="L398">                    add(secondaryExtractProperty, value);</span>
+                }
+            }
+        } else {
+<span class="fc" id="L402">            String[] values = metadata.get(property.getName());</span>
+
+<span class="fc bfc" id="L404" title="All 2 branches covered.">            if (values == null) {</span>
+<span class="fc" id="L405">                set(property, value);</span>
+            } else {
+<span class="fc bfc" id="L407" title="All 2 branches covered.">                if (property.isMultiValuePermitted()) {</span>
+<span class="fc" id="L408">                    addTrusted(property.getName(), value);</span>
+                } else {
+<span class="fc" id="L410">                    throw new PropertyTypeException(</span>
+<span class="fc" id="L411">                            property.getName() + &quot; : &quot; + property.getPropertyType());</span>
+                }
+            }
+        }
+<span class="fc" id="L415">    }</span>
+
+    /**
+     * Copy All key-value pairs from properties.
+     *
+     * @param properties properties to copy from
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void setAll(Properties properties) {
+<span class="fc" id="L424">        Enumeration&lt;String&gt; names = (Enumeration&lt;String&gt;) properties.propertyNames();</span>
+<span class="fc bfc" id="L425" title="All 2 branches covered.">        while (names.hasMoreElements()) {</span>
+<span class="fc" id="L426">            String name = names.nextElement();</span>
+<span class="fc" id="L427">            metadata.put(name, new String[]{properties.getProperty(name)});</span>
+<span class="fc" id="L428">        }</span>
+<span class="fc" id="L429">    }</span>
+
+    /**
+     * Set metadata name/value. Associate the specified value to the specified
+     * metadata name. If some previous values were associated to this name,
+     * they are removed. If the given value is &lt;code&gt;null&lt;/code&gt;, then the
+     * metadata entry is removed.
+     *
+     * @param name  the metadata name.
+     * @param value the metadata value, or &lt;code&gt;null&lt;/code&gt;
+     */
+    public void set(String name, String value) {
+<span class="fc bfc" id="L441" title="All 2 branches covered.">        if (blockReservedKeyWrite(name)) {</span>
+<span class="fc" id="L442">            return;</span>
+        }
+<span class="fc" id="L444">        setTrusted(name, value);</span>
+<span class="fc" id="L445">    }</span>
+
+    /**
+     * Trusted set, bypassing the reserved-key guard: writes reach reserved Tika-native
+     * ({@code tk:}) keys directly. See {@link #addTrusted}.
+     */
+    public void setTrusted(String name, String value) {
+<span class="fc" id="L452">        writeLimiter.set(name, value, metadata);</span>
+<span class="fc" id="L453">    }</span>
+
+    protected void set(String name, String[] values) {
+        //TODO: optimize this to not copy if all
+        //values are to be included &quot;as is&quot;
+<span class="pc bpc" id="L458" title="1 of 2 branches missed.">        if (values != null) {</span>
+<span class="fc" id="L459">            metadata.remove(name);</span>
+<span class="fc bfc" id="L460" title="All 2 branches covered.">            for (String v : values) {</span>
+<span class="fc" id="L461">                addTrusted(name, v);</span>
+            }
+        } else {
+<span class="nc" id="L464">            metadata.remove(name);</span>
+        }
+<span class="fc" id="L466">    }</span>
+
+    /**
+     * Sets the value of the identified metadata property.
+     *
+     * @param property property definition
+     * @param value    property value
+     * @since Apache Tika 0.7
+     */
+    public void set(Property property, String value) {
+<span class="pc bpc" id="L476" title="1 of 2 branches missed.">        if (property == null) {</span>
+<span class="nc" id="L477">            throw new NullPointerException(&quot;property must not be null&quot;);</span>
+        }
+<span class="fc bfc" id="L479" title="All 2 branches covered.">        if (property.getPropertyType() == PropertyType.COMPOSITE) {</span>
+<span class="fc" id="L480">            set(property.getPrimaryProperty(), value);</span>
+<span class="pc bpc" id="L481" title="1 of 2 branches missed.">            if (property.getSecondaryExtractProperties() != null) {</span>
+<span class="fc bfc" id="L482" title="All 2 branches covered.">                for (Property secondaryExtractProperty : property.getSecondaryExtractProperties()) {</span>
+<span class="fc" id="L483">                    set(secondaryExtractProperty, value);</span>
+                }
+            }
+        } else {
+<span class="fc" id="L487">            setTrusted(property.getName(), value);</span>
+        }
+<span class="fc" id="L489">    }</span>
+
+    /**
+     * Sets the values of the identified metadata property.
+     *
+     * @param property property definition
+     * @param values   property values
+     * @since Apache Tika 1.2
+     */
+    public void set(Property property, String[] values) {
+<span class="pc bpc" id="L499" title="1 of 2 branches missed.">        if (property == null) {</span>
+<span class="nc" id="L500">            throw new NullPointerException(&quot;property must not be null&quot;);</span>
+        }
+<span class="pc bpc" id="L502" title="1 of 2 branches missed.">        if (property.getPropertyType() == PropertyType.COMPOSITE) {</span>
+<span class="nc" id="L503">            set(property.getPrimaryProperty(), values);</span>
+<span class="nc bnc" id="L504" title="All 2 branches missed.">            if (property.getSecondaryExtractProperties() != null) {</span>
+<span class="nc bnc" id="L505" title="All 2 branches missed.">                for (Property secondaryExtractProperty : property.getSecondaryExtractProperties()) {</span>
+<span class="nc" id="L506">                    set(secondaryExtractProperty, values);</span>
+                }
+            }
+        } else {
+<span class="fc" id="L510">            set(property.getName(), values);</span>
+        }
+<span class="fc" id="L512">    }</span>
+
+    /**
+     * Sets the integer value of the identified metadata property.
+     *
+     * @param property simple integer property definition
+     * @param value    property value
+     * @since Apache Tika 0.8
+     */
+    public void set(Property property, int value) {
+<span class="fc bfc" id="L522" title="All 2 branches covered.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="fc" id="L523">            throw new PropertyTypeException(Property.PropertyType.SIMPLE,</span>
+<span class="fc" id="L524">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.INTEGER) {</span>
+<span class="fc" id="L527">            throw new PropertyTypeException(Property.ValueType.INTEGER,</span>
+<span class="fc" id="L528">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="fc" id="L530">        set(property, Integer.toString(value));</span>
+<span class="fc" id="L531">    }</span>
+
+    /**
+     * Sets the integer value of the identified metadata property.
+     *
+     * @param property simple integer property definition
+     * @param value    property value
+     * @since Apache Tika 0.8
+     */
+    public void set(Property property, long value) {
+<span class="nc bnc" id="L541" title="All 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="nc" id="L542">            throw new PropertyTypeException(Property.PropertyType.SIMPLE,</span>
+<span class="nc" id="L543">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="nc bnc" id="L545" title="All 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.REAL) {</span>
+<span class="nc" id="L546">            throw new PropertyTypeException(Property.ValueType.REAL,</span>
+<span class="nc" id="L547">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="nc" id="L549">        set(property, Long.toString(value));</span>
+<span class="nc" id="L550">    }</span>
+    /**
+     * Sets the integer value of the identified metadata property.
+     *
+     * @param property simple integer property definition
+     * @param value    property value
+     * @since Apache Tika 2.1.1
+     */
+    public void set(Property property, boolean value) {
+<span class="nc bnc" id="L559" title="All 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="nc" id="L560">            throw new PropertyTypeException(Property.PropertyType.SIMPLE,</span>
+<span class="nc" id="L561">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="nc bnc" id="L563" title="All 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.BOOLEAN) {</span>
+<span class="nc" id="L564">            throw new PropertyTypeException(Property.ValueType.BOOLEAN,</span>
+<span class="nc" id="L565">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="nc" id="L567">        set(property, Boolean.toString(value));</span>
+<span class="nc" id="L568">    }</span>
+
+    /**
+     * Adds the integer value of the identified metadata property.
+     *
+     * @param property seq integer property definition
+     * @param value    property value
+     * @since Apache Tika 1.21
+     */
+    public void add(Property property, int value) {
+<span class="pc bpc" id="L578" title="1 of 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != PropertyType.SEQ) {</span>
+<span class="nc" id="L579">            throw new PropertyTypeException(PropertyType.SEQ,</span>
+<span class="nc" id="L580">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="pc bpc" id="L582" title="1 of 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.INTEGER) {</span>
+<span class="nc" id="L583">            throw new PropertyTypeException(Property.ValueType.INTEGER,</span>
+<span class="nc" id="L584">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="fc" id="L586">        add(property, Integer.toString(value));</span>
+<span class="fc" id="L587">    }</span>
+
+    /**
+     * Gets the array of ints of the identified &quot;seq&quot; integer metadata property.
+     *
+     * @param property seq integer property definition
+     * @return array of ints
+     * @since Apache Tika 1.21
+     */
+    public int[] getIntValues(Property property) {
+<span class="pc bpc" id="L597" title="1 of 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != PropertyType.SEQ) {</span>
+<span class="nc" id="L598">            throw new PropertyTypeException(PropertyType.SEQ,</span>
+<span class="nc" id="L599">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="pc bpc" id="L601" title="1 of 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.INTEGER) {</span>
+<span class="nc" id="L602">            throw new PropertyTypeException(Property.ValueType.INTEGER,</span>
+<span class="nc" id="L603">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="fc" id="L605">        String[] vals = getValues(property);</span>
+<span class="fc" id="L606">        int[] ret = new int[vals.length];</span>
+<span class="fc bfc" id="L607" title="All 2 branches covered.">        for (int i = 0; i &lt; vals.length; i++) {</span>
+<span class="fc" id="L608">            ret[i] = Integer.parseInt(vals[i]);</span>
+        }
+<span class="fc" id="L610">        return ret;</span>
+    }
+
+    /**
+     * Gets the array of ints of the identified &quot;seq&quot; integer metadata property.
+     *
+     * @param property seq integer property definition
+     * @return array of ints
+     * @since Apache Tika 1.21
+     */
+    public long[] getLongValues(Property property) {
+<span class="nc bnc" id="L621" title="All 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != PropertyType.SEQ) {</span>
+<span class="nc" id="L622">            throw new PropertyTypeException(PropertyType.SEQ,</span>
+<span class="nc" id="L623">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="nc bnc" id="L625" title="All 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.REAL) {</span>
+<span class="nc" id="L626">            throw new PropertyTypeException(Property.ValueType.REAL,</span>
+<span class="nc" id="L627">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="nc" id="L629">        String[] vals = getValues(property);</span>
+<span class="nc" id="L630">        long[] ret = new long[vals.length];</span>
+<span class="nc bnc" id="L631" title="All 2 branches missed.">        for (int i = 0; i &lt; vals.length; i++) {</span>
+<span class="nc" id="L632">            ret[i] = Long.parseLong(vals[i]);</span>
+        }
+<span class="nc" id="L634">        return ret;</span>
+    }
+
+    /**
+     * Sets the real or rational value of the identified metadata property.
+     *
+     * @param property simple real or simple rational property definition
+     * @param value    property value
+     * @since Apache Tika 0.8
+     */
+    public void set(Property property, double value) {
+<span class="nc bnc" id="L645" title="All 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.REAL &amp;&amp;</span>
+<span class="nc bnc" id="L646" title="All 2 branches missed.">                property.getPrimaryProperty().getValueType() != Property.ValueType.RATIONAL) {</span>
+<span class="nc" id="L647">            throw new PropertyTypeException(Property.ValueType.REAL,</span>
+<span class="nc" id="L648">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="nc" id="L650">        set(property, Double.toString(value));</span>
+<span class="nc" id="L651">    }</span>
+
+    /**
+     * Sets the date value of the identified metadata property.
+     *
+     * @param property simple integer property definition
+     * @param date     property value
+     * @since Apache Tika 0.8
+     */
+    public void set(Property property, Date date) {
+<span class="fc bfc" id="L661" title="All 2 branches covered.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="fc" id="L662">            throw new PropertyTypeException(Property.PropertyType.SIMPLE,</span>
+<span class="fc" id="L663">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="fc bfc" id="L665" title="All 2 branches covered.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.DATE) {</span>
+<span class="fc" id="L666">            throw new PropertyTypeException(Property.ValueType.DATE,</span>
+<span class="fc" id="L667">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="fc" id="L669">        String dateString = null;</span>
+<span class="pc bpc" id="L670" title="1 of 2 branches missed.">        if (date != null) {</span>
+<span class="fc" id="L671">            dateString = formatDate(date);</span>
+        }
+<span class="fc" id="L673">        set(property, dateString);</span>
+<span class="fc" id="L674">    }</span>
+
+    /**
+     * Sets the date value of the identified metadata property.
+     *
+     * @param property simple integer property definition
+     * @param date     property value
+     * @since Apache Tika 0.8
+     */
+    public void set(Property property, Calendar date) {
+<span class="nc bnc" id="L684" title="All 2 branches missed.">        if (property.getPrimaryProperty().getPropertyType() != Property.PropertyType.SIMPLE) {</span>
+<span class="nc" id="L685">            throw new PropertyTypeException(Property.PropertyType.SIMPLE,</span>
+<span class="nc" id="L686">                    property.getPrimaryProperty().getPropertyType());</span>
+        }
+<span class="nc bnc" id="L688" title="All 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.DATE) {</span>
+<span class="nc" id="L689">            throw new PropertyTypeException(Property.ValueType.DATE,</span>
+<span class="nc" id="L690">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="nc" id="L692">        String dateString = null;</span>
+<span class="nc bnc" id="L693" title="All 2 branches missed.">        if (date != null) {</span>
+<span class="nc" id="L694">            dateString = formatDate(date);</span>
+        }
+<span class="nc" id="L696">        set(property, dateString);</span>
+<span class="nc" id="L697">    }</span>
+
+    /**
+     * Adds the date value of the identified metadata property.
+     *
+     * @param property simple calendar property definition
+     * @param date     property value
+     * @since Apache Tika 2.5.0
+     */
+    public void add(Property property, Calendar date) {
+<span class="nc bnc" id="L707" title="All 2 branches missed.">        if (property.getPrimaryProperty().getValueType() != Property.ValueType.DATE) {</span>
+<span class="nc" id="L708">            throw new PropertyTypeException(Property.ValueType.DATE,</span>
+<span class="nc" id="L709">                    property.getPrimaryProperty().getValueType());</span>
+        }
+<span class="nc" id="L711">        String dateString = null;</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">        if (date != null) {</span>
+<span class="nc" id="L713">            dateString = formatDate(date);</span>
+        }
+<span class="nc" id="L715">        add(property, dateString);</span>
+<span class="nc" id="L716">    }</span>
+
+    /**
+     * Remove a metadata and all its associated values.
+     *
+     * @param name metadata name to remove
+     */
+    public void remove(String name) {
+<span class="fc" id="L724">        metadata.remove(name);</span>
+<span class="fc" id="L725">    }</span>
+
+    /**
+     * Remove a metadata property and all its associated values.
+     *
+     * @param property metadata property to remove
+     */
+    public void remove(Property property) {
+<span class="nc" id="L733">        remove(property.getName());</span>
+<span class="nc" id="L734">    }</span>
+
+    /**
+     * Returns the number of metadata names in this metadata.
+     *
+     * @return number of metadata names
+     */
+    public int size() {
+<span class="fc" id="L742">        return metadata.size();</span>
+    }
+
+    public int hashCode() {
+<span class="fc" id="L746">        int h = 0;</span>
+<span class="fc bfc" id="L747" title="All 2 branches covered.">        for (Entry&lt;String, String[]&gt; stringEntry : metadata.entrySet()) {</span>
+<span class="fc" id="L748">            h += getMetadataEntryHashCode(stringEntry);</span>
+<span class="fc" id="L749">        }</span>
+<span class="fc" id="L750">        return h;</span>
+    }
+
+    private int getMetadataEntryHashCode(Entry&lt;String, String[]&gt; e) {
+<span class="fc" id="L754">        return Objects.hashCode(e.getKey()) ^ Arrays.hashCode(e.getValue());</span>
+    }
+
+    public boolean equals(Object o) {
+
+<span class="fc bfc" id="L759" title="All 2 branches covered.">        if (!(o instanceof Metadata)) {</span>
+<span class="fc" id="L760">            return false;</span>
+        }
+
+<span class="fc" id="L763">        Metadata other = (Metadata) o;</span>
+
+<span class="fc bfc" id="L765" title="All 2 branches covered.">        if (other.size() != size()) {</span>
+<span class="fc" id="L766">            return false;</span>
+        }
+
+<span class="fc" id="L769">        String[] names = names();</span>
+<span class="fc bfc" id="L770" title="All 2 branches covered.">        for (String name : names) {</span>
+<span class="fc" id="L771">            String[] otherValues = other._getValues(name);</span>
+<span class="fc" id="L772">            String[] thisValues = _getValues(name);</span>
+<span class="fc bfc" id="L773" title="All 2 branches covered.">            if (otherValues.length != thisValues.length) {</span>
+<span class="fc" id="L774">                return false;</span>
+            }
+<span class="fc bfc" id="L776" title="All 2 branches covered.">            for (int j = 0; j &lt; otherValues.length; j++) {</span>
+<span class="fc bfc" id="L777" title="All 2 branches covered.">                if (!otherValues[j].equals(thisValues[j])) {</span>
+<span class="fc" id="L778">                    return false;</span>
+                }
+            }
+        }
+<span class="fc" id="L782">        return true;</span>
+    }
+
+    public String toString() {
+<span class="fc" id="L786">        StringBuilder stringBuilder = new StringBuilder();</span>
+<span class="fc" id="L787">        String[] names = names();</span>
+<span class="fc bfc" id="L788" title="All 2 branches covered.">        for (String name : names) {</span>
+<span class="fc" id="L789">            String[] values = _getValues(name);</span>
+<span class="fc bfc" id="L790" title="All 2 branches covered.">            for (String value : values) {</span>
+<span class="fc bfc" id="L791" title="All 2 branches covered.">                if (stringBuilder.length() &gt; 0) {</span>
+<span class="fc" id="L792">                    stringBuilder.append(&quot; &quot;);</span>
+                }
+<span class="fc" id="L794">                stringBuilder.append(name).append(&quot;=&quot;).append(value);</span>
+            }
+        }
+<span class="fc" id="L797">        return stringBuilder.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

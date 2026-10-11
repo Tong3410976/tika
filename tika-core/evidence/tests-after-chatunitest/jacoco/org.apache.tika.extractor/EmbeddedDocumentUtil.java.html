@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmbeddedDocumentUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.extractor</a> &gt; <span class="el_source">EmbeddedDocumentUtil.java</span></div><h1>EmbeddedDocumentUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.extractor;
+
+
+import java.io.IOException;
+import java.io.Serializable;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.detect.DefaultDetector;
+import org.apache.tika.detect.Detector;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MimeType;
+import org.apache.tika.mime.MimeTypeException;
+import org.apache.tika.mime.MimeTypes;
+import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.parser.CompositeParser;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ParserDecorator;
+import org.apache.tika.parser.PasswordProvider;
+import org.apache.tika.parser.StatefulParser;
+import org.apache.tika.utils.ExceptionUtils;
+
+/**
+ * Utility class to handle common issues with embedded documents.
+ * &lt;p/&gt;
+ * Use statically if all that is needed is getting the EmbeddedDocumentExtractor.
+ * Otherwise, instantiate an instance.
+ * &lt;p/&gt;
+ * Note: This is not thread safe.  Make sure to instantiate one per thread.
+ */
+public class EmbeddedDocumentUtil implements Serializable {
+
+
+    private final ParseContext context;
+    private final EmbeddedDocumentExtractor embeddedDocumentExtractor;
+    //these are lazily initialized and can be null
+    private MimeTypes mimeTypes;
+    private Detector detector;
+
+<span class="fc" id="L61">    public EmbeddedDocumentUtil(ParseContext context) {</span>
+<span class="fc" id="L62">        this.context = context;</span>
+<span class="fc" id="L63">        this.embeddedDocumentExtractor = getEmbeddedDocumentExtractor(context);</span>
+<span class="fc" id="L64">    }</span>
+
+    /**
+     * This offers a uniform way to get an EmbeddedDocumentExtractor from a ParseContext.
+     * As of Tika 1.15, an AutoDetectParser will automatically be added to parse
+     * embedded documents if no Parser.class is specified in the ParseContext.
+     * &lt;p/&gt;
+     * If you'd prefer not to parse embedded documents, set Parser.class
+     * to {@link org.apache.tika.parser.EmptyParser} in the ParseContext.
+     *
+     * @param context
+     * @return EmbeddedDocumentExtractor
+     */
+    public static EmbeddedDocumentExtractor getEmbeddedDocumentExtractor(ParseContext context) {
+<span class="fc" id="L78">        EmbeddedDocumentExtractor extractor = context.get(EmbeddedDocumentExtractor.class);</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        if (extractor != null) {</span>
+<span class="nc" id="L80">            return extractor;</span>
+        }
+        //ensure that an AutoDetectParser is
+        //available for parsing embedded docs TIKA-2096
+<span class="fc" id="L84">        Parser embeddedParser = context.get(Parser.class);</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        if (embeddedParser == null) {</span>
+<span class="fc" id="L86">            context.set(Parser.class, new AutoDetectParser());</span>
+        }
+<span class="fc" id="L88">        EmbeddedDocumentExtractor ex = new ParsingEmbeddedDocumentExtractor(context);</span>
+<span class="fc" id="L89">        context.set(EmbeddedDocumentExtractor.class, ex);</span>
+<span class="fc" id="L90">        return ex;</span>
+    }
+
+    /**
+     * Utility function to get the Parser that was sent in to the
+     * ParseContext to handle embedded documents.  If it is stateful,
+     * unwrap it to get its stateless delegating parser.
+     * &lt;p&gt;
+     * If there is no Parser in the parser context, this will return null.
+     *
+     * @param context
+     * @return
+     */
+    public static Parser getStatelessParser(ParseContext context) {
+<span class="nc" id="L104">        Parser p = context.get(Parser.class);</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (p == null) {</span>
+<span class="nc" id="L106">            return null;</span>
+        }
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (p instanceof StatefulParser) {</span>
+<span class="nc" id="L109">            return ((StatefulParser) p).getWrappedParser();</span>
+        }
+<span class="nc" id="L111">        return p;</span>
+    }
+
+    public PasswordProvider getPasswordProvider() {
+<span class="nc" id="L115">        return context.get(PasswordProvider.class);</span>
+    }
+
+    public Detector getDetector() {
+        //be as lazy as possible and cache
+<span class="nc" id="L120">        Detector localDetector = context.get(Detector.class);</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (localDetector != null) {</span>
+<span class="nc" id="L122">            return localDetector;</span>
+        }
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (detector != null) {</span>
+<span class="nc" id="L125">            return detector;</span>
+        }
+
+<span class="nc" id="L128">        detector = new DefaultDetector(getMimeTypes());</span>
+<span class="nc" id="L129">        return detector;</span>
+    }
+
+    public MimeTypes getMimeTypes() {
+<span class="fc" id="L133">        MimeTypes localMimeTypes = context.get(MimeTypes.class);</span>
+        //be as lazy as possible and cache the mimeTypes
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (localMimeTypes != null) {</span>
+<span class="nc" id="L136">            return localMimeTypes;</span>
+        }
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (mimeTypes != null) {</span>
+<span class="nc" id="L139">            return mimeTypes;</span>
+        }
+<span class="fc" id="L141">        mimeTypes = MimeTypes.getDefaultMimeTypes();</span>
+<span class="fc" id="L142">        return mimeTypes;</span>
+    }
+
+    public String getExtension(TikaInputStream is, Metadata metadata) {
+<span class="fc" id="L146">        String mimeString = metadata.get(Metadata.CONTENT_TYPE);</span>
+
+        //use the buffered mimetypes as default
+<span class="fc" id="L149">        MimeTypes localMimeTypes = getMimeTypes();</span>
+
+        //a parseable declared type wins, even if we have no glob for it. Don't
+        //detect just because the registry lookup came back empty -- that would
+        //overwrite a type the calling parser set deliberately.
+<span class="pc bpc" id="L154" title="2 of 4 branches missed.">        if (mimeString != null &amp;&amp; MediaType.parse(mimeString) != null) {</span>
+<span class="fc" id="L155">            return extensionOf(getRegisteredMimeType(localMimeTypes, mimeString));</span>
+        }
+        try {
+<span class="nc" id="L158">            MediaType mediaType = getDetector().detect(is, metadata, context);</span>
+<span class="nc" id="L159">            is.reset();</span>
+            //set or correct the mime type. Record what was detected, not the
+            //registry match, which may have fallen back to the base type.
+<span class="nc" id="L162">            metadata.set(Metadata.CONTENT_TYPE, mediaType.toString());</span>
+<span class="nc" id="L163">            return extensionOf(getRegisteredMimeType(localMimeTypes, mediaType.toString()));</span>
+<span class="nc" id="L164">        } catch (IOException e) {</span>
+            //swallow
+        }
+<span class="nc" id="L167">        return &quot;.bin&quot;;</span>
+    }
+
+    private static String extensionOf(MimeType mimeType) {
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        return mimeType == null ? &quot;&quot; : mimeType.getExtension();</span>
+    }
+
+    /**
+     * Normalizes internal OCR routing media types (e.g., {@code image/ocr-png})
+     * back to standard media types (e.g., {@code image/png}).
+     * Returns the input unchanged if it is not an OCR routing type.
+     *
+     * @param mediaType the media type string
+     * @return the normalized media type string, or the original if no normalization needed
+     */
+    public static String normalizeMediaType(String mediaType) {
+<span class="pc bpc" id="L183" title="1 of 4 branches missed.">        if (mediaType != null &amp;&amp; mediaType.startsWith(&quot;image/ocr-&quot;)) {</span>
+<span class="fc" id="L184">            return &quot;image/&quot; + mediaType.substring(&quot;image/ocr-&quot;.length());</span>
+        }
+<span class="fc" id="L186">        return mediaType;</span>
+    }
+
+    /**
+     * Looks up the file extension for a given media type string.
+     *
+     * @param mediaType the media type string (e.g., &quot;image/png&quot;), parameters allowed
+     * @return the extension including the dot (e.g., &quot;.png&quot;), or empty string if unknown
+     */
+    public static String getExtensionForMediaType(String mediaType) {
+<span class="fc bfc" id="L196" title="All 2 branches covered.">        if (mediaType == null) {</span>
+<span class="fc" id="L197">            return &quot;&quot;;</span>
+        }
+        MimeType mimeType =
+<span class="fc" id="L200">                getRegisteredMimeType(MimeTypes.getDefaultMimeTypes(),</span>
+<span class="fc" id="L201">                        normalizeMediaType(mediaType));</span>
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        return mimeType == null ? &quot;&quot; : mimeType.getExtension();</span>
+    }
+
+    /**
+     * Not {@link MimeTypes#forName(String)}: that registers a new, glob-less type for
+     * any name it doesn't recognize, so &lt;code&gt;text/plain; charset=UTF-8&lt;/code&gt; would
+     * lose its extension and add a registry entry per charset seen. This prefers an
+     * exact parameterized match (&lt;code&gt;application/dita+xml;format=map&lt;/code&gt; is real)
+     * and otherwise falls back to the base type.
+     *
+     * @return the registered type, or null if unknown or invalid
+     */
+    private static MimeType getRegisteredMimeType(MimeTypes mimeTypes, String name) {
+        try {
+<span class="fc" id="L216">            return mimeTypes.getRegisteredMimeType(name);</span>
+<span class="nc" id="L217">        } catch (MimeTypeException e) {</span>
+<span class="nc" id="L218">            return null;</span>
+        }
+    }
+
+    /**
+     * Type of embedded resource, used for generating canonical resource names.
+     */
+<span class="fc" id="L225">    public enum EmbeddedResourcePrefix {</span>
+<span class="fc" id="L226">        EMBEDDED(&quot;embedded&quot;),</span>
+<span class="fc" id="L227">        IMAGE(&quot;image&quot;),</span>
+<span class="fc" id="L228">        THUMBNAIL(&quot;thumbnail&quot;);</span>
+
+        private final String prefix;
+
+<span class="fc" id="L232">        EmbeddedResourcePrefix(String prefix) {</span>
+<span class="fc" id="L233">            this.prefix = prefix;</span>
+<span class="fc" id="L234">        }</span>
+
+        public String getPrefix() {
+<span class="fc" id="L237">            return prefix;</span>
+        }
+    }
+
+    /**
+     * Generates a canonical resource name from a type, counter, and media type.
+     * For example: {@code generateResourceName(EmbeddedResourcePrefix.EMBEDDED, 0, &quot;image/png&quot;)}
+     * returns {@code &quot;embedded-0.png&quot;}.
+     *
+     * @param type      the embedded resource type
+     * @param count     the counter value
+     * @param mediaType the media type string, or null if unknown
+     * @return the generated resource name with extension
+     */
+    public static String generateResourceName(EmbeddedResourcePrefix type, int count,
+                                               String mediaType) {
+<span class="fc" id="L253">        return type.getPrefix() + &quot;-&quot; + count + getExtensionForMediaType(mediaType);</span>
+    }
+
+    /**
+     * Sets a generated resource name on the metadata and marks the extension as inferred.
+     *
+     * @param metadata  the metadata to update
+     * @param type      the embedded resource type
+     * @param count     the counter value
+     * @param mediaType the media type string, or null if unknown
+     */
+    public static void setGeneratedResourceName(Metadata metadata, EmbeddedResourcePrefix type,
+                                                 int count, String mediaType) {
+<span class="nc" id="L266">        metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY,</span>
+<span class="nc" id="L267">                generateResourceName(type, count, mediaType));</span>
+<span class="nc" id="L268">        metadata.set(TikaCoreProperties.RESOURCE_NAME_EXTENSION_INFERRED, true);</span>
+<span class="nc" id="L269">    }</span>
+
+    public static void recordException(Throwable t, Metadata m) {
+<span class="nc" id="L272">        String ex = ExceptionUtils.getFilteredStackTrace(t);</span>
+<span class="nc" id="L273">        m.add(TikaCoreProperties.TIKA_META_EXCEPTION_WARNING, ex);</span>
+<span class="nc" id="L274">    }</span>
+
+    public static void recordEmbeddedStreamException(Throwable t, Metadata m) {
+<span class="nc" id="L277">        String ex = ExceptionUtils.getFilteredStackTrace(t);</span>
+<span class="nc" id="L278">        m.add(TikaCoreProperties.TIKA_META_EXCEPTION_EMBEDDED_STREAM, ex);</span>
+<span class="nc" id="L279">    }</span>
+
+    public boolean shouldParseEmbedded(Metadata m) {
+<span class="nc" id="L282">        return getEmbeddedDocumentExtractor().shouldParseEmbedded(m);</span>
+    }
+
+    private EmbeddedDocumentExtractor getEmbeddedDocumentExtractor() {
+<span class="nc" id="L286">        return embeddedDocumentExtractor;</span>
+    }
+
+    public void parseEmbedded(TikaInputStream tis, ContentHandler handler, Metadata metadata,
+                              boolean outputHtml) throws IOException, SAXException {
+<span class="nc" id="L291">        embeddedDocumentExtractor.parseEmbedded(tis, handler, metadata, context, outputHtml);</span>
+<span class="nc" id="L292">    }</span>
+
+    /**
+     * Tries to find an existing parser within the ParseContext.
+     * It looks inside of CompositeParsers and ParserDecorators.
+     * The use case is when a parser needs to parse an internal stream
+     * that is _part_ of the document, e.g. rtf body inside an msg.
+     * &lt;p/&gt;
+     * Can return &lt;code&gt;null&lt;/code&gt; if the context contains no parser or
+     * the correct parser can't be found.
+     *
+     * @param clazz   parser class to search for
+     * @param context
+     * @return
+     */
+    public static Parser tryToFindExistingLeafParser(Class clazz, ParseContext context) {
+<span class="nc" id="L308">        Parser p = context.get(Parser.class);</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">        if (equals(p, clazz)) {</span>
+<span class="nc" id="L310">            return p;</span>
+        }
+<span class="nc" id="L312">        Parser returnParser = null;</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        if (p != null) {</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">            if (p instanceof ParserDecorator) {</span>
+<span class="nc" id="L315">                p = findInDecorated((ParserDecorator) p, clazz);</span>
+            }
+<span class="nc bnc" id="L317" title="All 2 branches missed.">            if (equals(p, clazz)) {</span>
+<span class="nc" id="L318">                return p;</span>
+            }
+<span class="nc bnc" id="L320" title="All 2 branches missed.">            if (p instanceof CompositeParser) {</span>
+<span class="nc" id="L321">                returnParser = findInComposite((CompositeParser) p, clazz, context);</span>
+            }
+        }
+<span class="nc bnc" id="L324" title="All 4 branches missed.">        if (returnParser != null &amp;&amp; equals(returnParser, clazz)) {</span>
+<span class="nc" id="L325">            return returnParser;</span>
+        }
+
+<span class="nc" id="L328">        return null;</span>
+    }
+
+    private static Parser findInDecorated(ParserDecorator p, Class clazz) {
+<span class="nc" id="L332">        Parser candidate = p.getWrappedParser();</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if (equals(candidate, clazz)) {</span>
+<span class="nc" id="L334">            return candidate;</span>
+        }
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        if (candidate instanceof ParserDecorator) {</span>
+<span class="nc" id="L337">            candidate = findInDecorated((ParserDecorator) candidate, clazz);</span>
+        }
+<span class="nc" id="L339">        return candidate;</span>
+    }
+
+    private static Parser findInComposite(CompositeParser p, Class clazz, ParseContext context) {
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        for (Parser candidate : p.getAllComponentParsers()) {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">            if (equals(candidate, clazz)) {</span>
+<span class="nc" id="L345">                return candidate;</span>
+            }
+<span class="nc bnc" id="L347" title="All 2 branches missed.">            if (candidate instanceof ParserDecorator) {</span>
+<span class="nc" id="L348">                candidate = findInDecorated((ParserDecorator) candidate, clazz);</span>
+            }
+<span class="nc bnc" id="L350" title="All 2 branches missed.">            if (equals(candidate, clazz)) {</span>
+<span class="nc" id="L351">                return candidate;</span>
+            }
+<span class="nc bnc" id="L353" title="All 2 branches missed.">            if (candidate instanceof CompositeParser) {</span>
+<span class="nc" id="L354">                candidate = findInComposite((CompositeParser) candidate, clazz, context);</span>
+            }
+<span class="nc bnc" id="L356" title="All 2 branches missed.">            if (equals(candidate, clazz)) {</span>
+<span class="nc" id="L357">                return candidate;</span>
+            }
+<span class="nc" id="L359">        }</span>
+<span class="nc" id="L360">        return null;</span>
+    }
+
+    private static boolean equals(Parser parser, Class clazz) {
+<span class="nc bnc" id="L364" title="All 2 branches missed.">        if (parser == null) {</span>
+<span class="nc" id="L365">            return false;</span>
+        }
+<span class="nc" id="L367">        return parser.getClass().equals(clazz);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

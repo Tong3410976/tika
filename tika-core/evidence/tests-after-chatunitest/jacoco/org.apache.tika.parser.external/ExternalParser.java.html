@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExternalParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser.external</a> &gt; <span class="el_source">ExternalParser.java</span></div><h1>ExternalParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser.external;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ConfigDeserializer;
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.config.TikaProgressTracker;
+import org.apache.tika.config.TimeoutLimits;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TemporaryResources;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.ExternalProcess;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.sax.BodyContentHandler;
+import org.apache.tika.sax.XHTMLContentHandler;
+import org.apache.tika.utils.FileProcessResult;
+import org.apache.tika.utils.ProcessUtils;
+
+/**
+ * Parser that uses an external program (like ffmpeg, exiftool or sox)
+ * to extract text content and metadata from a given document.
+ * &lt;p&gt;
+ * This parser relies on JSON configuration rather than classpath auto-discovery.
+ * Users can specify independent handlers for each process stream:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code stdoutHandler} — processes stdout&lt;/li&gt;
+ *   &lt;li&gt;{@code stderrHandler} — processes stderr&lt;/li&gt;
+ *   &lt;li&gt;{@code outputFileHandler} — processes the output file&lt;/li&gt;
+ * &lt;/ul&gt;
+ * The {@code contentSource} field controls which stream provides the XHTML
+ * content output. An optional {@code checkCommandLine} lazily verifies the
+ * external tool is available.
+ */
+@TikaComponent
+public class ExternalParser implements Parser {
+
+    public static final long DEFAULT_TIMEOUT_MS = 60000;
+
+    public static final String INPUT_FILE_TOKEN = &quot;${INPUT_FILE}&quot;;
+
+    public static final String OUTPUT_FILE_TOKEN = &quot;${OUTPUT_FILE}&quot;;
+
+<span class="fc" id="L79">    private static final Pattern INPUT_TOKEN_MATCHER =</span>
+<span class="fc" id="L80">            Pattern.compile(&quot;\\$\\{INPUT_FILE}&quot;);</span>
+<span class="fc" id="L81">    private static final Pattern OUTPUT_TOKEN_MATCHER =</span>
+<span class="fc" id="L82">            Pattern.compile(&quot;\\$\\{OUTPUT_FILE}&quot;);</span>
+
+<span class="fc" id="L84">    private static final Logger LOG = LoggerFactory.getLogger(ExternalParser.class);</span>
+
+<span class="fc" id="L86">    private static final ContentHandler DISCARD_HANDLER =</span>
+            new org.xml.sax.helpers.DefaultHandler();
+
+    private final ExternalParserConfig config;
+
+    // Cached values derived from config
+    private final Set&lt;MediaType&gt; supportedTypes;
+    private final List&lt;String&gt; commandLine;
+    private final Parser stdoutHandler;
+    private final Parser stderrHandler;
+    private final Parser outputFileHandler;
+
+    // Lazy check state
+    private final String[] checkCmd;
+    private final int[] checkErrorCodes;
+    private volatile Boolean checkResult;
+
+    /**
+     * Default constructor - not typically useful since ExternalParser requires configuration.
+     */
+    public ExternalParser() {
+<span class="fc" id="L107">        this(new ExternalParserConfig());</span>
+<span class="fc" id="L108">    }</span>
+
+    /**
+     * Programmatic constructor with typed config.
+     */
+<span class="fc" id="L113">    public ExternalParser(ExternalParserConfig config) {</span>
+<span class="fc" id="L114">        this.config = config;</span>
+<span class="fc" id="L115">        this.supportedTypes = new HashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">        for (String s : config.getSupportedTypes()) {</span>
+<span class="nc" id="L117">            this.supportedTypes.add(MediaType.parse(s));</span>
+<span class="nc" id="L118">        }</span>
+<span class="fc" id="L119">        this.commandLine = new ArrayList&lt;&gt;(config.getCommandLine());</span>
+<span class="fc" id="L120">        this.stdoutHandler = config.getStdoutHandler();</span>
+<span class="fc" id="L121">        this.stderrHandler = config.getStderrHandler();</span>
+<span class="fc" id="L122">        this.outputFileHandler = config.getOutputFileHandler();</span>
+
+        // Set up lazy check
+<span class="pc bpc" id="L125" title="3 of 4 branches missed.">        if (config.getCheckCommandLine() != null &amp;&amp; !config.getCheckCommandLine().isEmpty()) {</span>
+<span class="nc" id="L126">            this.checkCmd = config.getCheckCommandLine().toArray(new String[0]);</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            if (config.getCheckErrorCodes() != null &amp;&amp;</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">                    !config.getCheckErrorCodes().isEmpty()) {</span>
+<span class="nc" id="L129">                this.checkErrorCodes = config.getCheckErrorCodes().stream()</span>
+<span class="nc" id="L130">                        .mapToInt(Integer::intValue).toArray();</span>
+            } else {
+<span class="nc" id="L132">                this.checkErrorCodes = new int[]{127};</span>
+            }
+<span class="nc" id="L134">            this.checkResult = null; // will be lazily evaluated</span>
+        } else {
+<span class="fc" id="L136">            this.checkCmd = null;</span>
+<span class="fc" id="L137">            this.checkErrorCodes = null;</span>
+<span class="fc" id="L138">            this.checkResult = Boolean.TRUE; // no check configured, always available</span>
+        }
+<span class="fc" id="L140">    }</span>
+
+    /**
+     * JSON config constructor - used for deserialization.
+     */
+    public ExternalParser(JsonConfig jsonConfig) {
+<span class="nc" id="L146">        this(ConfigDeserializer.buildConfig(jsonConfig, ExternalParserConfig.class));</span>
+<span class="nc" id="L147">    }</span>
+
+    @Override
+    public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (checkResult == null) {</span>
+<span class="nc" id="L152">            synchronized (this) {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                if (checkResult == null) {</span>
+<span class="nc" id="L154">                    checkResult = ProcessUtils.checkCommand(checkCmd, checkErrorCodes);</span>
+                }
+<span class="nc" id="L156">            }</span>
+        }
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        return checkResult ? supportedTypes : Collections.emptySet();</span>
+    }
+
+    @Override
+    public void parse(TikaInputStream tis, ContentHandler handler, Metadata metadata,
+                      ParseContext context) throws IOException, SAXException, TikaException {
+<span class="nc" id="L164">        try (TemporaryResources tmp = new TemporaryResources()) {</span>
+<span class="nc" id="L165">            Path outFile = null;</span>
+<span class="nc" id="L166">            Path p = tis.getPath();</span>
+<span class="nc" id="L167">            List&lt;String&gt; thisCommandLine = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L168">            Matcher inputMatcher = INPUT_TOKEN_MATCHER.matcher(&quot;&quot;);</span>
+<span class="nc" id="L169">            Matcher outputMatcher = OUTPUT_TOKEN_MATCHER.matcher(&quot;&quot;);</span>
+<span class="nc" id="L170">            boolean hasOutputFile = false;</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">            for (String c : commandLine) {</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                if (inputMatcher.reset(c).find()) {</span>
+                    // ProcessBuilder uses argv arrays, not shell invocation,
+                    // so no escaping is needed or desired here.
+<span class="nc" id="L175">                    String updated = c.replace(INPUT_FILE_TOKEN,</span>
+<span class="nc" id="L176">                            p.toAbsolutePath().toString());</span>
+<span class="nc" id="L177">                    thisCommandLine.add(updated);</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">                } else if (outputMatcher.reset(c).find()) {</span>
+<span class="nc" id="L179">                    outFile = tmp.createTempFile();</span>
+<span class="nc" id="L180">                    String updated = c.replace(OUTPUT_FILE_TOKEN,</span>
+<span class="nc" id="L181">                            outFile.toAbsolutePath().toString());</span>
+<span class="nc" id="L182">                    thisCommandLine.add(updated);</span>
+<span class="nc" id="L183">                    hasOutputFile = true;</span>
+<span class="nc" id="L184">                } else {</span>
+<span class="nc" id="L185">                    thisCommandLine.add(c);</span>
+                }
+<span class="nc" id="L187">            }</span>
+
+            // Always capture both stdout and stderr in memory
+<span class="nc" id="L190">            long localTimeoutMillis = TimeoutLimits.getProcessTimeoutMillis(</span>
+<span class="nc" id="L191">                    context, config.getTimeoutMs());</span>
+<span class="nc" id="L192">            FileProcessResult result = ProcessUtils.execute(</span>
+                    new ProcessBuilder(thisCommandLine),
+<span class="nc" id="L194">                    localTimeoutMillis, config.getMaxStdOut(), config.getMaxStdErr());</span>
+
+            // Set process metadata
+<span class="nc" id="L197">            metadata.set(ExternalProcess.IS_TIMEOUT, result.isTimeout());</span>
+<span class="nc" id="L198">            metadata.set(ExternalProcess.EXIT_VALUE, result.getExitValue());</span>
+<span class="nc" id="L199">            TikaProgressTracker.update(context);</span>
+<span class="nc" id="L200">            metadata.set(ExternalProcess.STD_OUT_LENGTH, result.getStdoutLength());</span>
+<span class="nc" id="L201">            metadata.set(ExternalProcess.STD_OUT_IS_TRUNCATED,</span>
+<span class="nc" id="L202">                    result.isStdoutTruncated());</span>
+<span class="nc" id="L203">            metadata.set(ExternalProcess.STD_ERR_LENGTH, result.getStderrLength());</span>
+<span class="nc" id="L204">            metadata.set(ExternalProcess.STD_ERR_IS_TRUNCATED,</span>
+<span class="nc" id="L205">                    result.isStderrTruncated());</span>
+
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            if (config.isReturnStdout()) {</span>
+<span class="nc" id="L208">                metadata.set(ExternalProcess.STD_OUT, result.getStdout());</span>
+            }
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            if (config.isReturnStderr()) {</span>
+<span class="nc" id="L211">                metadata.set(ExternalProcess.STD_ERR, result.getStderr());</span>
+            }
+
+            // Determine content source
+<span class="nc" id="L215">            String effectiveContentSource = config.getContentSource();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">            if (effectiveContentSource == null) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                effectiveContentSource = hasOutputFile ? &quot;outputFile&quot; : &quot;stdout&quot;;</span>
+            }
+
+<span class="nc" id="L220">            XHTMLContentHandler xhtml =</span>
+                    new XHTMLContentHandler(handler, metadata, context);
+<span class="nc" id="L222">            xhtml.startDocument();</span>
+
+            // Process each stream through its handler
+<span class="nc" id="L225">            handleStream(result.getStdout(), stdoutHandler,</span>
+<span class="nc" id="L226">                    &quot;stdout&quot;.equals(effectiveContentSource),</span>
+                    xhtml, metadata, context);
+
+<span class="nc" id="L229">            handleStream(result.getStderr(), stderrHandler,</span>
+<span class="nc" id="L230">                    &quot;stderr&quot;.equals(effectiveContentSource),</span>
+                    xhtml, metadata, context);
+
+<span class="nc bnc" id="L233" title="All 4 branches missed.">            if (hasOutputFile &amp;&amp; outFile != null) {</span>
+<span class="nc" id="L234">                handleOutputFile(outFile, outputFileHandler,</span>
+<span class="nc" id="L235">                        &quot;outputFile&quot;.equals(effectiveContentSource),</span>
+                        xhtml, metadata, context);
+            }
+
+<span class="nc" id="L239">            xhtml.endDocument();</span>
+        }
+<span class="nc" id="L241">    }</span>
+
+    private void handleStream(String content, Parser handler, boolean isContentSource,
+                              XHTMLContentHandler xhtml, Metadata metadata,
+                              ParseContext context)
+            throws IOException, SAXException, TikaException {
+<span class="nc bnc" id="L247" title="All 4 branches missed.">        if (content == null || content.isEmpty()) {</span>
+<span class="nc" id="L248">            return;</span>
+        }
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        if (handler != null) {</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">            ContentHandler target = isContentSource ?</span>
+<span class="nc" id="L252">                    new BodyContentHandler(xhtml) : DISCARD_HANDLER;</span>
+<span class="nc" id="L253">            try (TikaInputStream tis = TikaInputStream.get(</span>
+<span class="nc" id="L254">                    content.getBytes(StandardCharsets.UTF_8))) {</span>
+<span class="nc" id="L255">                handler.parse(tis, target, metadata, context);</span>
+            }
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        } else if (isContentSource) {</span>
+            // No handler — write raw content as XHTML text
+<span class="nc" id="L259">            String[] lines = content.split(&quot;\n&quot;, -1);</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            for (int i = 0; i &lt; lines.length; i++) {</span>
+<span class="nc" id="L261">                xhtml.characters(lines[i]);</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                if (i &lt; lines.length - 1) {</span>
+<span class="nc" id="L263">                    xhtml.newline();</span>
+                }
+            }
+        }
+<span class="nc" id="L267">    }</span>
+
+    private void handleOutputFile(Path outFile, Parser handler,
+                                  boolean isContentSource,
+                                  XHTMLContentHandler xhtml, Metadata metadata,
+                                  ParseContext context)
+            throws IOException, SAXException, TikaException {
+<span class="nc bnc" id="L274" title="All 2 branches missed.">        if (handler != null) {</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">            ContentHandler target = isContentSource ?</span>
+<span class="nc" id="L276">                    new BodyContentHandler(xhtml) : DISCARD_HANDLER;</span>
+<span class="nc" id="L277">            try (TikaInputStream tis = TikaInputStream.get(outFile)) {</span>
+<span class="nc" id="L278">                handler.parse(tis, target, metadata, context);</span>
+            }
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        } else if (isContentSource) {</span>
+            // No handler — write raw file content as XHTML text
+<span class="nc" id="L282">            try (BufferedReader reader = Files.newBufferedReader(outFile)) {</span>
+<span class="nc" id="L283">                String line = reader.readLine();</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">                while (line != null) {</span>
+<span class="nc" id="L285">                    xhtml.characters(line);</span>
+<span class="nc" id="L286">                    xhtml.newline();</span>
+<span class="nc" id="L287">                    line = reader.readLine();</span>
+                }
+            }
+        }
+<span class="nc" id="L291">    }</span>
+
+    /**
+     * Returns the configuration for this parser.
+     */
+    public ExternalParserConfig getConfig() {
+<span class="nc" id="L297">        return config;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ContentHandlerDecorator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">ContentHandlerDecorator.java</span></div><h1>ContentHandlerDecorator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.Locator;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
+
+/**
+ * Decorator base class for the {@link ContentHandler} interface. This class
+ * simply delegates all SAX events calls to an underlying decorated handler
+ * instance. Subclasses can provide extra decoration by overriding one or more
+ * of the SAX event methods.
+ */
+<span class="fc" id="L33">public class ContentHandlerDecorator extends DefaultHandler {</span>
+
+    /**
+     * Decorated SAX event handler.
+     */
+    private ContentHandler handler;
+
+    /**
+     * Creates a decorator for the given SAX event handler.
+     *
+     * @param handler SAX event handler to be decorated
+     */
+<span class="fc" id="L45">    public ContentHandlerDecorator(ContentHandler handler) {</span>
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">        assert handler != null;</span>
+<span class="fc" id="L47">        this.handler = handler;</span>
+<span class="fc" id="L48">    }</span>
+
+    /**
+     * Creates a decorator that by default forwards incoming SAX events to
+     * a dummy content handler that simply ignores all the events. Subclasses
+     * should use the {@link #setContentHandler(ContentHandler)} method to
+     * switch to a more usable underlying content handler.
+     */
+    protected ContentHandlerDecorator() {
+<span class="nc" id="L57">        this(new DefaultHandler());</span>
+<span class="nc" id="L58">    }</span>
+
+    /**
+     * Sets the underlying content handler. All future SAX events will be
+     * directed to this handler instead of the one that was previously used.
+     *
+     * @param handler content handler
+     */
+    protected void setContentHandler(ContentHandler handler) {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        assert handler != null;</span>
+<span class="nc" id="L68">        this.handler = handler;</span>
+<span class="nc" id="L69">    }</span>
+
+    @Override
+    public void startPrefixMapping(String prefix, String uri) throws SAXException {
+        try {
+<span class="fc" id="L74">            handler.startPrefixMapping(prefix, uri);</span>
+<span class="nc" id="L75">        } catch (SAXException e) {</span>
+<span class="nc" id="L76">            handleException(e);</span>
+<span class="fc" id="L77">        }</span>
+<span class="fc" id="L78">    }</span>
+
+    @Override
+    public void endPrefixMapping(String prefix) throws SAXException {
+        try {
+<span class="fc" id="L83">            handler.endPrefixMapping(prefix);</span>
+<span class="nc" id="L84">        } catch (SAXException e) {</span>
+<span class="nc" id="L85">            handleException(e);</span>
+<span class="fc" id="L86">        }</span>
+<span class="fc" id="L87">    }</span>
+
+    @Override
+    public void processingInstruction(String target, String data) throws SAXException {
+        try {
+<span class="fc" id="L92">            handler.processingInstruction(target, data);</span>
+<span class="nc" id="L93">        } catch (SAXException e) {</span>
+<span class="nc" id="L94">            handleException(e);</span>
+<span class="fc" id="L95">        }</span>
+<span class="fc" id="L96">    }</span>
+
+    @Override
+    public void setDocumentLocator(Locator locator) {
+<span class="fc" id="L100">        handler.setDocumentLocator(locator);</span>
+<span class="fc" id="L101">    }</span>
+
+    @Override
+    public void startDocument() throws SAXException {
+        try {
+<span class="fc" id="L106">            handler.startDocument();</span>
+<span class="nc" id="L107">        } catch (SAXException e) {</span>
+<span class="nc" id="L108">            handleException(e);</span>
+<span class="fc" id="L109">        }</span>
+<span class="fc" id="L110">    }</span>
+
+    @Override
+    public void endDocument() throws SAXException {
+        try {
+<span class="fc" id="L115">            handler.endDocument();</span>
+<span class="nc" id="L116">        } catch (SAXException e) {</span>
+<span class="nc" id="L117">            handleException(e);</span>
+<span class="fc" id="L118">        }</span>
+<span class="fc" id="L119">    }</span>
+
+    @Override
+    public void startElement(String uri, String localName, String name, Attributes atts)
+            throws SAXException {
+        try {
+<span class="fc" id="L125">            handler.startElement(uri, localName, name, atts);</span>
+<span class="fc" id="L126">        } catch (SAXException e) {</span>
+<span class="nc" id="L127">            handleException(e);</span>
+<span class="fc" id="L128">        }</span>
+<span class="fc" id="L129">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String name) throws SAXException {
+        try {
+<span class="fc" id="L134">            handler.endElement(uri, localName, name);</span>
+<span class="fc" id="L135">        } catch (SAXException e) {</span>
+<span class="nc" id="L136">            handleException(e);</span>
+<span class="fc" id="L137">        }</span>
+<span class="fc" id="L138">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+        try {
+<span class="fc" id="L143">            handler.characters(ch, start, length);</span>
+<span class="fc" id="L144">        } catch (SAXException e) {</span>
+<span class="nc" id="L145">            handleException(e);</span>
+<span class="fc" id="L146">        }</span>
+<span class="fc" id="L147">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+        try {
+<span class="fc" id="L152">            handler.ignorableWhitespace(ch, start, length);</span>
+<span class="nc" id="L153">        } catch (SAXException e) {</span>
+<span class="nc" id="L154">            handleException(e);</span>
+<span class="fc" id="L155">        }</span>
+<span class="fc" id="L156">    }</span>
+
+    @Override
+    public void skippedEntity(String name) throws SAXException {
+        try {
+<span class="fc" id="L161">            handler.skippedEntity(name);</span>
+<span class="nc" id="L162">        } catch (SAXException e) {</span>
+<span class="nc" id="L163">            handleException(e);</span>
+<span class="fc" id="L164">        }</span>
+<span class="fc" id="L165">    }</span>
+
+    @Override
+    public String toString() {
+<span class="fc" id="L169">        return handler.toString();</span>
+    }
+
+    /**
+     * Handle any exceptions thrown by methods in this class. This method
+     * provides a single place to implement custom exception handling. The
+     * default behaviour is simply to re-throw the given exception, but
+     * subclasses can also provide alternative ways of handling the situation.
+     * 
+     * If the wrapped handler is itself a ContentHandlerDecorator, the call
+     * is delegated to the wrapped handler's {@link ContentHandlerDecorator#handleException(SAXException)}
+     *
+     * @param exception the exception that was thrown
+     * @throws SAXException the exception (if any) thrown to the client
+     */
+    protected void handleException(SAXException exception) throws SAXException {
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        if (handler instanceof ContentHandlerDecorator) {</span>
+<span class="nc" id="L186">            ((ContentHandlerDecorator)handler).handleException(exception);</span>
+        } else {
+<span class="fc" id="L188">            throw exception;</span>
+        }
+<span class="nc" id="L190">    }</span>
+
+    @Override
+    public void warning (SAXParseException exception) throws SAXException {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (handler instanceof ErrorHandler) {</span>
+<span class="nc" id="L195">            ((ErrorHandler)handler).warning(exception);</span>
+        } else {
+<span class="nc" id="L197">            super.warning(exception);</span>
+        }
+<span class="nc" id="L199">    }</span>
+
+    @Override
+    public void error (SAXParseException exception) throws SAXException {
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        if (handler instanceof ErrorHandler) {</span>
+<span class="nc" id="L204">            ((ErrorHandler)handler).error(exception);</span>
+        } else {
+<span class="nc" id="L206">            super.error(exception);</span>
+        }
+<span class="nc" id="L208">    }</span>
+
+    @Override
+    public void fatalError (SAXParseException exception)
+            throws SAXException {
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">        if (handler instanceof ErrorHandler) {</span>
+<span class="nc" id="L214">            ((ErrorHandler)handler).fatalError(exception);</span>
+        } else {
+<span class="nc" id="L216">            super.fatalError(exception);</span>
+        }
+<span class="nc" id="L218">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

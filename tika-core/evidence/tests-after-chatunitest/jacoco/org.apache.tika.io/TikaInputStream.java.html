@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TikaInputStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">TikaInputStream.java</span></div><h1>TikaInputStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.BufferedInputStream;
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.Blob;
+import java.sql.SQLException;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.TaggedInputStream;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.utils.StringUtils;
+
+/**
+ * Input stream with extended capabilities for detection and parsing.
+ * &lt;p&gt;
+ * This implementation uses backing strategies to handle different input types:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@link ByteArraySource} for byte[] inputs - no caching needed&lt;/li&gt;
+ *   &lt;li&gt;{@link FileSource} for Path/File inputs - direct file access&lt;/li&gt;
+ *   &lt;li&gt;{@link CachingSource} for InputStream inputs - caches bytes as read&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @since Apache Tika 0.8
+ */
+public class TikaInputStream extends TaggedInputStream {
+
+    private static final int MAX_CONSECUTIVE_EOFS = 1000;
+    private static final int BLOB_SIZE_THRESHOLD = 1024 * 1024;
+
+    protected TemporaryResources tmp;
+
+<span class="pc" id="L61">    private long position = 0;</span>
+<span class="pc" id="L62">    private long mark = -1;</span>
+    private Object openContainer;
+<span class="pc" id="L64">    private int consecutiveEOFs = 0;</span>
+<span class="pc" id="L65">    private int closeShieldDepth = 0;</span>
+<span class="pc" id="L66">    private String suffix = null;</span>
+<span class="pc" id="L67">    private long overrideLength = -1;  // For getFromContainer() to set explicit length</span>
+
+    // ========== Constructors ==========
+
+    /**
+     * Protected constructor for subclasses.
+     */
+    protected TikaInputStream(InputStream stream, long length) {
+<span class="nc" id="L75">        super(stream);</span>
+<span class="nc" id="L76">        this.tmp = null;</span>
+<span class="nc" id="L77">    }</span>
+
+    /**
+     * Strategy-based constructor.
+     * TikaInputSource extends InputStream, so we pass it directly to super().
+     */
+    private TikaInputStream(TikaInputSource inputSource, TemporaryResources tmp, String suffix) {
+<span class="fc" id="L84">        super((InputStream) inputSource);</span>
+<span class="fc" id="L85">        this.tmp = tmp;</span>
+<span class="fc" id="L86">        this.suffix = suffix;</span>
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Returns the backing TikaInputSource, or null if using protected constructor.
+     */
+    private TikaInputSource inputSource() {
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        return in instanceof TikaInputSource ? (TikaInputSource) in : null;</span>
+    }
+
+    // ========== Static Factory Methods ==========
+
+    public static TikaInputStream get(InputStream stream, TemporaryResources tmp, Metadata metadata) {
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (stream == null) {</span>
+<span class="nc" id="L100">            throw new NullPointerException(&quot;The Stream must not be null&quot;);</span>
+        }
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (stream instanceof TikaInputStream) {</span>
+<span class="fc" id="L103">            return (TikaInputStream) stream;</span>
+        }
+<span class="fc" id="L105">        String ext = getExtension(metadata);</span>
+<span class="fc" id="L106">        TikaInputSource inputSource = new CachingSource(stream, tmp, -1, metadata);</span>
+<span class="fc" id="L107">        return new TikaInputStream(inputSource, tmp, ext);</span>
+    }
+
+    public static TikaInputStream get(InputStream stream) {
+<span class="fc" id="L111">        return get(stream, new TemporaryResources(), null);</span>
+    }
+
+    public static TikaInputStream get(InputStream stream, Metadata metadata) {
+<span class="fc" id="L115">        return get(stream, new TemporaryResources(), metadata);</span>
+    }
+
+    public static TikaInputStream get(byte[] data) throws IOException {
+<span class="fc" id="L119">        return get(data, new Metadata());</span>
+    }
+
+    public static TikaInputStream get(byte[] data, Metadata metadata) throws IOException {
+<span class="fc" id="L123">        metadata.set(Metadata.CONTENT_LENGTH, Integer.toString(data.length));</span>
+<span class="fc" id="L124">        String ext = getExtension(metadata);</span>
+<span class="fc" id="L125">        TemporaryResources tmp = new TemporaryResources();</span>
+<span class="fc" id="L126">        TikaInputSource inputSource = new ByteArraySource(data, tmp);</span>
+<span class="fc" id="L127">        return new TikaInputStream(inputSource, tmp, ext);</span>
+    }
+
+    public static TikaInputStream get(Path path) throws IOException {
+<span class="fc" id="L131">        return get(path, new Metadata());</span>
+    }
+
+    public static TikaInputStream get(Path path, Metadata metadata) throws IOException {
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (StringUtils.isBlank(metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY))) {</span>
+<span class="fc" id="L136">            metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, path.getFileName().toString());</span>
+        }
+<span class="fc" id="L138">        metadata.set(Metadata.CONTENT_LENGTH, Long.toString(Files.size(path)));</span>
+<span class="fc" id="L139">        String ext = FilenameUtils.getSuffixFromPath(path.getFileName().toString());</span>
+<span class="fc" id="L140">        TemporaryResources tmp = new TemporaryResources();</span>
+<span class="fc" id="L141">        TikaInputSource inputSource = new FileSource(path);</span>
+<span class="fc" id="L142">        return new TikaInputStream(inputSource, tmp, ext);</span>
+    }
+
+    public static TikaInputStream get(Path path, Metadata metadata, TemporaryResources tmp)
+            throws IOException {
+<span class="nc" id="L147">        long length = Files.size(path);</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (StringUtils.isBlank(metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY))) {</span>
+<span class="nc" id="L149">            metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, path.getFileName().toString());</span>
+        }
+<span class="nc" id="L151">        metadata.set(Metadata.CONTENT_LENGTH, Long.toString(length));</span>
+<span class="nc" id="L152">        String ext = FilenameUtils.getSuffixFromPath(path.getFileName().toString());</span>
+<span class="nc" id="L153">        TikaInputSource inputSource = new FileSource(path);</span>
+<span class="nc" id="L154">        return new TikaInputStream(inputSource, tmp, ext);</span>
+    }
+
+    public static TikaInputStream get(File file) throws IOException {
+<span class="nc" id="L158">        return get(file.toPath(), new Metadata());</span>
+    }
+
+    public static TikaInputStream get(File file, Metadata metadata) throws IOException {
+<span class="nc" id="L162">        return get(file.toPath(), metadata);</span>
+    }
+
+    public static TikaInputStream get(Blob blob) throws SQLException, IOException {
+<span class="nc" id="L166">        return get(blob, new Metadata());</span>
+    }
+
+    public static TikaInputStream get(Blob blob, Metadata metadata) throws SQLException, IOException {
+<span class="nc" id="L170">        long length = -1;</span>
+        try {
+<span class="nc" id="L172">            length = blob.length();</span>
+<span class="nc" id="L173">            metadata.set(Metadata.CONTENT_LENGTH, Long.toString(length));</span>
+<span class="nc" id="L174">        } catch (SQLException ignore) {</span>
+<span class="nc" id="L175">        }</span>
+
+<span class="nc bnc" id="L177" title="All 4 branches missed.">        if (0 &lt;= length &amp;&amp; length &lt;= BLOB_SIZE_THRESHOLD) {</span>
+<span class="nc" id="L178">            return get(blob.getBytes(1, (int) length), metadata);</span>
+        } else {
+<span class="nc" id="L180">            String ext = getExtension(metadata);</span>
+<span class="nc" id="L181">            TemporaryResources tmp = new TemporaryResources();</span>
+<span class="nc" id="L182">            TikaInputSource inputSource = new CachingSource(</span>
+<span class="nc" id="L183">                    new BufferedInputStream(blob.getBinaryStream()), tmp, length, metadata);</span>
+<span class="nc" id="L184">            return new TikaInputStream(inputSource, tmp, ext);</span>
+        }
+    }
+
+    public static TikaInputStream get(URI uri) throws IOException {
+<span class="nc" id="L189">        return get(uri, new Metadata());</span>
+    }
+
+    public static TikaInputStream get(URI uri, Metadata metadata) throws IOException {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (&quot;file&quot;.equalsIgnoreCase(uri.getScheme())) {</span>
+<span class="nc" id="L194">            Path path = Paths.get(uri);</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">            if (Files.isRegularFile(path)) {</span>
+<span class="nc" id="L196">                return get(path, metadata);</span>
+            }
+        }
+<span class="nc" id="L199">        return get(uri.toURL(), metadata);</span>
+    }
+
+    public static TikaInputStream get(URL url) throws IOException {
+<span class="nc" id="L203">        return get(url, new Metadata());</span>
+    }
+
+    public static TikaInputStream get(URL url, Metadata metadata) throws IOException {
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">        if (&quot;file&quot;.equalsIgnoreCase(url.getProtocol())) {</span>
+            try {
+<span class="fc" id="L209">                Path path = Paths.get(url.toURI());</span>
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">                if (Files.isRegularFile(path)) {</span>
+<span class="fc" id="L211">                    return get(path, metadata);</span>
+                }
+<span class="nc" id="L213">            } catch (URISyntaxException e) {</span>
+                // fall through
+<span class="nc" id="L215">            }</span>
+        }
+
+<span class="nc" id="L218">        URLConnection connection = url.openConnection();</span>
+
+<span class="nc" id="L220">        String urlPath = url.getPath();</span>
+<span class="nc" id="L221">        int slash = urlPath.lastIndexOf('/');</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        if (slash + 1 &lt; urlPath.length()) {</span>
+<span class="nc" id="L223">            metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, urlPath.substring(slash + 1));</span>
+        }
+
+<span class="nc" id="L226">        String type = connection.getContentType();</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if (type != null) {</span>
+<span class="nc" id="L228">            metadata.set(Metadata.CONTENT_TYPE, type);</span>
+        }
+
+<span class="nc" id="L231">        String encoding = connection.getContentEncoding();</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (encoding != null) {</span>
+<span class="nc" id="L233">            metadata.set(Metadata.CONTENT_ENCODING, encoding);</span>
+        }
+
+<span class="nc" id="L236">        int length = connection.getContentLength();</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (length &gt;= 0) {</span>
+<span class="nc" id="L238">            metadata.set(Metadata.CONTENT_LENGTH, Integer.toString(length));</span>
+        }
+
+<span class="nc" id="L241">        String ext = getExtension(metadata);</span>
+<span class="nc" id="L242">        TemporaryResources tmp = new TemporaryResources();</span>
+<span class="nc" id="L243">        TikaInputSource inputSource = new CachingSource(</span>
+<span class="nc" id="L244">                new BufferedInputStream(connection.getInputStream()), tmp, length, metadata);</span>
+<span class="nc" id="L245">        return new TikaInputStream(inputSource, tmp, ext);</span>
+    }
+
+    public static TikaInputStream getFromContainer(Object openContainer, long length, Metadata metadata)
+            throws IOException {
+<span class="nc" id="L250">        TikaInputStream tis = TikaInputStream.get(new byte[0], metadata);</span>
+<span class="nc" id="L251">        tis.setOpenContainer(openContainer);</span>
+<span class="nc" id="L252">        tis.setLength(length);</span>
+<span class="nc" id="L253">        metadata.set(Metadata.CONTENT_LENGTH, Long.toString(length));</span>
+<span class="nc" id="L254">        return tis;</span>
+    }
+
+    private static String getExtension(Metadata metadata) {
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        if (metadata == null) {</span>
+<span class="fc" id="L259">            return StringUtils.EMPTY;</span>
+        }
+<span class="fc" id="L261">        String name = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="fc" id="L262">        return FilenameUtils.getSuffixFromPath(name);</span>
+    }
+
+    // ========== InputStream Methods ==========
+
+    /**
+     * Skips up to {@code n} bytes. Returns the actual number of bytes skipped,
+     * which may be less than requested if the end of stream is reached.
+     * &lt;p&gt;
+     * This method does NOT throw {@link java.io.EOFException} if fewer bytes
+     * are available. Callers must check the return value to determine how many
+     * bytes were actually skipped.
+     *
+     * @param n the number of bytes to skip
+     * @return the actual number of bytes skipped (may be less than {@code n})
+     */
+    @Override
+    public long skip(long n) throws IOException {
+<span class="fc" id="L280">        long skipped = IOUtils.skip(in, n);</span>
+<span class="fc" id="L281">        position += skipped;</span>
+<span class="fc" id="L282">        return skipped;</span>
+    }
+
+    @Override
+    public void mark(int readlimit) {
+<span class="fc" id="L287">        super.mark(readlimit);</span>
+<span class="fc" id="L288">        mark = position;</span>
+<span class="fc" id="L289">    }</span>
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L293">        return true;</span>
+    }
+
+    @Override
+    public void reset() throws IOException {
+<span class="fc bfc" id="L298" title="All 2 branches covered.">        if (mark &lt; 0) {</span>
+<span class="fc" id="L299">            throw new IOException(&quot;Resetting to invalid mark&quot;);</span>
+        }
+
+        // Delegate to underlying stream's reset (handles passthrough and caching modes)
+<span class="fc" id="L303">        super.reset();</span>
+
+<span class="fc" id="L305">        position = mark;</span>
+        // Don't invalidate mark - allow multiple reset() calls to same mark
+<span class="fc" id="L307">        consecutiveEOFs = 0;</span>
+<span class="fc" id="L308">    }</span>
+
+    @Override
+    public void close() throws IOException {
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        if (closeShieldDepth &gt; 0) {</span>
+<span class="fc" id="L313">            return;</span>
+        }
+<span class="fc" id="L315">        mark = -1;</span>
+
+<span class="pc bpc" id="L317" title="1 of 2 branches missed.">        if (tmp != null) {</span>
+<span class="fc" id="L318">            tmp.addResource(in);</span>
+<span class="fc" id="L319">            tmp.close();</span>
+        }
+<span class="fc" id="L321">    }</span>
+
+    @Override
+    protected void afterRead(int n) throws IOException {
+<span class="fc bfc" id="L325" title="All 2 branches covered.">        if (n != -1) {</span>
+<span class="fc" id="L326">            position += n;</span>
+<span class="fc" id="L327">            consecutiveEOFs = 0;</span>
+        } else {
+<span class="fc" id="L329">            consecutiveEOFs++;</span>
+<span class="pc bpc" id="L330" title="1 of 2 branches missed.">            if (consecutiveEOFs &gt; MAX_CONSECUTIVE_EOFS) {</span>
+<span class="nc" id="L331">                throw new IOException(&quot;Read too many -1 (EOFs); there could be an infinite loop. &quot; +</span>
+                        &quot;If you think your file is not corrupt, please open an issue on Tika's JIRA&quot;);
+            }
+        }
+<span class="fc" id="L335">    }</span>
+
+    // ========== TikaInputStream-specific Methods ==========
+
+    public int peek(byte[] buffer) throws IOException {
+<span class="fc" id="L340">        int n = 0;</span>
+<span class="fc" id="L341">        mark(buffer.length);</span>
+
+<span class="fc" id="L343">        int m = read(buffer);</span>
+<span class="fc bfc" id="L344" title="All 2 branches covered.">        while (m != -1) {</span>
+<span class="fc" id="L345">            n += m;</span>
+<span class="fc bfc" id="L346" title="All 2 branches covered.">            if (n &lt; buffer.length) {</span>
+<span class="fc" id="L347">                m = read(buffer, n, buffer.length - n);</span>
+            } else {
+<span class="fc" id="L349">                m = -1;</span>
+            }
+        }
+
+<span class="fc" id="L353">        reset();</span>
+<span class="fc" id="L354">        return n;</span>
+    }
+
+    public Object getOpenContainer() {
+<span class="fc" id="L358">        return openContainer;</span>
+    }
+
+    public void setOpenContainer(Object container) {
+<span class="nc" id="L362">        openContainer = container;</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">        if (container instanceof Closeable) {</span>
+<span class="nc" id="L364">            tmp.addResource((Closeable) container);</span>
+        }
+<span class="nc" id="L366">    }</span>
+
+    public void addCloseableResource(Closeable closeable) {
+<span class="nc" id="L369">        tmp.addResource(closeable);</span>
+<span class="nc" id="L370">    }</span>
+
+    public boolean hasFile() {
+<span class="fc" id="L373">        TikaInputSource source = inputSource();</span>
+<span class="pc bpc" id="L374" title="1 of 4 branches missed.">        return source != null &amp;&amp; source.hasPath();</span>
+    }
+
+    public Path getPath() throws IOException {
+<span class="fc" id="L378">        TikaInputSource source = inputSource();</span>
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">        if (source == null) {</span>
+<span class="nc" id="L380">            throw new IOException(&quot;No TikaInputSource available&quot;);</span>
+        }
+<span class="fc" id="L382">        return source.getPath(suffix);</span>
+    }
+
+    public File getFile() throws IOException {
+<span class="nc" id="L386">        return getPath().toFile();</span>
+    }
+
+    public FileChannel getFileChannel() throws IOException {
+<span class="nc" id="L390">        FileChannel channel = FileChannel.open(getPath());</span>
+<span class="nc" id="L391">        tmp.addResource(channel);</span>
+<span class="nc" id="L392">        return channel;</span>
+    }
+
+    public boolean hasLength() {
+<span class="pc bpc" id="L396" title="1 of 2 branches missed.">        if (overrideLength &gt;= 0) {</span>
+<span class="nc" id="L397">            return true;</span>
+        }
+<span class="fc" id="L399">        TikaInputSource source = inputSource();</span>
+<span class="pc bpc" id="L400" title="1 of 4 branches missed.">        return source != null &amp;&amp; source.getLength() != -1;</span>
+    }
+
+    public long getLength() throws IOException {
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">        if (overrideLength &gt;= 0) {</span>
+<span class="nc" id="L405">            return overrideLength;</span>
+        }
+<span class="fc" id="L407">        TikaInputSource source = inputSource();</span>
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">        if (source == null) {</span>
+<span class="nc" id="L409">            return -1;</span>
+        }
+<span class="fc" id="L411">        long len = source.getLength();</span>
+<span class="pc bpc" id="L412" title="1 of 2 branches missed.">        if (len == -1) {</span>
+            // Force spill to get length
+<span class="nc" id="L414">            getPath();</span>
+<span class="nc" id="L415">            len = source.getLength();</span>
+        }
+<span class="fc" id="L417">        return len;</span>
+    }
+
+    public long getPosition() {
+<span class="fc" id="L421">        return position;</span>
+    }
+
+    protected void setPosition(long position) {
+<span class="nc" id="L425">        this.position = position;</span>
+<span class="nc" id="L426">    }</span>
+
+    private void setLength(long length) {
+<span class="nc" id="L429">        this.overrideLength = length;</span>
+<span class="nc" id="L430">    }</span>
+
+    public void setCloseShield() {
+<span class="fc" id="L433">        this.closeShieldDepth++;</span>
+<span class="fc" id="L434">    }</span>
+
+    public void removeCloseShield() {
+<span class="fc" id="L437">        this.closeShieldDepth--;</span>
+<span class="fc" id="L438">    }</span>
+
+    public boolean isCloseShield() {
+<span class="fc bfc" id="L441" title="All 2 branches covered.">        return closeShieldDepth &gt; 0;</span>
+    }
+
+    /**
+     * Rewind the stream to the beginning.
+     * &lt;p&gt;
+     * For streams created from byte arrays or files, this always works.
+     * For streams created from raw InputStreams, this requires
+     * {@link #enableRewind()} to have been called first.
+     */
+    public void rewind() throws IOException {
+<span class="fc" id="L452">        TikaInputSource source = inputSource();</span>
+<span class="pc bpc" id="L453" title="1 of 2 branches missed.">        if (source != null) {</span>
+<span class="fc" id="L454">            source.seekTo(0);</span>
+        } else {
+<span class="nc" id="L456">            throw new IOException(&quot;Cannot rewind: no TikaInputSource available&quot;);</span>
+        }
+<span class="fc" id="L458">        position = 0;</span>
+<span class="fc" id="L459">        mark = -1;</span>
+<span class="fc" id="L460">        consecutiveEOFs = 0;</span>
+<span class="fc" id="L461">    }</span>
+
+    /**
+     * Enables full rewind capability for this stream.
+     * &lt;p&gt;
+     * For streams backed by byte arrays or files, this is a no-op since they
+     * are inherently rewindable. For streams backed by raw InputStreams, this
+     * switches from passthrough mode to caching mode, enabling subsequent
+     * {@link #rewind()}, {@link #mark(int)}/{@link #reset()}, and random access.
+     * &lt;p&gt;
+     * Must be called when position is 0 (before any reading), otherwise
+     * throws IllegalStateException.
+     * &lt;p&gt;
+     * Use this method when you know you'll need to rewind the stream later
+     * (e.g., for detection followed by parsing, or digest calculation).
+     * For streaming-only operations (e.g., HTML parsing), skip this call
+     * to avoid unnecessary caching overhead.
+     *
+     * @throws IllegalStateException if position is not 0
+     */
+    public void enableRewind() {
+<span class="fc" id="L482">        TikaInputSource source = inputSource();</span>
+<span class="pc bpc" id="L483" title="1 of 2 branches missed.">        if (source != null) {</span>
+<span class="fc" id="L484">            source.enableRewind();</span>
+        }
+<span class="fc" id="L486">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L490">        String str = &quot;TikaInputStream of &quot;;</span>
+<span class="nc bnc" id="L491" title="All 2 branches missed.">        if (hasFile()) {</span>
+            try {
+<span class="nc" id="L493">                str += getPath().toString();</span>
+<span class="nc" id="L494">            } catch (IOException e) {</span>
+<span class="nc" id="L495">                str += &quot;unknown path&quot;;</span>
+<span class="nc" id="L496">            }</span>
+        } else {
+<span class="nc" id="L498">            str += in.toString();</span>
+        }
+<span class="nc bnc" id="L500" title="All 2 branches missed.">        if (openContainer != null) {</span>
+<span class="nc" id="L501">            str += &quot; (in &quot; + openContainer + &quot;)&quot;;</span>
+        }
+<span class="nc" id="L503">        return str;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

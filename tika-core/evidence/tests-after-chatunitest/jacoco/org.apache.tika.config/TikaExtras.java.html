@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TikaExtras.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">TikaExtras.java</span></div><h1>TikaExtras.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Opt-in mechanism for adding user-supplied &quot;extras&quot; jars (extra
+ * {@code EncodingDetector}s, {@code Parser}s, etc.) to Tika's SPI discovery
+ * without repackaging the application.
+ *
+ * &lt;p&gt;&lt;b&gt;Off by default.&lt;/b&gt; Nothing is loaded unless the
+ * {@value #EXTRAS_DIR_PROPERTY} system property points at a directory; then every
+ * {@code *.jar} in it is made visible to service-loading.  There is no implicit or
+ * default directory — the feature is off unless the property is set.  (A relative
+ * property value is resolved against the process working directory, like any path.)
+ *
+ * &lt;p&gt;&lt;b&gt;Security:&lt;/b&gt; this is a trusted code directory — anything in it runs with
+ * the full privileges of the Tika process.  Treat write access to it exactly like
+ * write access to {@code lib/}; it must not be writable by less-trusted principals
+ * (for servers, not reachable by request handling).  Being opt-in keeps &quot;we are
+ * now loading extra code&quot; an explicit, auditable choice.
+ */
+public final class TikaExtras {
+
+    /** System property naming the extras directory.  Unset = feature off. */
+    public static final String EXTRAS_DIR_PROPERTY = &quot;tika.extras.dir&quot;;
+
+<span class="fc" id="L55">    private static final Logger LOG = LoggerFactory.getLogger(TikaExtras.class);</span>
+
+    private TikaExtras() {
+    }
+
+    /**
+     * If {@value #EXTRAS_DIR_PROPERTY} is set, installs a classloader over the
+     * {@code *.jar} files in that directory as the thread + Tika
+     * {@link ServiceLoader} context classloader, so they join SPI discovery.
+     * No-op (returns {@code null}) when the property is unset or the directory is
+     * missing/empty.  Call exactly once at startup, before any Tika component is
+     * loaded: each call builds a new classloader, so repeated calls stack them and
+     * leave the earlier ones' open jar handles dangling.
+     *
+     * @return the installed classloader, or {@code null} if extras are off/empty
+     */
+    public static ClassLoader install() {
+<span class="fc" id="L72">        List&lt;Path&gt; jars = extraJars();</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (jars.isEmpty()) {</span>
+<span class="fc" id="L74">            return null;</span>
+        }
+<span class="fc" id="L76">        List&lt;URL&gt; urls = new ArrayList&lt;&gt;(jars.size());</span>
+<span class="fc" id="L77">        List&lt;Path&gt; loaded = new ArrayList&lt;&gt;(jars.size());</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        for (Path jar : jars) {</span>
+            try {
+<span class="fc" id="L80">                urls.add(jar.toUri().toURL());</span>
+<span class="fc" id="L81">                loaded.add(jar);</span>
+<span class="nc" id="L82">            } catch (Exception e) {</span>
+<span class="nc" id="L83">                LOG.warn(&quot;Skipping extra jar {}: {}&quot;, jar, e.toString());</span>
+<span class="fc" id="L84">            }</span>
+<span class="fc" id="L85">        }</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">        if (urls.isEmpty()) {</span>
+<span class="nc" id="L87">            return null;</span>
+        }
+<span class="fc" id="L89">        ClassLoader parent = Thread.currentThread().getContextClassLoader();</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        if (parent == null) {</span>
+<span class="nc" id="L91">            parent = TikaExtras.class.getClassLoader();</span>
+        }
+<span class="fc" id="L93">        URLClassLoader cl = new URLClassLoader(urls.toArray(new URL[0]), parent);</span>
+<span class="fc" id="L94">        Thread.currentThread().setContextClassLoader(cl);</span>
+<span class="fc" id="L95">        ServiceLoader.setContextClassLoader(cl);</span>
+<span class="fc" id="L96">        LOG.info(&quot;{}: loaded {} extra jar(s): {}&quot;, EXTRAS_DIR_PROPERTY, loaded.size(), loaded);</span>
+<span class="fc" id="L97">        return cl;</span>
+    }
+
+    /**
+     * The {@code *.jar} files in the {@value #EXTRAS_DIR_PROPERTY} directory — for
+     * callers that extend a forked process's classpath rather than installing a
+     * classloader.  Empty when the property is unset or the directory is
+     * missing/has no jars.
+     */
+    public static List&lt;Path&gt; extraJars() {
+<span class="fc" id="L107">        Path dir = extrasDir();</span>
+<span class="fc bfc" id="L108" title="All 4 branches covered.">        if (dir == null || !Files.isDirectory(dir)) {</span>
+<span class="fc" id="L109">            return Collections.emptyList();</span>
+        }
+<span class="fc" id="L111">        List&lt;Path&gt; jars = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L112">        try (DirectoryStream&lt;Path&gt; stream = Files.newDirectoryStream(dir, &quot;*.jar&quot;)) {</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">            for (Path jar : stream) {</span>
+<span class="fc" id="L114">                jars.add(jar);</span>
+<span class="fc" id="L115">            }</span>
+<span class="nc" id="L116">        } catch (Exception e) {</span>
+<span class="nc" id="L117">            LOG.warn(&quot;Could not scan {}={}: {}&quot;, EXTRAS_DIR_PROPERTY, dir, e.toString());</span>
+<span class="fc" id="L118">        }</span>
+        // Sort by file name so jar load order (classloader URL order / forked-child
+        // classpath order, hence SPI precedence) is deterministic across platforms
+        // and filesystems rather than depending on directory iteration order.
+<span class="pc" id="L122">        jars.sort(Comparator.comparing(jar -&gt; jar.getFileName().toString()));</span>
+<span class="fc" id="L123">        return jars;</span>
+    }
+
+    /**
+     * Appends the {@link #extraJars()} (as absolute paths, joined with the
+     * platform path separator) to the given classpath string — for extending a
+     * forked process's {@code -cp} with the extras jars.  Returns {@code classpath}
+     * unchanged when the feature is off or the directory has no jars.
+     *
+     * @param classpath the base classpath to extend
+     * @return the classpath with any extras jars appended
+     */
+    public static String appendJarsToClasspath(String classpath) {
+<span class="fc" id="L136">        List&lt;Path&gt; jars = extraJars();</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        if (jars.isEmpty()) {</span>
+<span class="fc" id="L138">            return classpath;</span>
+        }
+<span class="fc" id="L140">        String separator = File.pathSeparator;</span>
+<span class="fc" id="L141">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc bfc" id="L142" title="All 4 branches covered.">        if (classpath != null &amp;&amp; !classpath.isEmpty()) {</span>
+<span class="fc" id="L143">            sb.append(classpath);</span>
+        }
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        for (Path jar : jars) {</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">            if (sb.length() &gt; 0) {</span>
+<span class="fc" id="L147">                sb.append(separator);</span>
+            }
+<span class="fc" id="L149">            sb.append(jar.toAbsolutePath());</span>
+<span class="fc" id="L150">        }</span>
+<span class="fc" id="L151">        return sb.toString();</span>
+    }
+
+    /** The configured extras directory, or {@code null} if the feature is off. */
+    public static Path extrasDir() {
+<span class="fc" id="L156">        String prop = System.getProperty(EXTRAS_DIR_PROPERTY);</span>
+<span class="pc bpc" id="L157" title="1 of 4 branches missed.">        if (prop == null || prop.isBlank()) {</span>
+<span class="fc" id="L158">            return null;</span>
+        }
+        try {
+<span class="fc" id="L161">            return Path.of(prop.trim());</span>
+<span class="nc" id="L162">        } catch (java.nio.file.InvalidPathException e) {</span>
+<span class="nc" id="L163">            LOG.warn(&quot;Ignoring invalid {}: {}&quot;, EXTRAS_DIR_PROPERTY, e.getMessage());</span>
+<span class="nc" id="L164">            return null;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

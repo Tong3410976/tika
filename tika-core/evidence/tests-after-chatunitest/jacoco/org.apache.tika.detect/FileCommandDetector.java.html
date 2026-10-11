@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileCommandDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">FileCommandDetector.java</span></div><h1>FileCommandDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.io.IOException;
+import java.nio.file.Path;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.ExternalProcess;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.FileProcessResult;
+import org.apache.tika.utils.ProcessUtils;
+import org.apache.tika.utils.StringUtils;
+
+/**
+ * This runs the linux 'file' command against a file.  If
+ * this is called on a TikaInputStream, it will use the underlying Path
+ * or spool the full file to disk and then run file against that.
+ * &lt;p&gt;
+ * If this is run against any other type of InputStream, it will spool
+ * up to {@link #maxBytes} to disk and then run the detector.
+ * &lt;p&gt;
+ * As with all detectors, mark must be supported.
+ * &lt;p&gt;
+ * If you want to use file's mime type in the parse, e.g.
+ * to select the parser in AutoDetectParser, set {@link FileCommandDetector#setUseMime(boolean)}
+ * to true.  The default behavior is to store the value as {@link FileCommandDetector#FILE_MIME}
+ * but rely on other detectors for the &quot;active&quot; mime used by Tika.
+ */
+@TikaComponent(spi = false)
+<span class="fc" id="L52">public class FileCommandDetector implements Detector {</span>
+
+    //TODO: file has some diff mimes names for some very common mimes
+    //should we map file mimes to Tika mimes, e.g. text/xml -&gt; application/xml??
+
+<span class="fc" id="L57">    public static Property FILE_MIME = Property.externalText(&quot;file:mime&quot;);</span>
+<span class="fc" id="L58">    private static final Logger LOGGER = LoggerFactory.getLogger(FileCommandDetector.class);</span>
+    private static final long DEFAULT_TIMEOUT_MS = 6000;
+    private static final String DEFAULT_FILE_COMMAND_PATH = &quot;file&quot;;
+<span class="fc" id="L61">    private static boolean HAS_WARNED = false;</span>
+<span class="fc" id="L62">    private Boolean hasFileCommand = null;</span>
+<span class="fc" id="L63">    private String fileCommandPath = DEFAULT_FILE_COMMAND_PATH;</span>
+<span class="fc" id="L64">    private int maxBytes = 1_000_000;</span>
+<span class="fc" id="L65">    private long timeoutMs = DEFAULT_TIMEOUT_MS;</span>
+
+<span class="fc" id="L67">    private boolean useMime = false;</span>
+
+    public static boolean checkHasFile() {
+<span class="fc" id="L70">        return checkHasFile(DEFAULT_FILE_COMMAND_PATH);</span>
+    }
+
+
+    public static boolean checkHasFile(String fileCommandPath) {
+<span class="fc" id="L75">        String[] commandline = new String[]{fileCommandPath, &quot;-v&quot;};</span>
+<span class="fc" id="L76">        return ProcessUtils.checkCommand(commandline);</span>
+    }
+
+    /**
+     * @param tis      document input stream, or &lt;code&gt;null&lt;/code&gt;
+     * @param metadata input metadata for the document
+     * @param parseContext the parse context
+     * @return mime as identified by the file command or application/octet-stream otherwise
+     * @throws IOException
+     */
+    @Override
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext parseContext) throws IOException {
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (hasFileCommand == null) {</span>
+<span class="nc" id="L89">            hasFileCommand = checkHasFile(this.fileCommandPath);</span>
+        }
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        if (!hasFileCommand) {</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            if (!HAS_WARNED) {</span>
+<span class="nc" id="L93">                LOGGER.warn(&quot;'file' command isn't working: '&quot; + fileCommandPath + &quot;'&quot;);</span>
+<span class="nc" id="L94">                HAS_WARNED = true;</span>
+            }
+<span class="nc" id="L96">            return MediaType.OCTET_STREAM;</span>
+        }
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (tis == null) {</span>
+<span class="nc" id="L99">            return MediaType.OCTET_STREAM;</span>
+        }
+        //spool the full file to disk, if there is no underlying file
+<span class="nc" id="L102">        return detectOnPath(tis.getPath(), metadata);</span>
+    }
+
+    private MediaType detectOnPath(Path path, Metadata metadata) throws IOException {
+
+<span class="nc" id="L107">        String[] args =</span>
+<span class="nc" id="L108">                new String[]{ProcessUtils.escapeCommandLine(fileCommandPath), &quot;-b&quot;, &quot;--mime-type&quot;,</span>
+<span class="nc" id="L109">                        ProcessUtils.escapeCommandLine(path.toAbsolutePath().toString())};</span>
+<span class="nc" id="L110">        ProcessBuilder builder = new ProcessBuilder(args);</span>
+<span class="nc" id="L111">        FileProcessResult result = ProcessUtils.execute(builder, timeoutMs, 10000, 10000);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (result.isTimeout()) {</span>
+<span class="nc" id="L113">            metadata.set(ExternalProcess.IS_TIMEOUT, true);</span>
+<span class="nc" id="L114">            return MediaType.OCTET_STREAM;</span>
+        }
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (result.getExitValue() != 0) {</span>
+<span class="nc" id="L117">            metadata.set(ExternalProcess.EXIT_VALUE, result.getExitValue());</span>
+<span class="nc" id="L118">            return MediaType.OCTET_STREAM;</span>
+        }
+<span class="nc" id="L120">        String mimeString = result.getStdout();</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (StringUtils.isBlank(mimeString)) {</span>
+<span class="nc" id="L122">            return MediaType.OCTET_STREAM;</span>
+        }
+<span class="nc" id="L124">        metadata.set(FILE_MIME, mimeString);</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (useMime) {</span>
+<span class="nc" id="L126">            MediaType mt = MediaType.parse(mimeString);</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            if (mt == null) {</span>
+<span class="nc" id="L128">                return MediaType.OCTET_STREAM;</span>
+            } else {
+<span class="nc" id="L130">                return mt;</span>
+            }
+        }
+<span class="nc" id="L133">        return MediaType.OCTET_STREAM;</span>
+    }
+
+    public void setFilePath(String fileCommandPath) {
+        //this opens up a potential command vulnerability.
+        //Don't ever let an untrusted user set this.
+<span class="nc" id="L139">        this.fileCommandPath = fileCommandPath;</span>
+<span class="nc" id="L140">        checkHasFile(this.fileCommandPath);</span>
+<span class="nc" id="L141">    }</span>
+
+    public void setUseMime(boolean useMime) {
+<span class="nc" id="L144">        this.useMime = useMime;</span>
+<span class="nc" id="L145">    }</span>
+
+    public boolean isUseMime() {
+<span class="nc" id="L148">        return useMime;</span>
+    }
+    /**
+     * If this is not called on a TikaInputStream, this detector
+     * will spool up to this many bytes to a file to be detected
+     * by the 'file' command.
+     *
+     * @param maxBytes
+     */
+    public void setMaxBytes(int maxBytes) {
+<span class="nc" id="L158">        this.maxBytes = maxBytes;</span>
+<span class="nc" id="L159">    }</span>
+
+    public void setTimeoutMs(long timeoutMs) {
+<span class="nc" id="L162">        this.timeoutMs = timeoutMs;</span>
+<span class="nc" id="L163">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecureContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">SecureContentHandler.java</span></div><h1>SecureContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.io.IOException;
+import java.util.LinkedList;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.config.OutputLimits;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Content handler decorator that attempts to prevent denial of service
+ * attacks against Tika parsers.
+ * &lt;p&gt;
+ * Currently this class simply compares the number of output characters
+ * to to the number of input bytes and keeps track of the XML nesting levels.
+ * An exception gets thrown if the output seems excessive compared to the
+ * input document. This is a strong indication of a zip bomb.
+ *
+ * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-216&quot;&gt;TIKA-216&lt;/a&gt;
+ * @since Apache Tika 0.4
+ */
+public class SecureContentHandler extends ContentHandlerDecorator {
+
+    /**
+     * The input stream that Tika is parsing.
+     */
+    private final TikaInputStream stream;
+    /**
+     * Current number of nested &amp;lt;div class=&quot;package-entr&quot;&amp;gt; elements.
+     */
+<span class="fc" id="L52">    private final LinkedList&lt;Integer&gt; packageEntryDepths = new LinkedList&lt;&gt;();</span>
+    /**
+     * Number of output characters that Tika has produced so far.
+     */
+<span class="fc" id="L56">    private long characterCount = 0;</span>
+    /**
+     * The current XML element depth.
+     */
+<span class="fc" id="L60">    private int currentDepth = 0;</span>
+    /**
+     * Output threshold.
+     */
+<span class="fc" id="L64">    private long threshold = 1000000;</span>
+
+    /**
+     * Maximum compression ratio.
+     */
+<span class="fc" id="L69">    private long ratio = 100;</span>
+
+    /**
+     * Maximum XML element nesting level.
+     */
+<span class="fc" id="L74">    private int maxDepth = 100;</span>
+
+    /**
+     * Maximum package entry nesting level.
+     */
+<span class="fc" id="L79">    private int maxPackageEntryDepth = 10;</span>
+
+    /**
+     * Decorates the given content handler with zip bomb prevention based
+     * on the count of bytes read from the given counting input stream.
+     * The resulting decorator can be passed to a Tika parser along with
+     * the given counting input stream.
+     *
+     * @param handler the content handler to be decorated
+     * @param stream  the input stream to be parsed
+     */
+    public SecureContentHandler(ContentHandler handler, TikaInputStream stream) {
+<span class="fc" id="L91">        super(handler);</span>
+<span class="fc" id="L92">        this.stream = stream;</span>
+<span class="fc" id="L93">    }</span>
+
+    /**
+     * Creates a new SecureContentHandler configured from OutputLimits in the ParseContext.
+     * &lt;p&gt;
+     * If OutputLimits is present in the context, the handler will be configured with those
+     * limits. Otherwise, default values are used.
+     *
+     * @param handler the content handler to decorate
+     * @param stream the input stream being parsed
+     * @param context the ParseContext (may be null)
+     * @return a configured SecureContentHandler
+     */
+    public static SecureContentHandler newInstance(ContentHandler handler, TikaInputStream stream,
+                                                    ParseContext context) {
+<span class="fc" id="L108">        SecureContentHandler sch = new SecureContentHandler(handler, stream);</span>
+<span class="fc" id="L109">        OutputLimits limits = OutputLimits.get(context);</span>
+<span class="fc" id="L110">        sch.setOutputThreshold(limits.getZipBombThreshold());</span>
+<span class="fc" id="L111">        sch.setMaximumCompressionRatio(limits.getZipBombRatio());</span>
+<span class="fc" id="L112">        sch.setMaximumDepth(limits.getMaxXmlDepth());</span>
+<span class="fc" id="L113">        sch.setMaximumPackageEntryDepth(limits.getMaxPackageEntryDepth());</span>
+<span class="fc" id="L114">        return sch;</span>
+    }
+
+    /**
+     * Returns the configured output threshold.
+     *
+     * @return output threshold
+     */
+    public long getOutputThreshold() {
+<span class="nc" id="L123">        return threshold;</span>
+    }
+
+
+    /**
+     * Sets the threshold for output characters before the zip bomb prevention
+     * is activated. This avoids false positives in cases where an otherwise
+     * normal document for some reason starts with a highly compressible
+     * sequence of bytes.
+     *
+     * @param threshold new output threshold
+     */
+    public void setOutputThreshold(long threshold) {
+<span class="fc" id="L136">        this.threshold = threshold;</span>
+<span class="fc" id="L137">    }</span>
+
+
+    /**
+     * Returns the maximum compression ratio.
+     *
+     * @return maximum compression ratio
+     */
+    public long getMaximumCompressionRatio() {
+<span class="nc" id="L146">        return ratio;</span>
+    }
+
+
+    /**
+     * Sets the ratio between output characters and input bytes. If this
+     * ratio is exceeded (after the output threshold has been reached) then
+     * an exception gets thrown.
+     *
+     * @param ratio new maximum compression ratio
+     */
+    public void setMaximumCompressionRatio(long ratio) {
+<span class="fc" id="L158">        this.ratio = ratio;</span>
+<span class="fc" id="L159">    }</span>
+
+    /**
+     * Returns the maximum XML element nesting level.
+     *
+     * @return maximum XML element nesting level
+     */
+    public int getMaximumDepth() {
+<span class="fc" id="L167">        return maxDepth;</span>
+    }
+
+    /**
+     * Sets the maximum XML element nesting level. If this depth level is
+     * exceeded then an exception gets thrown.
+     *
+     * @param depth maximum XML element nesting level
+     */
+    public void setMaximumDepth(int depth) {
+<span class="fc" id="L177">        this.maxDepth = depth;</span>
+<span class="fc" id="L178">    }</span>
+
+    /**
+     * Returns the maximum package entry nesting level.
+     *
+     * @return maximum package entry nesting level
+     */
+    public int getMaximumPackageEntryDepth() {
+<span class="fc" id="L186">        return maxPackageEntryDepth;</span>
+    }
+
+    /**
+     * Sets the maximum package entry nesting level. If this depth level is
+     * exceeded then an exception gets thrown.
+     *
+     * @param depth maximum package entry nesting level
+     */
+    public void setMaximumPackageEntryDepth(int depth) {
+<span class="fc" id="L196">        this.maxPackageEntryDepth = depth;</span>
+<span class="fc" id="L197">    }</span>
+
+    /**
+     * Converts the given {@link SAXException} to a corresponding
+     * {@link TikaException} if it's caused by this instance detecting
+     * a zip bomb.
+     *
+     * @param e SAX exception
+     * @throws TikaException zip bomb exception
+     */
+    public void throwIfCauseOf(SAXException e) throws TikaException {
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">        if (e instanceof SecureSAXException &amp;&amp; ((SecureSAXException) e).isCausedBy(this)) {</span>
+<span class="fc" id="L209">            throw new TikaException(&quot;Zip bomb detected!&quot;, e);</span>
+        }
+<span class="fc" id="L211">    }</span>
+
+    private long getByteCount() throws SAXException {
+        try {
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">            if (stream.hasLength()) {</span>
+<span class="nc" id="L216">                return stream.getLength();</span>
+            } else {
+<span class="fc" id="L218">                return stream.getPosition();</span>
+            }
+<span class="nc" id="L220">        } catch (IOException e) {</span>
+<span class="nc" id="L221">            throw new SAXException(&quot;Unable to get stream length&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Records the given number of output characters (or more accurately
+     * UTF-16 code units). Throws an exception if the recorded number of
+     * characters highly exceeds the number of input bytes read.
+     *
+     * @param length number of new output characters produced
+     * @throws SAXException if a zip bomb is detected
+     */
+    protected void advance(int length) throws SAXException {
+<span class="fc" id="L234">        characterCount += length;</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (characterCount &gt; threshold) {</span>
+<span class="fc" id="L236">            long byteCount = getByteCount();</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">            if (characterCount &gt; byteCount * ratio) {</span>
+<span class="fc" id="L238">                throw new SecureSAXException(&quot;Suspected zip bomb: &quot; + byteCount + &quot; input bytes produced &quot; + characterCount + &quot; output characters&quot;);</span>
+            }
+        }
+<span class="fc" id="L241">    }</span>
+
+    @Override
+    public void startElement(String uri, String localName, String name, Attributes atts)
+            throws SAXException {
+<span class="fc" id="L246">        currentDepth++;</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">        if (currentDepth &gt;= maxDepth) {</span>
+<span class="fc" id="L248">            throw new SecureSAXException(</span>
+                    &quot;Suspected zip bomb: &quot; + currentDepth + &quot; levels of XML element nesting&quot;);
+        }
+
+<span class="pc bpc" id="L252" title="1 of 4 branches missed.">        if (&quot;div&quot;.equals(name) &amp;&amp; &quot;package-entry&quot;.equals(atts.getValue(&quot;class&quot;))) {</span>
+<span class="fc" id="L253">            packageEntryDepths.addLast(currentDepth);</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">            if (packageEntryDepths.size() &gt;= maxPackageEntryDepth) {</span>
+<span class="fc" id="L255">                throw new SecureSAXException(&quot;Suspected zip bomb: &quot; + packageEntryDepths.size() +</span>
+                        &quot; levels of package entry nesting&quot;);
+            }
+        }
+
+<span class="fc" id="L260">        super.startElement(uri, localName, name, atts);</span>
+<span class="fc" id="L261">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String name) throws SAXException {
+<span class="fc" id="L265">        super.endElement(uri, localName, name);</span>
+
+<span class="pc bpc" id="L267" title="3 of 4 branches missed.">        if (!packageEntryDepths.isEmpty() &amp;&amp; packageEntryDepths.getLast() == currentDepth) {</span>
+<span class="nc" id="L268">            packageEntryDepths.removeLast();</span>
+        }
+
+<span class="fc" id="L271">        currentDepth--;</span>
+<span class="fc" id="L272">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="fc" id="L276">        advance(length);</span>
+<span class="fc" id="L277">        super.characters(ch, start, length);</span>
+<span class="fc" id="L278">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+<span class="fc" id="L282">        advance(length);</span>
+<span class="fc" id="L283">        super.ignorableWhitespace(ch, start, length);</span>
+<span class="fc" id="L284">    }</span>
+
+    /**
+     * Private exception class used to indicate a suspected zip bomb.
+     *
+     * @see SecureContentHandler#throwIfCauseOf(SAXException)
+     */
+    private class SecureSAXException extends SAXException {
+
+        /**
+         * Serial version UID.
+         */
+        private static final long serialVersionUID = 2285245380321771445L;
+
+<span class="fc" id="L298">        public SecureSAXException(String message) throws SAXException {</span>
+<span class="fc" id="L299">            super(message);</span>
+<span class="fc" id="L300">        }</span>
+
+        public boolean isCausedBy(SecureContentHandler handler) {
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">            return SecureContentHandler.this == handler;</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

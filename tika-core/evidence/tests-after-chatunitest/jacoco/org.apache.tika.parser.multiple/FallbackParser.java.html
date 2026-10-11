@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FallbackParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser.multiple</a> &gt; <span class="el_source">FallbackParser.java</span></div><h1>FallbackParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser.multiple;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import org.xml.sax.ContentHandler;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+
+/**
+ * Tries multiple parsers in turn, until one succeeds.
+ * &lt;p&gt;
+ * Can optionally keep Metadata from failed parsers when
+ * trying the next one, depending on the {@link AbstractMultipleParser.MetadataPolicy}
+ * chosen.
+ *
+ * @since Apache Tika 1.18
+ */
+public class FallbackParser extends AbstractMultipleParser {
+    /**
+     * The different Metadata Policies we support (all)
+     */
+<span class="fc" id="L43">    public static final List&lt;MetadataPolicy&gt; allowedPolicies =</span>
+<span class="fc" id="L44">            Arrays.asList(MetadataPolicy.values());</span>
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = 5844409020977206167L;
+
+    public FallbackParser(MediaTypeRegistry registry, MetadataPolicy policy,
+                          Collection&lt;? extends Parser&gt; parsers) {
+<span class="fc" id="L52">        super(registry, policy, parsers);</span>
+<span class="fc" id="L53">    }</span>
+
+    public FallbackParser(MediaTypeRegistry registry, MetadataPolicy policy, Parser... parsers) {
+<span class="fc" id="L56">        super(registry, policy, parsers);</span>
+<span class="fc" id="L57">    }</span>
+
+    @Override
+    protected boolean parserCompleted(Parser parser, Metadata metadata, ContentHandler handler,
+                                      ParseContext context, Exception exception) {
+        // If there was no exception, abort further parsers
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        return exception != null;</span>
+
+        // Have the next parser tried
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

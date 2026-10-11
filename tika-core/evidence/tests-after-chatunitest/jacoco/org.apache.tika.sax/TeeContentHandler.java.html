@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TeeContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">TeeContentHandler.java</span></div><h1>TeeContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.Locator;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+/**
+ * Content handler proxy that forwards the received SAX events to zero or
+ * more underlying content handlers.
+ */
+public class TeeContentHandler extends DefaultHandler {
+
+    private final ContentHandler[] handlers;
+
+<span class="nc" id="L33">    public TeeContentHandler(ContentHandler... handlers) {</span>
+<span class="nc" id="L34">        this.handlers = handlers;</span>
+<span class="nc" id="L35">    }</span>
+
+    @Override
+    public void startPrefixMapping(String prefix, String uri) throws SAXException {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L40">            handler.startPrefixMapping(prefix, uri);</span>
+        }
+<span class="nc" id="L42">    }</span>
+
+    @Override
+    public void endPrefixMapping(String prefix) throws SAXException {
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L47">            handler.endPrefixMapping(prefix);</span>
+        }
+<span class="nc" id="L49">    }</span>
+
+    @Override
+    public void processingInstruction(String target, String data) throws SAXException {
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L54">            handler.processingInstruction(target, data);</span>
+        }
+<span class="nc" id="L56">    }</span>
+
+    @Override
+    public void setDocumentLocator(Locator locator) {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L61">            handler.setDocumentLocator(locator);</span>
+        }
+<span class="nc" id="L63">    }</span>
+
+    @Override
+    public void startDocument() throws SAXException {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L68">            handler.startDocument();</span>
+        }
+<span class="nc" id="L70">    }</span>
+
+    @Override
+    public void endDocument() throws SAXException {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L75">            handler.endDocument();</span>
+        }
+<span class="nc" id="L77">    }</span>
+
+    @Override
+    public void startElement(String uri, String localName, String name, Attributes atts)
+            throws SAXException {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L83">            handler.startElement(uri, localName, name, atts);</span>
+        }
+<span class="nc" id="L85">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String name) throws SAXException {
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L90">            handler.endElement(uri, localName, name);</span>
+        }
+<span class="nc" id="L92">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L97">            handler.characters(ch, start, length);</span>
+        }
+<span class="nc" id="L99">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L104">            handler.ignorableWhitespace(ch, start, length);</span>
+        }
+<span class="nc" id="L106">    }</span>
+
+    @Override
+    public void skippedEntity(String name) throws SAXException {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        for (ContentHandler handler : handlers) {</span>
+<span class="nc" id="L111">            handler.skippedEntity(name);</span>
+        }
+<span class="nc" id="L113">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

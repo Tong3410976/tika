@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParsingReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">ParsingReader.java</span></div><h1>ParsingReader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PipedReader;
+import java.io.PipedWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.Executor;
+
+import org.xml.sax.ContentHandler;
+
+import org.apache.tika.exception.ZeroByteFileException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.sax.BodyContentHandler;
+
+/**
+ * Reader for the text content from a given binary stream. This class
+ * uses a background parsing task with a {@link Parser}
+ * ({@link AutoDetectParser} by default) to parse the text content from
+ * a given input stream. The {@link BodyContentHandler} class and a pipe
+ * is used to convert the push-based SAX event stream to the pull-based
+ * character stream defined by the {@link Reader} interface.
+ *
+ * @since Apache Tika 0.2
+ */
+public class ParsingReader extends Reader {
+
+    /**
+     * Parser instance used for parsing the given binary stream.
+     */
+    private final Parser parser;
+
+    /**
+     * Buffered read end of the pipe.
+     */
+    private final Reader reader;
+
+    /**
+     * Write end of the pipe.
+     */
+    private final Writer writer;
+
+    /**
+     * The binary stream being parsed.
+     */
+    private final InputStream stream;
+
+    /**
+     * Metadata associated with the document being parsed.
+     */
+    private final Metadata metadata;
+
+    /**
+     * The parse context.
+     */
+    private final ParseContext context;
+
+    /**
+     * An exception (if any) thrown by the parsing thread.
+     */
+    private transient Throwable throwable;
+
+    /**
+     * Creates a reader for the text content of the given binary stream.
+     *
+     * @param stream binary stream
+     * @throws IOException if the document can not be parsed
+     */
+    public ParsingReader(InputStream stream) throws IOException {
+<span class="nc" id="L95">        this(new AutoDetectParser(), stream, new ParseContext());</span>
+<span class="nc" id="L96">    }</span>
+
+    /**
+     * Creates a reader for the text content of the given binary stream
+     * with the given name.
+     *
+     * @param stream binary stream
+     * @param name   document name
+     * @throws IOException if the document can not be parsed
+     */
+    public ParsingReader(InputStream stream, String name) throws IOException {
+<span class="nc" id="L107">        this(new AutoDetectParser(), stream, name, new ParseContext());</span>
+<span class="nc" id="L108">    }</span>
+
+    private ParsingReader(Parser parser, InputStream stream, ParseContext context)
+            throws IOException {
+<span class="nc" id="L112">        this(parser, stream, Metadata.newInstance(context), context);</span>
+<span class="nc" id="L113">        context.set(Parser.class, parser);</span>
+<span class="nc" id="L114">    }</span>
+
+    private ParsingReader(Parser parser, InputStream stream, String name, ParseContext context)
+            throws IOException {
+<span class="nc" id="L118">        this(parser, stream, getMetadata(name, context), context);</span>
+<span class="nc" id="L119">        context.set(Parser.class, parser);</span>
+<span class="nc" id="L120">    }</span>
+
+    /**
+     * Creates a reader for the text content of the file at the given path.
+     *
+     * @param path path
+     * @throws FileNotFoundException if the given file does not exist
+     * @throws IOException           if the document can not be parsed
+     */
+    public ParsingReader(Path path) throws IOException {
+<span class="nc" id="L130">        this(Files.newInputStream(path), path.getFileName().toString());</span>
+<span class="nc" id="L131">    }</span>
+
+    /**
+     * Creates a reader for the text content of the given file.
+     *
+     * @param file file
+     * @throws FileNotFoundException if the given file does not exist
+     * @throws IOException           if the document can not be parsed
+     * @see #ParsingReader(Path)
+     */
+    public ParsingReader(File file) throws FileNotFoundException, IOException {
+<span class="nc" id="L142">        this(new FileInputStream(file), file.getName());</span>
+<span class="nc" id="L143">    }</span>
+
+    /**
+     * Creates a reader for the text content of the given binary stream
+     * with the given document metadata. The given parser is used for
+     * parsing. A new background thread is started for the parsing task.
+     * &lt;p&gt;
+     * The created reader will be responsible for closing the given stream.
+     * The stream and any associated resources will be closed at or before
+     * the time when the {@link #close()} method is called on this reader.
+     *
+     * @param parser   parser instance
+     * @param stream   binary stream
+     * @param metadata document metadata
+     * @throws IOException if the document can not be parsed
+     */
+    public ParsingReader(Parser parser, InputStream stream, final Metadata metadata,
+                         ParseContext context) throws IOException {
+<span class="nc" id="L161">        this(parser, stream, metadata, context, command -&gt; {</span>
+<span class="nc" id="L162">            String name = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if (name != null) {</span>
+<span class="nc" id="L164">                name = &quot;Apache Tika: &quot; + name;</span>
+            } else {
+<span class="nc" id="L166">                name = &quot;Apache Tika&quot;;</span>
+            }
+<span class="nc" id="L168">            Thread thread = new Thread(command, name);</span>
+<span class="nc" id="L169">            thread.setDaemon(true);</span>
+<span class="nc" id="L170">            thread.start();</span>
+<span class="nc" id="L171">        });</span>
+<span class="nc" id="L172">    }</span>
+
+    /**
+     * Creates a reader for the text content of the given binary stream
+     * with the given document metadata. The given parser is used for the
+     * parsing task that is run with the given executor. The given executor
+     * &lt;em&gt;must&lt;/em&gt; run the parsing task asynchronously in a separate thread,
+     * since the current thread must return to the caller that can then
+     * consume the parsed text through the {@link Reader} interface.
+     * &lt;p&gt;
+     * The created reader will be responsible for closing the given stream.
+     * The stream and any associated resources will be closed at or before
+     * the time when the {@link #close()} method is called on this reader.
+     *
+     * @param parser   parser instance
+     * @param stream   binary stream
+     * @param metadata document metadata
+     * @param context  parsing context
+     * @param executor executor for the parsing task
+     * @throws IOException if the document can not be parsed
+     * @since Apache Tika 0.4
+     */
+    public ParsingReader(Parser parser, InputStream stream, Metadata metadata, ParseContext context,
+<span class="nc" id="L195">                         Executor executor) throws IOException {</span>
+<span class="nc" id="L196">        this.parser = parser;</span>
+<span class="nc" id="L197">        PipedReader pipedReader = new PipedReader();</span>
+<span class="nc" id="L198">        this.reader = new BufferedReader(pipedReader);</span>
+        try {
+<span class="nc" id="L200">            this.writer = new PipedWriter(pipedReader);</span>
+<span class="nc" id="L201">        } catch (IOException e) {</span>
+<span class="nc" id="L202">            throw new IllegalStateException(e); // Should never happen</span>
+<span class="nc" id="L203">        }</span>
+<span class="nc" id="L204">        this.stream = stream;</span>
+<span class="nc" id="L205">        this.metadata = metadata;</span>
+<span class="nc" id="L206">        this.context = context;</span>
+
+<span class="nc" id="L208">        executor.execute(new ParsingTask());</span>
+
+        // TIKA-203: Buffer first character to force metadata extraction
+<span class="nc" id="L211">        reader.mark(1);</span>
+<span class="nc" id="L212">        reader.read();</span>
+<span class="nc" id="L213">        reader.reset();</span>
+<span class="nc" id="L214">    }</span>
+
+    /**
+     * Utility method that returns a {@link Metadata} instance
+     * for a document with the given name.
+     *
+     * @param name resource name (or &lt;code&gt;null&lt;/code&gt;)
+     * @param context parse context to create metadata from
+     * @return metadata instance
+     */
+    private static Metadata getMetadata(String name, ParseContext context) {
+<span class="nc" id="L225">        Metadata metadata = Metadata.newInstance(context);</span>
+<span class="nc bnc" id="L226" title="All 4 branches missed.">        if (name != null &amp;&amp; name.length() &gt; 0) {</span>
+<span class="nc" id="L227">            metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, name);</span>
+        }
+<span class="nc" id="L229">        return metadata;</span>
+    }
+
+    /**
+     * Reads parsed text from the pipe connected to the parsing thread.
+     * Fails if the parsing thread has thrown an exception.
+     *
+     * @param cbuf character buffer
+     * @param off  start offset within the buffer
+     * @param len  maximum number of characters to read
+     * @throws IOException if the parsing thread has failed or
+     *                     if for some reason the pipe does not work properly
+     */
+    @Override
+    public int read(char[] cbuf, int off, int len) throws IOException {
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        if (throwable instanceof ZeroByteFileException) {</span>
+<span class="nc" id="L245">            return -1;</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">        } else if (throwable instanceof IOException) {</span>
+<span class="nc" id="L247">            throw (IOException) throwable;</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        } else if (throwable != null) {</span>
+<span class="nc" id="L249">            throw new IOException(&quot;&quot;, throwable);</span>
+        }
+<span class="nc" id="L251">        return reader.read(cbuf, off, len);</span>
+    }
+
+    /**
+     * Closes the read end of the pipe. If the parsing thread is still
+     * running, next write to the pipe will fail and cause the thread
+     * to stop. Thus there is no need to explicitly terminate the thread.
+     *
+     * @throws IOException if the pipe can not be closed
+     */
+    @Override
+    public void close() throws IOException {
+<span class="nc" id="L263">        reader.close();</span>
+<span class="nc" id="L264">    }</span>
+
+    /**
+     * The background parsing task.
+     */
+<span class="nc" id="L269">    private class ParsingTask implements Runnable {</span>
+
+        /**
+         * Parses the given binary stream and writes the text content
+         * to the write end of the pipe. Potential exceptions (including
+         * the one caused if the read end is closed unexpectedly) are
+         * stored before the input stream is closed and processing is stopped.
+         */
+        public void run() {
+<span class="nc" id="L278">            try (TikaInputStream tis = TikaInputStream.get(stream)) {</span>
+<span class="nc" id="L279">                ContentHandler handler = new BodyContentHandler(writer);</span>
+<span class="nc" id="L280">                parser.parse(tis, handler, metadata, context);</span>
+<span class="nc" id="L281">            } catch (Throwable t) {</span>
+<span class="nc" id="L282">                throwable = t;</span>
+<span class="nc" id="L283">            }</span>
+
+            try {
+<span class="nc" id="L286">                writer.close();</span>
+<span class="nc" id="L287">            } catch (Throwable t) {</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">                if (throwable == null) {</span>
+<span class="nc" id="L289">                    throwable = t;</span>
+                }
+<span class="nc" id="L291">            }</span>
+<span class="nc" id="L292">        }</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

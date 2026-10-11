@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XHTMLContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">XHTMLContentHandler.java</span></div><h1>XHTMLContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.AttributesImpl;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Content handler decorator that simplifies the task of producing XHTML
+ * events for Tika content parsers.
+ */
+public class XHTMLContentHandler extends SafeContentHandler {
+
+    /**
+     * The XHTML namespace URI
+     */
+    public static final String XHTML = &quot;http://www.w3.org/1999/xhtml&quot;;
+    /**
+     * The elements that get appended with the {@link #NL} character.
+     */
+<span class="fc" id="L46">    public static final Set&lt;String&gt; ENDLINE =</span>
+<span class="fc" id="L47">            unmodifiableSet(&quot;p&quot;, &quot;h1&quot;, &quot;h2&quot;, &quot;h3&quot;, &quot;h4&quot;, &quot;h5&quot;, &quot;h6&quot;, &quot;div&quot;, &quot;ul&quot;, &quot;ol&quot;, &quot;dl&quot;, &quot;pre&quot;,</span>
+                    &quot;hr&quot;, &quot;blockquote&quot;, &quot;address&quot;, &quot;fieldset&quot;, &quot;table&quot;, &quot;form&quot;, &quot;noscript&quot;, &quot;li&quot;,
+                    &quot;dt&quot;, &quot;dd&quot;, &quot;noframes&quot;, &quot;br&quot;, &quot;tr&quot;, &quot;select&quot;, &quot;option&quot;, &quot;link&quot;, &quot;script&quot;);
+    /**
+     * The newline character that gets inserted after block elements.
+     */
+<span class="fc" id="L53">    private static final char[] NL = new char[]{'\n'};</span>
+    /**
+     * The tab character gets inserted before table cells and list items.
+     */
+<span class="fc" id="L57">    private static final char[] TAB = new char[]{'\t'};</span>
+    /**
+     * The elements that are in the &lt;head&gt; section.
+     */
+<span class="fc" id="L61">    private static final Set&lt;String&gt; HEAD =</span>
+<span class="fc" id="L62">            unmodifiableSet(&quot;title&quot;, &quot;link&quot;, &quot;base&quot;, &quot;meta&quot;, &quot;script&quot;);</span>
+    /**
+     * The elements that are automatically emitted by lazyStartHead, so
+     * skip them if they get sent to startElement/endElement by mistake.
+     */
+<span class="fc" id="L67">    private static final Set&lt;String&gt; AUTO = unmodifiableSet(&quot;head&quot;, &quot;frameset&quot;);</span>
+    /**
+     * The elements that get prepended with the {@link #TAB} character.
+     */
+<span class="fc" id="L71">    private static final Set&lt;String&gt; INDENT =</span>
+<span class="fc" id="L72">            unmodifiableSet(&quot;li&quot;, &quot;dd&quot;, &quot;dt&quot;, &quot;td&quot;, &quot;th&quot;, &quot;frame&quot;);</span>
+<span class="fc" id="L73">    private static final Attributes EMPTY_ATTRIBUTES = new AttributesImpl();</span>
+    /**
+     * Metadata associated with the document. Used to fill in the
+     * &amp;lt;head/&amp;gt; section.
+     */
+    private final Metadata metadata;
+    /**
+     * Whether to write metadata as meta elements in the head.
+     */
+    private final boolean writeMetadataToHead;
+    /**
+     * Whether to include the title element in the head.
+     */
+    private final boolean includeTitle;
+    /**
+     * Flag to indicate whether the document has been started.
+     */
+<span class="fc" id="L90">    private boolean documentStarted = false;</span>
+    /**
+     * Flags to indicate whether the document head element has been started/ended.
+     */
+<span class="fc" id="L94">    private boolean headStarted = false;</span>
+<span class="fc" id="L95">    private boolean headEnded = false;</span>
+<span class="fc" id="L96">    private boolean useFrameset = false;</span>
+
+    public XHTMLContentHandler(ContentHandler handler, Metadata metadata) {
+<span class="fc" id="L99">        this(handler, metadata, null);</span>
+<span class="fc" id="L100">    }</span>
+
+    /**
+     * Creates a new XHTMLContentHandler with configuration from ParseContext.
+     * &lt;p&gt;
+     * If a {@link SAXOutputConfig} is present in the ParseContext,
+     * its settings will be used to control output behavior.
+     *
+     * @param handler      the content handler to wrap
+     * @param metadata     metadata associated with the document
+     * @param parseContext parse context containing optional configuration
+     */
+    public XHTMLContentHandler(ContentHandler handler, Metadata metadata,
+                               ParseContext parseContext) {
+<span class="fc" id="L114">        super(handler);</span>
+<span class="fc" id="L115">        this.metadata = metadata;</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        SAXOutputConfig config = parseContext != null</span>
+<span class="fc" id="L117">                ? parseContext.get(SAXOutputConfig.class)</span>
+<span class="fc" id="L118">                : null;</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if (config != null) {</span>
+<span class="fc" id="L120">            this.writeMetadataToHead = config.isWriteMetadataToHead();</span>
+<span class="fc" id="L121">            this.includeTitle = config.isIncludeTitle();</span>
+        } else {
+<span class="fc" id="L123">            this.writeMetadataToHead = true;</span>
+<span class="fc" id="L124">            this.includeTitle = true;</span>
+        }
+<span class="fc" id="L126">    }</span>
+
+    private static Set&lt;String&gt; unmodifiableSet(String... elements) {
+<span class="fc" id="L129">        return Collections.unmodifiableSet(new HashSet&lt;&gt;(Arrays.asList(elements)));</span>
+    }
+
+    /**
+     * Starts an XHTML document by setting up the namespace mappings
+     * when called for the first time.
+     * The standard XHTML prefix is generated lazily when the first
+     * element is started.
+     */
+    @Override
+    public void startDocument() throws SAXException {
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        if (!documentStarted) {</span>
+<span class="fc" id="L141">            documentStarted = true;</span>
+<span class="fc" id="L142">            super.startDocument();</span>
+<span class="fc" id="L143">            startPrefixMapping(&quot;&quot;, XHTML);</span>
+        }
+<span class="fc" id="L145">    }</span>
+
+    /**
+     * Generates the following XHTML prefix when called for the first time:
+     * &lt;pre&gt;
+     * &amp;lt;html&amp;gt;
+     *   &amp;lt;head&amp;gt;
+     *     &amp;lt;title&amp;gt;...&amp;lt;/title&amp;gt;
+     *   &amp;lt;/head&amp;gt;
+     *   &amp;lt;body&amp;gt;
+     * &lt;/pre&gt;
+     */
+    private void lazyStartHead() throws SAXException {
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        if (!headStarted) {</span>
+<span class="fc" id="L159">            headStarted = true;</span>
+
+            // Call directly, so we don't go through our startElement(), which will
+            // ignore these elements.
+<span class="fc" id="L163">            AttributesImpl htmlAttrs = new AttributesImpl();</span>
+<span class="fc" id="L164">            String lang = metadata.get(Metadata.CONTENT_LANGUAGE);</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">            if (lang != null) {</span>
+<span class="nc" id="L166">                htmlAttrs.addAttribute(&quot;&quot;, &quot;lang&quot;, &quot;lang&quot;, &quot;CDATA&quot;, lang);</span>
+            }
+<span class="fc" id="L168">            super.startElement(XHTML, &quot;html&quot;, &quot;html&quot;, htmlAttrs);</span>
+<span class="fc" id="L169">            newline();</span>
+<span class="fc" id="L170">            super.startElement(XHTML, &quot;head&quot;, &quot;head&quot;, EMPTY_ATTRIBUTES);</span>
+<span class="fc" id="L171">            newline();</span>
+        }
+<span class="fc" id="L173">    }</span>
+
+    /**
+     * Generates the following XHTML prefix when called for the first time:
+     * &lt;pre&gt;
+     * &amp;lt;html&amp;gt;
+     *   &amp;lt;head&amp;gt;
+     *     &amp;lt;title&amp;gt;...&amp;lt;/title&amp;gt;
+     *   &amp;lt;/head&amp;gt;
+     *   &amp;lt;body&amp;gt; (or &amp;lt;frameset&amp;gt;
+     * &lt;/pre&gt;
+     */
+    private void lazyEndHead(boolean isFrameset) throws SAXException {
+<span class="fc" id="L186">        lazyStartHead();</span>
+
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        if (!headEnded) {</span>
+<span class="fc" id="L189">            headEnded = true;</span>
+<span class="fc" id="L190">            useFrameset = isFrameset;</span>
+
+            // TIKA-478: Emit all metadata values (other than title). We have to call
+            // startElement() and characters() directly to avoid recursive problems.
+<span class="fc bfc" id="L194" title="All 2 branches covered.">            if (writeMetadataToHead) {</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">                for (String name : metadata.names()) {</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">                    if (name.equals(&quot;title&quot;)) {</span>
+<span class="nc" id="L197">                        continue;</span>
+                    }
+
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                    for (String value : metadata.getValues(name)) {</span>
+                        // Putting null values into attributes causes problems, but is
+                        // allowed by Metadata, so guard against that.
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">                        if (value != null) {</span>
+<span class="fc" id="L204">                            AttributesImpl attributes = new AttributesImpl();</span>
+<span class="fc" id="L205">                            attributes.addAttribute(&quot;&quot;, &quot;name&quot;, &quot;name&quot;, &quot;CDATA&quot;, name);</span>
+<span class="fc" id="L206">                            attributes.addAttribute(&quot;&quot;, &quot;content&quot;, &quot;content&quot;, &quot;CDATA&quot;, value);</span>
+<span class="fc" id="L207">                            super.startElement(XHTML, &quot;meta&quot;, &quot;meta&quot;, attributes);</span>
+<span class="fc" id="L208">                            super.endElement(XHTML, &quot;meta&quot;, &quot;meta&quot;);</span>
+<span class="fc" id="L209">                            newline();</span>
+                        }
+                    }
+                }
+            }
+
+<span class="fc bfc" id="L215" title="All 2 branches covered.">            if (includeTitle) {</span>
+<span class="fc" id="L216">                super.startElement(XHTML, &quot;title&quot;, &quot;title&quot;, EMPTY_ATTRIBUTES);</span>
+<span class="fc" id="L217">                String title = metadata.get(TikaCoreProperties.TITLE);</span>
+<span class="pc bpc" id="L218" title="1 of 4 branches missed.">                if (title != null &amp;&amp; title.length() &gt; 0) {</span>
+<span class="fc" id="L219">                    char[] titleChars = title.toCharArray();</span>
+<span class="fc" id="L220">                    super.characters(titleChars, 0, titleChars.length);</span>
+<span class="fc" id="L221">                } else {</span>
+                    // TIKA-725: Prefer &lt;title&gt;&lt;/title&gt; over &lt;title/&gt;
+<span class="fc" id="L223">                    super.characters(new char[0], 0, 0);</span>
+                }
+<span class="fc" id="L225">                super.endElement(XHTML, &quot;title&quot;, &quot;title&quot;);</span>
+<span class="fc" id="L226">                newline();</span>
+            }
+
+<span class="fc" id="L229">            super.endElement(XHTML, &quot;head&quot;, &quot;head&quot;);</span>
+<span class="fc" id="L230">            newline();</span>
+
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">            if (useFrameset) {</span>
+<span class="nc" id="L233">                super.startElement(XHTML, &quot;frameset&quot;, &quot;frameset&quot;, EMPTY_ATTRIBUTES);</span>
+            } else {
+<span class="fc" id="L235">                super.startElement(XHTML, &quot;body&quot;, &quot;body&quot;, EMPTY_ATTRIBUTES);</span>
+            }
+        }
+<span class="fc" id="L238">    }</span>
+
+    /**
+     * Ends the XHTML document by writing the following footer and
+     * clearing the namespace mappings:
+     * &lt;pre&gt;
+     *   &amp;lt;/body&amp;gt;
+     * &amp;lt;/html&amp;gt;
+     * &lt;/pre&gt;
+     */
+    @Override
+    public void endDocument() throws SAXException {
+<span class="fc" id="L250">        lazyEndHead(useFrameset);</span>
+
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">        if (useFrameset) {</span>
+<span class="nc" id="L253">            super.endElement(XHTML, &quot;frameset&quot;, &quot;frameset&quot;);</span>
+        } else {
+<span class="fc" id="L255">            super.endElement(XHTML, &quot;body&quot;, &quot;body&quot;);</span>
+        }
+
+<span class="fc" id="L258">        super.endElement(XHTML, &quot;html&quot;, &quot;html&quot;);</span>
+
+<span class="fc" id="L260">        endPrefixMapping(&quot;&quot;);</span>
+<span class="fc" id="L261">        super.endDocument();</span>
+<span class="fc" id="L262">    }</span>
+
+    /**
+     * Starts the given element. Table cells and list items are automatically
+     * indented by emitting a tab character as ignorable whitespace.
+     */
+    @Override
+    public void startElement(String uri, String local, String name, Attributes attributes)
+            throws SAXException {
+
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        if (name.equals(&quot;frameset&quot;)) {</span>
+<span class="nc" id="L273">            lazyEndHead(true);</span>
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">        } else if (!AUTO.contains(name)) {</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">            if (HEAD.contains(name)) {</span>
+<span class="nc" id="L276">                lazyStartHead();</span>
+            } else {
+<span class="fc" id="L278">                lazyEndHead(false);</span>
+            }
+
+<span class="pc bpc" id="L281" title="1 of 4 branches missed.">            if (XHTML.equals(uri) &amp;&amp; INDENT.contains(name)) {</span>
+<span class="fc" id="L282">                ignorableWhitespace(TAB, 0, TAB.length);</span>
+            }
+
+<span class="fc" id="L285">            super.startElement(uri, local, name, attributes);</span>
+        }
+<span class="fc" id="L287">    }</span>
+
+    /**
+     * Ends the given element. Block elements are automatically followed
+     * by a newline character.
+     */
+    @Override
+    public void endElement(String uri, String local, String name) throws SAXException {
+<span class="pc bpc" id="L295" title="1 of 2 branches missed.">        if (!AUTO.contains(name)) {</span>
+<span class="fc" id="L296">            super.endElement(uri, local, name);</span>
+<span class="pc bpc" id="L297" title="1 of 4 branches missed.">            if (XHTML.equals(uri) &amp;&amp; ENDLINE.contains(name)) {</span>
+<span class="fc" id="L298">                newline();</span>
+            }
+        }
+<span class="fc" id="L301">    }</span>
+
+    /**
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-210&quot;&gt;TIKA-210&lt;/a&gt;
+     */
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="fc" id="L308">        lazyEndHead(useFrameset);</span>
+<span class="fc" id="L309">        super.characters(ch, start, length);</span>
+<span class="fc" id="L310">    }</span>
+
+    //------------------------------------------&lt; public convenience methods &gt;
+
+    public void startElement(String name) throws SAXException {
+<span class="fc" id="L315">        startElement(XHTML, name, name, EMPTY_ATTRIBUTES);</span>
+<span class="fc" id="L316">    }</span>
+
+    public void startElement(String name, String attribute, String value) throws SAXException {
+<span class="nc" id="L319">        AttributesImpl attributes = new AttributesImpl();</span>
+<span class="nc" id="L320">        attributes.addAttribute(&quot;&quot;, attribute, attribute, &quot;CDATA&quot;, value);</span>
+<span class="nc" id="L321">        startElement(XHTML, name, name, attributes);</span>
+<span class="nc" id="L322">    }</span>
+
+    public void startElement(String name, AttributesImpl attributes) throws SAXException {
+<span class="fc" id="L325">        startElement(XHTML, name, name, attributes);</span>
+<span class="fc" id="L326">    }</span>
+
+    public void endElement(String name) throws SAXException {
+<span class="fc" id="L329">        endElement(XHTML, name, name);</span>
+<span class="fc" id="L330">    }</span>
+
+    public void characters(String characters) throws SAXException {
+<span class="pc bpc" id="L333" title="2 of 4 branches missed.">        if (characters != null &amp;&amp; characters.length() &gt; 0) {</span>
+<span class="fc" id="L334">            characters(characters.toCharArray(), 0, characters.length());</span>
+        }
+<span class="fc" id="L336">    }</span>
+
+    public void newline() throws SAXException {
+<span class="fc" id="L339">        ignorableWhitespace(NL, 0, NL.length);</span>
+<span class="fc" id="L340">    }</span>
+
+    /**
+     * Emits an XHTML element with the given text content. If the given
+     * text value is null or empty, then the element is not written.
+     *
+     * @param name  XHTML element name
+     * @param value element value, possibly &lt;code&gt;null&lt;/code&gt;
+     * @throws SAXException if the content element could not be written
+     */
+    public void element(String name, String value) throws SAXException {
+<span class="pc bpc" id="L351" title="2 of 4 branches missed.">        if (value != null &amp;&amp; value.length() &gt; 0) {</span>
+<span class="fc" id="L352">            startElement(name);</span>
+<span class="fc" id="L353">            characters(value);</span>
+<span class="fc" id="L354">            endElement(name);</span>
+        }
+<span class="fc" id="L356">    }</span>
+
+    @Override
+    protected boolean isInvalid(int ch) {
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">        if (super.isInvalid(ch)) {</span>
+<span class="nc" id="L361">            return true;</span>
+        }
+        // These control chars are  invalid in XHTML.
+<span class="pc bpc" id="L364" title="1 of 4 branches missed.">        return 0x7F &lt;= ch &amp;&amp; ch &lt;= 0x9F;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

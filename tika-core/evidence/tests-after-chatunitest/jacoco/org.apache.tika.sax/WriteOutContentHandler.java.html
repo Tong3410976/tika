@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WriteOutContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">WriteOutContentHandler.java</span></div><h1>WriteOutContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.io.StringWriter;
+import java.io.Writer;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.config.OutputLimits;
+import org.apache.tika.exception.WriteLimitReachedException;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.ParseRecord;
+
+/**
+ * SAX event handler that writes content up to an optional write
+ * limit out to a character stream or other decorated handler.
+ */
+public class WriteOutContentHandler extends ContentHandlerDecorator {
+
+
+    /**
+     * The maximum number of characters to write to the character stream.
+     * Set to -1 for no limit.
+     */
+    private final int writeLimit;
+
+    /**
+     * Number of characters written so far.
+     */
+<span class="fc" id="L46">    private int writeCount = 0;</span>
+
+<span class="fc" id="L48">    private boolean throwOnWriteLimitReached = true;</span>
+
+<span class="fc" id="L50">    private ParseContext parseContext = null;</span>
+
+    private boolean writeLimitReached;
+
+    /**
+     * Creates a content handler that writes content up to the given
+     * write limit to the given content handler.
+     *
+     * @param handler    content handler to be decorated
+     * @param writeLimit write limit
+     * @since Apache Tika 0.10
+     */
+    public WriteOutContentHandler(ContentHandler handler, int writeLimit) {
+<span class="fc" id="L63">        super(handler);</span>
+<span class="fc" id="L64">        this.writeLimit = writeLimit;</span>
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Creates a content handler that writes content up to the given
+     * write limit to the given character stream.
+     *
+     * @param writer     character stream
+     * @param writeLimit write limit
+     * @since Apache Tika 0.10
+     */
+    public WriteOutContentHandler(Writer writer, int writeLimit) {
+<span class="fc" id="L76">        this(new ToTextContentHandler(writer), writeLimit);</span>
+<span class="fc" id="L77">    }</span>
+
+    /**
+     * Creates a content handler that writes character events to
+     * the given writer.
+     *
+     * @param writer writer
+     */
+    public WriteOutContentHandler(Writer writer) {
+<span class="fc" id="L86">        this(writer, -1);</span>
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Creates a content handler that writes character events
+     * to an internal string buffer. Use the {@link #toString()}
+     * method to access the collected character content.
+     * &lt;p&gt;
+     * The internal string buffer is bounded at the given number of characters.
+     * If this write limit is reached, then a {@link SAXException} is thrown.
+     * The {@link WriteLimitReachedException#isWriteLimitReached(Throwable)} method can be used to
+     * detect this case.
+     *
+     * @param writeLimit maximum number of characters to include in the string,
+     *                   or -1 to disable the write limit
+     * @since Apache Tika 0.7
+     */
+    public WriteOutContentHandler(int writeLimit) {
+<span class="fc" id="L104">        this(new StringWriter(), writeLimit);</span>
+<span class="fc" id="L105">    }</span>
+
+    /**
+     * Creates a content handler that writes character events
+     * to an internal string buffer. Use the {@link #toString()}
+     * method to access the collected character content.
+     * &lt;p&gt;
+     * The internal string buffer is bounded at 100k characters. If this
+     * write limit is reached, then a {@link SAXException} is thrown. The
+     * {@link WriteLimitReachedException#isWriteLimitReached(Throwable)} method can be used to
+     * detect this case.
+     */
+    public WriteOutContentHandler() {
+<span class="fc" id="L118">        this(100 * 1000);</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * The default is to throw a {@link WriteLimitReachedException}
+     * @param handler
+     * @param writeLimit
+     * @param throwOnWriteLimitReached
+     * @param parseContext
+     */
+    public WriteOutContentHandler(ContentHandler handler,
+                                  int writeLimit, boolean throwOnWriteLimitReached,
+                                  ParseContext parseContext) {
+<span class="fc" id="L131">        super(handler);</span>
+<span class="fc" id="L132">        this.writeLimit = writeLimit;</span>
+<span class="fc" id="L133">        this.throwOnWriteLimitReached = throwOnWriteLimitReached;</span>
+<span class="fc" id="L134">        this.parseContext = parseContext;</span>
+<span class="fc" id="L135">    }</span>
+
+    /**
+     * Creates a new WriteOutContentHandler configured from OutputLimits in the ParseContext.
+     * &lt;p&gt;
+     * If OutputLimits is present in the context, the handler will be configured with those
+     * limits (writeLimit, throwOnWriteLimit). Otherwise, default values are used (-1 for
+     * unlimited, true for throwOnWriteLimitReached).
+     *
+     * @param handler the content handler to decorate
+     * @param context the ParseContext (may be null)
+     * @return a configured WriteOutContentHandler
+     */
+    public static WriteOutContentHandler newInstance(ContentHandler handler, ParseContext context) {
+<span class="nc" id="L149">        OutputLimits limits = OutputLimits.get(context);</span>
+<span class="nc" id="L150">        return new WriteOutContentHandler(handler, limits.getWriteLimit(),</span>
+<span class="nc" id="L151">                limits.isThrowOnWriteLimit(), context);</span>
+    }
+
+    /**
+     * Writes the given characters to the given character stream.
+     */
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (writeLimitReached) {</span>
+<span class="nc" id="L160">            return;</span>
+        }
+<span class="fc bfc" id="L162" title="All 4 branches covered.">        if (writeLimit == -1 || writeCount + length &lt;= writeLimit) {</span>
+<span class="fc" id="L163">            super.characters(ch, start, length);</span>
+<span class="fc" id="L164">            writeCount += length;</span>
+        } else {
+<span class="fc" id="L166">            super.characters(ch, start, writeLimit - writeCount);</span>
+<span class="nc" id="L167">            handleWriteLimitReached();</span>
+        }
+<span class="fc" id="L169">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (writeLimitReached) {</span>
+<span class="nc" id="L174">            return;</span>
+        }
+<span class="pc bpc" id="L176" title="1 of 4 branches missed.">        if (writeLimit == -1 || writeCount + length &lt;= writeLimit) {</span>
+<span class="fc" id="L177">            super.ignorableWhitespace(ch, start, length);</span>
+<span class="fc" id="L178">            writeCount += length;</span>
+        } else {
+<span class="nc" id="L180">            super.ignorableWhitespace(ch, start, writeLimit - writeCount);</span>
+<span class="nc" id="L181">            handleWriteLimitReached();</span>
+        }
+<span class="fc" id="L183">    }</span>
+
+    private void handleWriteLimitReached() throws WriteLimitReachedException {
+<span class="fc" id="L186">        writeLimitReached = true;</span>
+<span class="fc" id="L187">        writeCount = writeLimit;</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        if (throwOnWriteLimitReached) {</span>
+<span class="fc" id="L189">            throw new WriteLimitReachedException(writeLimit);</span>
+        } else {
+<span class="nc" id="L191">            ParseRecord parseRecord = parseContext.get(ParseRecord.class);</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">            if (parseRecord != null) {</span>
+<span class="nc" id="L193">                parseRecord.setWriteLimitReached(true);</span>
+            }
+        }
+<span class="nc" id="L196">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

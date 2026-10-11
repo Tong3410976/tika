@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MediaTypeRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">MediaTypeRegistry.java</span></div><h1>MediaTypeRegistry.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Registry of known Internet media types.
+ */
+<span class="fc" id="L29">public class MediaTypeRegistry implements Serializable {</span>
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 4710974869988895410L;
+    /**
+     * Registry of known media types, including type aliases. A canonical
+     * media type is handled as an identity mapping, while an alias is stored
+     * as a mapping from the alias to the corresponding canonical type.
+     */
+<span class="fc" id="L40">    private final Map&lt;MediaType, MediaType&gt; registry = new ConcurrentHashMap&lt;&gt;();</span>
+    /**
+     * Known type inheritance relationships. The mapping is from a media type
+     * to the closest supertype.
+     */
+<span class="fc" id="L45">    private final Map&lt;MediaType, MediaType&gt; inheritance = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Returns the built-in media type registry included in Tika.
+     *
+     * @return default media type registry
+     * @since Apache Tika 0.8
+     */
+    public static MediaTypeRegistry getDefaultRegistry() {
+<span class="fc" id="L54">        return MimeTypes.getDefaultMimeTypes().getMediaTypeRegistry();</span>
+    }
+
+    /**
+     * Returns the set of all known canonical media types. Type aliases are
+     * not included in the returned set.
+     *
+     * @return canonical media types
+     * @since Apache Tika 0.8
+     */
+    public SortedSet&lt;MediaType&gt; getTypes() {
+<span class="fc" id="L65">        return new TreeSet&lt;&gt;(registry.values());</span>
+    }
+
+    /**
+     * Returns the set of known aliases of the given canonical media type.
+     *
+     * @param type canonical media type
+     * @return known aliases
+     * @since Apache Tika 0.8
+     */
+    public SortedSet&lt;MediaType&gt; getAliases(MediaType type) {
+<span class="fc" id="L76">        SortedSet&lt;MediaType&gt; aliases = new TreeSet&lt;&gt;();</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        for (Map.Entry&lt;MediaType, MediaType&gt; entry : registry.entrySet()) {</span>
+<span class="fc bfc" id="L78" title="All 4 branches covered.">            if (entry.getValue().equals(type) &amp;&amp; !entry.getKey().equals(type)) {</span>
+<span class="fc" id="L79">                aliases.add(entry.getKey());</span>
+            }
+<span class="fc" id="L81">        }</span>
+<span class="fc" id="L82">        return aliases;</span>
+    }
+
+    /**
+     * Returns the set of known children of the given canonical media type
+     *
+     * @param type canonical media type
+     * @return known children
+     * @since Apache Tika 1.8
+     */
+    public SortedSet&lt;MediaType&gt; getChildTypes(MediaType type) {
+<span class="fc" id="L93">        SortedSet&lt;MediaType&gt; children = new TreeSet&lt;&gt;();</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        for (Map.Entry&lt;MediaType, MediaType&gt; entry : inheritance.entrySet()) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            if (entry.getValue().equals(type)) {</span>
+<span class="fc" id="L96">                children.add(entry.getKey());</span>
+            }
+<span class="fc" id="L98">        }</span>
+<span class="fc" id="L99">        return children;</span>
+    }
+
+    public void addType(MediaType type) {
+<span class="fc" id="L103">        registry.put(type, type);</span>
+<span class="fc" id="L104">    }</span>
+
+    public void addAlias(MediaType type, MediaType alias) {
+<span class="fc" id="L107">        registry.put(alias, type);</span>
+<span class="fc" id="L108">    }</span>
+
+    public void addSuperType(MediaType type, MediaType supertype) {
+<span class="fc" id="L111">        inheritance.put(type, supertype);</span>
+<span class="fc" id="L112">    }</span>
+
+    public MediaType normalize(MediaType type) {
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L116">            return null;</span>
+        }
+<span class="fc" id="L118">        MediaType canonical = registry.get(type.getBaseType());</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if (canonical == null) {</span>
+<span class="fc" id="L120">            return type;</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        } else if (type.hasParameters()) {</span>
+<span class="fc" id="L122">            return new MediaType(canonical, type.getParameters());</span>
+        } else {
+<span class="fc" id="L124">            return canonical;</span>
+        }
+    }
+
+    /**
+     * Checks whether the given media type a is a specialization of a more
+     * generic type b. Both types should be already normalised.
+     *
+     * @param a media type, normalised
+     * @param b suspected supertype, normalised
+     * @return &lt;code&gt;true&lt;/code&gt; if b is a supertype of a,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     * @since Apache Tika 0.8
+     */
+    public boolean isSpecializationOf(MediaType a, MediaType b) {
+<span class="fc" id="L139">        return isInstanceOf(getSupertype(a), b);</span>
+    }
+
+    /**
+     * Checks whether the given media type equals the given base type or
+     * is a specialization of it. Both types should be already normalised.
+     *
+     * @param a media type, normalised
+     * @param b base type, normalised
+     * @return &lt;code&gt;true&lt;/code&gt; if b equals a or is a specialization of it,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     * @since Apache Tika 1.2
+     */
+    public boolean isInstanceOf(MediaType a, MediaType b) {
+<span class="fc bfc" id="L153" title="All 6 branches covered.">        return a != null &amp;&amp; (a.equals(b) || isSpecializationOf(a, b));</span>
+    }
+
+    /**
+     * Parses and normalises the given media type string and checks whether
+     * the result equals the given base type or is a specialization of it.
+     * The given base type should already be normalised.
+     *
+     * @param a media type
+     * @param b base type, normalised
+     * @return &lt;code&gt;true&lt;/code&gt; if b equals a or is a specialization of it,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     * @since Apache Tika 1.2
+     */
+    public boolean isInstanceOf(String a, MediaType b) {
+<span class="nc" id="L168">        return isInstanceOf(normalize(MediaType.parse(a)), b);</span>
+    }
+
+    /**
+     * Returns the supertype of the given type. If the media type database
+     * has an explicit inheritance rule for the type, then that is used.
+     * Next, if the given type has any parameters, then the respective base
+     * type (parameter-less) is returned. Otherwise built-in heuristics like
+     * text/... -&amp;gt; text/plain and .../...+xml -&amp;gt; application/xml are used.
+     * Finally application/octet-stream is returned for all types for which no other
+     * supertype is known, and the return value for application/octet-stream
+     * is &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param type media type
+     * @return supertype, or &lt;code&gt;null&lt;/code&gt; for application/octet-stream
+     * @since Apache Tika 0.8
+     */
+    public MediaType getSupertype(MediaType type) {
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L187">            return null;</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        } else if (inheritance.containsKey(type)) {</span>
+<span class="fc" id="L189">            return inheritance.get(type);</span>
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        } else if (type.hasParameters()) {</span>
+<span class="fc" id="L191">            return type.getBaseType();</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        } else if (type.getSubtype().endsWith(&quot;+xml&quot;)) {</span>
+<span class="fc" id="L193">            return MediaType.APPLICATION_XML;</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">        } else if (type.getSubtype().endsWith(&quot;+zip&quot;)) {</span>
+<span class="fc" id="L195">            return MediaType.APPLICATION_ZIP;</span>
+<span class="fc bfc" id="L196" title="All 4 branches covered.">        } else if (&quot;text&quot;.equals(type.getType()) &amp;&amp; !MediaType.TEXT_PLAIN.equals(type)) {</span>
+<span class="fc" id="L197">            return MediaType.TEXT_PLAIN;</span>
+<span class="pc bpc" id="L198" title="3 of 4 branches missed.">        } else if (type.getType().contains(&quot;empty&quot;) &amp;&amp; !MediaType.EMPTY.equals(type)) {</span>
+<span class="nc" id="L199">            return MediaType.EMPTY;</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        } else if (!MediaType.OCTET_STREAM.equals(type)) {</span>
+<span class="fc" id="L201">            return MediaType.OCTET_STREAM;</span>
+        } else {
+<span class="fc" id="L203">            return null;</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

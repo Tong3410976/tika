@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileSource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">FileSource.java</span></div><h1>FileSource.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import org.apache.commons.io.IOUtils;
+
+/**
+ * Input source backed by a file.
+ * &lt;p&gt;
+ * Data is already on disk. No caching is needed.
+ * {@link #getPath} returns the existing path immediately.
+ * Mark/reset works by reopening the file and skipping to the marked position.
+ */
+class FileSource extends InputStream implements TikaInputSource {
+
+    private final Path path;
+    private final long length;
+    private InputStream currentStream;
+    private long position;
+
+<span class="fc" id="L41">    FileSource(Path path) throws IOException {</span>
+<span class="fc" id="L42">        this.path = path;</span>
+<span class="fc" id="L43">        this.length = Files.size(path);</span>
+<span class="fc" id="L44">        this.currentStream = new BufferedInputStream(Files.newInputStream(path));</span>
+<span class="fc" id="L45">        this.position = 0;</span>
+<span class="fc" id="L46">    }</span>
+
+    @Override
+    public int read() throws IOException {
+<span class="fc" id="L50">        int b = currentStream.read();</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (b != -1) {</span>
+<span class="fc" id="L52">            position++;</span>
+        }
+<span class="fc" id="L54">        return b;</span>
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+<span class="fc" id="L59">        int n = currentStream.read(b, off, len);</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (n &gt; 0) {</span>
+<span class="fc" id="L61">            position += n;</span>
+        }
+<span class="fc" id="L63">        return n;</span>
+    }
+
+    @Override
+    public long skip(long n) throws IOException {
+<span class="nc" id="L68">        long skipped = IOUtils.skip(currentStream, n);</span>
+<span class="nc" id="L69">        position += skipped;</span>
+<span class="nc" id="L70">        return skipped;</span>
+    }
+
+    @Override
+    public int available() throws IOException {
+<span class="fc" id="L75">        return currentStream.available();</span>
+    }
+
+    @Override
+    public void seekTo(long newPosition) throws IOException {
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if (newPosition &lt; 0) {</span>
+<span class="nc" id="L81">            throw new IOException(&quot;Cannot seek to negative position: &quot; + newPosition);</span>
+        }
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (newPosition &gt; length) {</span>
+<span class="nc" id="L84">            throw new IOException(&quot;Cannot seek past end of file. Position: &quot; +</span>
+                    newPosition + &quot;, length: &quot; + length);
+        }
+
+        // Close current stream and reopen at the beginning
+<span class="fc" id="L89">        currentStream.close();</span>
+<span class="fc" id="L90">        currentStream = new BufferedInputStream(Files.newInputStream(path));</span>
+
+        // Skip to the new position
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (newPosition &gt; 0) {</span>
+<span class="fc" id="L94">            IOUtils.skipFully(currentStream, newPosition);</span>
+        }
+<span class="fc" id="L96">        this.position = newPosition;</span>
+<span class="fc" id="L97">    }</span>
+
+    @Override
+    public boolean hasPath() {
+<span class="fc" id="L101">        return true;</span>
+    }
+
+    @Override
+    public Path getPath(String suffix) throws IOException {
+        // Already file-backed, just return the path
+<span class="fc" id="L107">        return path;</span>
+    }
+
+    @Override
+    public long getLength() {
+<span class="nc" id="L112">        return length;</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (currentStream != null) {</span>
+<span class="fc" id="L118">            currentStream.close();</span>
+        }
+<span class="fc" id="L120">    }</span>
+
+    @Override
+    public void enableRewind() {
+        // No-op: file is always rewindable
+<span class="fc" id="L125">    }</span>
+
+    // Mark/reset support using seekTo
+<span class="fc" id="L128">    private long markPosition = -1;</span>
+
+    @Override
+    public synchronized void mark(int readlimit) {
+<span class="fc" id="L132">        markPosition = position;</span>
+<span class="fc" id="L133">    }</span>
+
+    @Override
+    public synchronized void reset() throws IOException {
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">        if (markPosition &lt; 0) {</span>
+<span class="nc" id="L138">            throw new IOException(&quot;Mark not set&quot;);</span>
+        }
+<span class="fc" id="L140">        seekTo(markPosition);</span>
+<span class="fc" id="L141">    }</span>
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L145">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

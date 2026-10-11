@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MagicDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">MagicDetector.java</span></div><h1>MagicDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.CharArrayWriter;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Content type detection based on magic bytes, i.e. type-specific patterns
+ * near the beginning of the document input stream.
+ * &lt;p&gt;
+ * Because this works on bytes, not characters, by default any string
+ * matching is done as ISO_8859_1. To use an explicit different
+ * encoding, supply a type other than &quot;string&quot; / &quot;stringignorecase&quot;
+ * &lt;p&gt;
+ * Instances of this class are immutable and safe for use by multiple
+ * concurrent threads.
+ *
+ * @since Apache Tika 0.3
+ */
+@TikaComponent(spi = false)
+public class MagicDetector implements Detector {
+
+    /**
+     * The matching media type. Returned by the
+     * {@link #detect(InputStream, Metadata)} method if a match is found.
+     */
+    private final MediaType type;
+    /**
+     * Length of the comparison window.
+     */
+    private final int length;
+    /**
+     * The magic match pattern. If this byte pattern is equal to the
+     * possibly bit-masked bytes from the input stream, then the type
+     * detection succeeds and the configured {@link #type} is returned.
+     */
+    private final byte[] pattern;
+    /**
+     * Length of the pattern, which in the case of regular expressions will
+     * not be the same as the comparison window length.
+     */
+    private final int patternLength;
+    /**
+     * True if pattern is a regular expression, false otherwise.
+     */
+    private final boolean isRegex;
+    /**
+     * True if we're doing a case-insensitive string match, false otherwise.
+     */
+    private final boolean isStringIgnoreCase;
+    /**
+     * Bit mask that is applied to the source bytes before pattern matching.
+     */
+    private final byte[] mask;
+    /**
+     * First offset (inclusive) of the comparison window within the
+     * document input stream. Greater than or equal to zero.
+     */
+    private final int offsetRangeBegin;
+    /**
+     * Last offset (inclusive) of the comparison window within the document
+     * input stream. Greater than or equal to the
+     * {@link #offsetRangeBegin first offset}.
+     * &lt;p&gt;
+     * Note that this is &lt;em&gt;not&lt;/em&gt; the offset of the last byte read from
+     * the document stream. Instead, the last window of bytes to be compared
+     * starts at this offset.
+     */
+    private final int offsetRangeEnd;
+    /**
+     * The compiled form of {@link #pattern} when {@link #isRegex} is true,
+     * &lt;code&gt;null&lt;/code&gt; otherwise. Compiled once here rather than per match,
+     * as every input to it is fixed at construction time.
+     */
+    private final Pattern compiledPattern;
+
+    /**
+     * Creates a detector for input documents that have the exact given byte
+     * pattern at the beginning of the document stream.
+     *
+     * @param type    matching media type
+     * @param pattern magic match pattern
+     */
+    public MagicDetector(MediaType type, byte[] pattern) {
+<span class="fc" id="L115">        this(type, pattern, 0);</span>
+<span class="fc" id="L116">    }</span>
+
+    /**
+     * Creates a detector for input documents that have the exact given byte
+     * pattern at the given offset of the document stream.
+     *
+     * @param type    matching media type
+     * @param pattern magic match pattern
+     * @param offset  offset of the pattern match
+     */
+    public MagicDetector(MediaType type, byte[] pattern, int offset) {
+<span class="fc" id="L127">        this(type, pattern, null, offset, offset);</span>
+<span class="fc" id="L128">    }</span>
+
+    /**
+     * Creates a detector for input documents that meet the specified magic
+     * match.  {@code pattern} must NOT be a regular expression.
+     * Constructor maintained for legacy reasons.
+     */
+    public MagicDetector(MediaType type, byte[] pattern, byte[] mask, int offsetRangeBegin,
+                         int offsetRangeEnd) {
+<span class="fc" id="L137">        this(type, pattern, mask, false, offsetRangeBegin, offsetRangeEnd);</span>
+<span class="fc" id="L138">    }</span>
+
+    /**
+     * Creates a detector for input documents that meet the specified
+     * magic match.
+     */
+    public MagicDetector(MediaType type, byte[] pattern, byte[] mask, boolean isRegex,
+                         int offsetRangeBegin, int offsetRangeEnd) {
+<span class="fc" id="L146">        this(type, pattern, mask, isRegex, false, offsetRangeBegin, offsetRangeEnd);</span>
+<span class="fc" id="L147">    }</span>
+
+    /**
+     * Creates a detector for input documents that meet the specified
+     * magic match.
+     * &lt;p&gt;
+     * When &lt;code&gt;isRegex&lt;/code&gt; is true the pattern is compiled here rather
+     * than on each match, so a malformed pattern is reported by this
+     * constructor instead of by the first call to
+     * {@link #detect(TikaInputStream, Metadata, ParseContext)} or
+     * {@link #matches(byte[])}.
+     *
+     * @throws java.util.regex.PatternSyntaxException if &lt;code&gt;isRegex&lt;/code&gt;
+     *         is true and &lt;code&gt;pattern&lt;/code&gt; is not a valid regular
+     *         expression
+     */
+    public MagicDetector(MediaType type, byte[] pattern, byte[] mask, boolean isRegex,
+<span class="fc" id="L164">                         boolean isStringIgnoreCase, int offsetRangeBegin, int offsetRangeEnd) {</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L166">            throw new IllegalArgumentException(&quot;Matching media type is null&quot;);</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        } else if (pattern == null) {</span>
+<span class="nc" id="L168">            throw new IllegalArgumentException(&quot;Magic match pattern is null&quot;);</span>
+<span class="pc bpc" id="L169" title="2 of 4 branches missed.">        } else if (offsetRangeBegin &lt; 0 || offsetRangeEnd &lt; offsetRangeBegin) {</span>
+<span class="nc" id="L170">            throw new IllegalArgumentException(</span>
+                    &quot;Invalid offset range: [&quot; + offsetRangeBegin + &quot;,&quot; + offsetRangeEnd + &quot;]&quot;);
+        }
+
+<span class="fc" id="L174">        this.type = type;</span>
+
+<span class="fc" id="L176">        this.isRegex = isRegex;</span>
+<span class="fc" id="L177">        this.isStringIgnoreCase = isStringIgnoreCase;</span>
+
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        this.patternLength = Math.max(pattern.length, mask != null ? mask.length : 0);</span>
+
+<span class="fc bfc" id="L181" title="All 2 branches covered.">        if (this.isRegex) {</span>
+            // 8K buffer should cope with most regex patterns
+<span class="fc" id="L183">            this.length = 8 * 1024;</span>
+        } else {
+<span class="fc" id="L185">            this.length = patternLength;</span>
+        }
+
+<span class="fc" id="L188">        this.mask = new byte[this.patternLength];</span>
+<span class="fc" id="L189">        this.pattern = new byte[this.patternLength];</span>
+
+<span class="fc bfc" id="L191" title="All 2 branches covered.">        for (int i = 0; i &lt; this.patternLength; i++) {</span>
+<span class="pc bpc" id="L192" title="1 of 4 branches missed.">            if (mask != null &amp;&amp; i &lt; mask.length) {</span>
+<span class="fc" id="L193">                this.mask[i] = mask[i];</span>
+            } else {
+<span class="fc" id="L195">                this.mask[i] = -1;</span>
+            }
+
+<span class="fc bfc" id="L198" title="All 2 branches covered.">            if (i &lt; pattern.length) {</span>
+<span class="fc" id="L199">                this.pattern[i] = (byte) (pattern[i] &amp; this.mask[i]);</span>
+            } else {
+<span class="fc" id="L201">                this.pattern[i] = 0;</span>
+            }
+        }
+
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        if (this.isRegex) {</span>
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">            int flags = this.isStringIgnoreCase ? Pattern.CASE_INSENSITIVE : 0;</span>
+<span class="fc" id="L207">            this.compiledPattern = Pattern.compile(new String(this.pattern, UTF_8), flags);</span>
+<span class="fc" id="L208">        } else {</span>
+<span class="fc" id="L209">            this.compiledPattern = null;</span>
+        }
+
+<span class="fc" id="L212">        this.offsetRangeBegin = offsetRangeBegin;</span>
+<span class="fc" id="L213">        this.offsetRangeEnd = offsetRangeEnd;</span>
+<span class="fc" id="L214">    }</span>
+
+    public static MagicDetector parse(MediaType mediaType, String type, String offset, String value,
+                                      String mask) {
+<span class="fc" id="L218">        int start = 0;</span>
+<span class="fc" id="L219">        int end = 0;</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">        if (offset != null) {</span>
+<span class="fc" id="L221">            int colon = offset.indexOf(':');</span>
+<span class="fc bfc" id="L222" title="All 2 branches covered.">            if (colon == -1) {</span>
+<span class="fc" id="L223">                start = Integer.parseInt(offset);</span>
+<span class="fc" id="L224">                end = start;</span>
+            } else {
+<span class="fc" id="L226">                start = Integer.parseInt(offset.substring(0, colon));</span>
+<span class="fc" id="L227">                end = Integer.parseInt(offset.substring(colon + 1));</span>
+            }
+        }
+
+<span class="fc" id="L231">        byte[] patternBytes = decodeValue(value, type);</span>
+<span class="fc" id="L232">        byte[] maskBytes = null;</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">        if (mask != null) {</span>
+<span class="fc" id="L234">            maskBytes = decodeValue(mask, type);</span>
+        }
+
+<span class="fc" id="L237">        return new MagicDetector(mediaType, patternBytes, maskBytes, type.equals(&quot;regex&quot;),</span>
+<span class="fc" id="L238">                type.equals(&quot;stringignorecase&quot;), start, end);</span>
+    }
+
+    private static byte[] decodeValue(String value, String type) {
+        // Preliminary check
+<span class="pc bpc" id="L243" title="2 of 4 branches missed.">        if ((value == null) || (type == null)) {</span>
+<span class="nc" id="L244">            return null;</span>
+        }
+
+<span class="fc" id="L247">        byte[] decoded = null;</span>
+<span class="fc" id="L248">        String tmpVal = null;</span>
+<span class="fc" id="L249">        int radix = 8;</span>
+
+        // hex
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (value.startsWith(&quot;0x&quot;)) {</span>
+<span class="fc" id="L253">            tmpVal = value.substring(2);</span>
+<span class="fc" id="L254">            radix = 16;</span>
+        } else {
+<span class="fc" id="L256">            tmpVal = value;</span>
+<span class="fc" id="L257">            radix = 8;</span>
+        }
+
+<span class="pc bpc" id="L260" title="2 of 8 branches missed.">        switch (type) {</span>
+            case &quot;string&quot;:
+            case &quot;regex&quot;:
+            case &quot;unicodeLE&quot;:
+            case &quot;unicodeBE&quot;:
+<span class="fc" id="L265">                decoded = decodeString(value, type);</span>
+<span class="fc" id="L266">                break;</span>
+            case &quot;stringignorecase&quot;:
+<span class="fc" id="L268">                decoded = decodeString(value.toLowerCase(Locale.ROOT), type);</span>
+<span class="fc" id="L269">                break;</span>
+            case &quot;byte&quot;:
+<span class="nc" id="L271">                decoded = tmpVal.getBytes(UTF_8);</span>
+<span class="nc" id="L272">                break;</span>
+            case &quot;host16&quot;:
+            case &quot;little16&quot;: {
+<span class="fc" id="L275">                int i = Integer.parseInt(tmpVal, radix);</span>
+<span class="fc" id="L276">                decoded = new byte[]{(byte) (i &amp; 0x00FF), (byte) (i &gt;&gt; 8)};</span>
+<span class="fc" id="L277">                break;</span>
+            }
+            case &quot;big16&quot;: {
+<span class="fc" id="L280">                int i = Integer.parseInt(tmpVal, radix);</span>
+<span class="fc" id="L281">                decoded = new byte[]{(byte) (i &gt;&gt; 8), (byte) (i &amp; 0x00FF)};</span>
+<span class="fc" id="L282">                break;</span>
+            }
+            case &quot;host32&quot;:
+            case &quot;little32&quot;: {
+<span class="fc" id="L286">                long i = Long.parseLong(tmpVal, radix);</span>
+<span class="fc" id="L287">                decoded = new byte[]{(byte) ((i &amp; 0x000000FF)), (byte) ((i &amp; 0x0000FF00) &gt;&gt; 8),</span>
+                        (byte) ((i &amp; 0x00FF0000) &gt;&gt; 16), (byte) ((i &amp; 0xFF000000) &gt;&gt; 24)};
+<span class="fc" id="L289">                break;</span>
+            }
+            case &quot;big32&quot;: {
+<span class="fc" id="L292">                long i = Long.parseLong(tmpVal, radix);</span>
+<span class="fc" id="L293">                decoded = new byte[]{(byte) ((i &amp; 0xFF000000) &gt;&gt; 24), (byte) ((i &amp; 0x00FF0000) &gt;&gt; 16),</span>
+                        (byte) ((i &amp; 0x0000FF00) &gt;&gt; 8), (byte) ((i &amp; 0x000000FF))};
+<span class="fc" id="L295">                break;</span>
+            }
+        }
+<span class="fc" id="L298">        return decoded;</span>
+    }
+
+    private static byte[] decodeString(String value, String type) {
+<span class="fc bfc" id="L302" title="All 2 branches covered.">        if (value.startsWith(&quot;0x&quot;)) {</span>
+<span class="fc" id="L303">            byte[] vals = new byte[(value.length() - 2) / 2];</span>
+<span class="fc bfc" id="L304" title="All 2 branches covered.">            for (int i = 0; i &lt; vals.length; i++) {</span>
+<span class="fc" id="L305">                vals[i] = (byte) Integer.parseInt(value.substring(2 + i * 2, 4 + i * 2), 16);</span>
+            }
+<span class="fc" id="L307">            return vals;</span>
+        }
+
+<span class="fc" id="L310">        CharArrayWriter decoded = new CharArrayWriter();</span>
+
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        for (int i = 0; i &lt; value.length(); i++) {</span>
+<span class="fc bfc" id="L313" title="All 2 branches covered.">            if (value.charAt(i) == '\\') {</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">                if (value.charAt(i + 1) == '\\') {</span>
+<span class="fc" id="L315">                    decoded.write('\\');</span>
+<span class="fc" id="L316">                    i++;</span>
+<span class="fc bfc" id="L317" title="All 2 branches covered.">                } else if (value.charAt(i + 1) == 'x') {</span>
+<span class="fc" id="L318">                    decoded.write(Integer.parseInt(value.substring(i + 2, i + 4), 16));</span>
+<span class="fc" id="L319">                    i += 3;</span>
+<span class="fc bfc" id="L320" title="All 2 branches covered.">                } else if (value.charAt(i + 1) == 'r') {</span>
+<span class="fc" id="L321">                    decoded.write('\r');</span>
+<span class="fc" id="L322">                    i++;</span>
+<span class="fc bfc" id="L323" title="All 2 branches covered.">                } else if (value.charAt(i + 1) == 'n') {</span>
+<span class="fc" id="L324">                    decoded.write('\n');</span>
+<span class="fc" id="L325">                    i++;</span>
+                } else {
+<span class="fc" id="L327">                    int j = i + 1;</span>
+<span class="fc bfc" id="L328" title="All 4 branches covered.">                    while ((j &lt; i + 4) &amp;&amp; (j &lt; value.length()) &amp;&amp;</span>
+<span class="fc bfc" id="L329" title="All 2 branches covered.">                            (Character.isDigit(value.charAt(j)))) {</span>
+<span class="fc" id="L330">                        j++;</span>
+                    }
+<span class="fc" id="L332">                    decoded.write(Short.decode(&quot;0&quot; + value.substring(i + 1, j)).byteValue());</span>
+<span class="fc" id="L333">                    i = j - 1;</span>
+<span class="fc" id="L334">                }</span>
+            } else {
+<span class="fc" id="L336">                decoded.write(value.charAt(i));</span>
+            }
+        }
+
+        // Now turn the chars into bytes
+<span class="fc" id="L341">        char[] chars = decoded.toCharArray();</span>
+        byte[] bytes;
+<span class="fc bfc" id="L343" title="All 2 branches covered.">        if (&quot;unicodeLE&quot;.equals(type)) {</span>
+<span class="fc" id="L344">            bytes = new byte[chars.length * 2];</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">            for (int i = 0; i &lt; chars.length; i++) {</span>
+<span class="fc" id="L346">                bytes[i * 2] = (byte) (chars[i] &amp; 0xff);</span>
+<span class="fc" id="L347">                bytes[i * 2 + 1] = (byte) (chars[i] &gt;&gt; 8);</span>
+            }
+<span class="fc bfc" id="L349" title="All 2 branches covered.">        } else if (&quot;unicodeBE&quot;.equals(type)) {</span>
+<span class="fc" id="L350">            bytes = new byte[chars.length * 2];</span>
+<span class="fc bfc" id="L351" title="All 2 branches covered.">            for (int i = 0; i &lt; chars.length; i++) {</span>
+<span class="fc" id="L352">                bytes[i * 2] = (byte) (chars[i] &gt;&gt; 8);</span>
+<span class="fc" id="L353">                bytes[i * 2 + 1] = (byte) (chars[i] &amp; 0xff);</span>
+            }
+        } else {
+            // Copy with truncation
+<span class="fc" id="L357">            bytes = new byte[chars.length];</span>
+<span class="fc bfc" id="L358" title="All 2 branches covered.">            for (int i = 0; i &lt; bytes.length; i++) {</span>
+<span class="fc" id="L359">                bytes[i] = (byte) chars[i];</span>
+            }
+        }
+<span class="fc" id="L362">        return bytes;</span>
+    }
+
+    /**
+     * @param tis      document input stream, or &lt;code&gt;null&lt;/code&gt;
+     * @param metadata ignored
+     * @param parseContext the parse context
+     */
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext parseContext)
+            throws IOException {
+<span class="fc bfc" id="L372" title="All 2 branches covered.">        if (tis == null) {</span>
+<span class="fc" id="L373">            return MediaType.OCTET_STREAM;</span>
+        }
+
+<span class="fc" id="L376">        tis.mark(offsetRangeEnd + length);</span>
+        try {
+<span class="fc" id="L378">            int offset = 0;</span>
+
+            // Skip bytes at the beginning, using skip() or read()
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">            while (offset &lt; offsetRangeBegin) {</span>
+<span class="nc" id="L382">                long n = tis.skip(offsetRangeBegin - offset);</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">                if (n &gt; 0) {</span>
+<span class="nc" id="L384">                    offset += n;</span>
+<span class="nc bnc" id="L385" title="All 2 branches missed.">                } else if (tis.read() != -1) {</span>
+<span class="nc" id="L386">                    offset += 1;</span>
+                } else {
+<span class="nc" id="L388">                    return MediaType.OCTET_STREAM;</span>
+                }
+<span class="nc" id="L390">            }</span>
+
+            // Fill in the comparison window
+<span class="fc" id="L393">            byte[] buffer = new byte[length + (offsetRangeEnd - offsetRangeBegin)];</span>
+<span class="fc" id="L394">            int n = tis.read(buffer);</span>
+<span class="fc bfc" id="L395" title="All 2 branches covered.">            if (n &gt; 0) {</span>
+<span class="fc" id="L396">                offset += n;</span>
+            }
+<span class="fc bfc" id="L398" title="All 4 branches covered.">            while (n != -1 &amp;&amp; offset &lt; offsetRangeEnd + length) {</span>
+<span class="fc" id="L399">                int bufferOffset = offset - offsetRangeBegin;</span>
+<span class="fc" id="L400">                n = tis.read(buffer, bufferOffset, buffer.length - bufferOffset);</span>
+                // increment offset - in case not all read (see testDetectStreamReadProblems)
+<span class="pc bpc" id="L402" title="1 of 2 branches missed.">                if (n &gt; 0) {</span>
+<span class="nc" id="L403">                    offset += n;</span>
+                }
+<span class="fc" id="L405">            }</span>
+
+            // For non-regex, verify we have enough data
+<span class="fc bfc" id="L408" title="All 4 branches covered.">            if (!isRegex &amp;&amp; offset &lt; offsetRangeBegin + length) {</span>
+<span class="fc" id="L409">                return MediaType.OCTET_STREAM;</span>
+            }
+
+            // Buffer starts at offsetRangeBegin, so search from 0 to (offsetRangeEnd - offsetRangeBegin)
+<span class="fc bfc" id="L413" title="All 2 branches covered.">            if (matchesBuffer(buffer, 0, offsetRangeEnd - offsetRangeBegin)) {</span>
+<span class="fc" id="L414">                return type;</span>
+            }
+
+<span class="fc" id="L417">            return MediaType.OCTET_STREAM;</span>
+        } finally {
+<span class="fc" id="L419">            tis.reset();</span>
+        }
+    }
+
+    public int getLength() {
+<span class="fc" id="L424">        return this.patternLength;</span>
+    }
+
+    /**
+     * Checks if the given byte array matches this magic pattern.
+     * This is a more efficient alternative to {@link #detect(TikaInputStream, Metadata, ParseContext)}
+     * when you already have the bytes in memory.
+     *
+     * @param data the byte array to check
+     * @return true if the data matches this magic pattern, false otherwise
+     */
+    public boolean matches(byte[] data) {
+<span class="fc bfc" id="L436" title="All 2 branches covered.">        if (data == null) {</span>
+<span class="fc" id="L437">            return false;</span>
+        }
+
+        // For non-regex, we need at least patternLength bytes starting at offsetRangeBegin.
+        // For regex, we can match with less data since the pattern may be shorter than the buffer.
+<span class="fc bfc" id="L442" title="All 2 branches covered.">        if (!isRegex) {</span>
+<span class="fc" id="L443">            int requiredLength = offsetRangeBegin + length;</span>
+<span class="fc bfc" id="L444" title="All 2 branches covered.">            if (data.length &lt; requiredLength) {</span>
+<span class="fc" id="L445">                return false;</span>
+            }
+            // For non-regex, we need enough data after the start position for the pattern
+<span class="fc" id="L448">            int maxOffset = Math.min(offsetRangeEnd, data.length - length);</span>
+<span class="fc" id="L449">            return matchesBuffer(data, offsetRangeBegin, maxOffset);</span>
+        } else {
+            // For regex, just need data to reach offsetRangeBegin
+<span class="fc bfc" id="L452" title="All 2 branches covered.">            if (data.length &lt;= offsetRangeBegin) {</span>
+<span class="fc" id="L453">                return false;</span>
+            }
+            // For regex, try all positions up to min(offsetRangeEnd, data.length - 1)
+            // The regex pattern can match even at the last byte position
+<span class="fc" id="L457">            int maxOffset = Math.min(offsetRangeEnd, data.length - 1);</span>
+<span class="fc" id="L458">            return matchesBuffer(data, offsetRangeBegin, maxOffset);</span>
+        }
+    }
+
+    /**
+     * Core matching logic that checks if the pattern matches anywhere in the buffer
+     * within the specified offset range.
+     *
+     * @param buffer the byte array to search in
+     * @param startOffset the first position in the buffer to start matching (inclusive)
+     * @param endOffset the last position in the buffer to start matching (inclusive)
+     * @return true if a match is found, false otherwise
+     */
+    private boolean matchesBuffer(byte[] buffer, int startOffset, int endOffset) {
+<span class="fc bfc" id="L472" title="All 2 branches covered.">        if (this.isRegex) {</span>
+<span class="fc" id="L473">            int bufferLen = Math.min(buffer.length - startOffset, length + (endOffset - startOffset));</span>
+<span class="pc bpc" id="L474" title="1 of 2 branches missed.">            if (bufferLen &lt;= 0) {</span>
+<span class="nc" id="L475">                return false;</span>
+            }
+<span class="fc" id="L477">            ByteBuffer bb = ByteBuffer.wrap(buffer, startOffset, bufferLen);</span>
+<span class="fc" id="L478">            CharBuffer result = ISO_8859_1.decode(bb);</span>
+<span class="fc" id="L479">            Matcher m = compiledPattern.matcher(result);</span>
+
+            // Loop until we've covered the entire offset range
+<span class="fc bfc" id="L482" title="All 2 branches covered.">            for (int i = 0; i &lt;= endOffset - startOffset; i++) {</span>
+                // For regex, use available data length, not the fixed 8KB buffer size
+<span class="fc" id="L484">                int regionEnd = Math.min(length + i, result.length());</span>
+<span class="pc bpc" id="L485" title="1 of 2 branches missed.">                if (i &lt; regionEnd) {</span>
+<span class="fc" id="L486">                    m.region(i, regionEnd);</span>
+<span class="fc bfc" id="L487" title="All 2 branches covered.">                    if (m.lookingAt()) {</span>
+<span class="fc" id="L488">                        return true;</span>
+                    }
+                }
+            }
+<span class="fc" id="L492">        } else {</span>
+            // Loop until we've covered the entire offset range
+<span class="fc bfc" id="L494" title="All 2 branches covered.">            for (int i = startOffset; i &lt;= endOffset; i++) {</span>
+<span class="pc bpc" id="L495" title="1 of 2 branches missed.">                if (i + length &gt; buffer.length) {</span>
+<span class="nc" id="L496">                    break;</span>
+                }
+<span class="fc" id="L498">                boolean match = true;</span>
+                int masked;
+<span class="fc bfc" id="L500" title="All 4 branches covered.">                for (int j = 0; match &amp;&amp; j &lt; length; j++) {</span>
+<span class="fc" id="L501">                    masked = (buffer[i + j] &amp; mask[j]);</span>
+<span class="fc bfc" id="L502" title="All 2 branches covered.">                    if (this.isStringIgnoreCase) {</span>
+<span class="fc" id="L503">                        masked = Character.toLowerCase(masked);</span>
+                    }
+<span class="fc bfc" id="L505" title="All 2 branches covered.">                    match = (masked == pattern[j]);</span>
+                }
+<span class="fc bfc" id="L507" title="All 2 branches covered.">                if (match) {</span>
+<span class="fc" id="L508">                    return true;</span>
+                }
+            }
+        }
+
+<span class="fc" id="L513">        return false;</span>
+    }
+
+    /**
+     * Returns a string representation of the Detection Rule.
+     * Should sort nicely by type and details, as we sometimes
+     * compare these.
+     */
+    public String toString() {
+        // Needs to be unique, as these get compared.
+<span class="nc" id="L523">        return &quot;Magic Detection for &quot; + type + &quot; looking for &quot; + pattern.length + &quot; bytes = &quot; +</span>
+<span class="nc" id="L524">                Arrays.toString(this.pattern) + &quot; mask = &quot; + Arrays.toString(this.mask);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NNExampleModelDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">NNExampleModelDetector.java</span></div><h1>NNExampleModelDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.file.Path;
+import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.tika.mime.MediaType;
+
+public class NNExampleModelDetector extends TrainedModelDetector {
+    private static final String EXAMPLE_NNMODEL_FILE = &quot;tika-example.nnmodel&quot;;
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L40">    private static final Logger LOG = LoggerFactory.getLogger(NNExampleModelDetector.class);</span>
+
+    public NNExampleModelDetector() {
+<span class="fc" id="L43">        super();</span>
+<span class="fc" id="L44">    }</span>
+
+<span class="nc" id="L46">    public NNExampleModelDetector(final Path modelFile) {</span>
+<span class="nc" id="L47">        loadDefaultModels(modelFile);</span>
+<span class="nc" id="L48">    }</span>
+
+<span class="nc" id="L50">    public NNExampleModelDetector(final File modelFile) {</span>
+<span class="nc" id="L51">        loadDefaultModels(modelFile);</span>
+<span class="nc" id="L52">    }</span>
+
+    @Override
+    public void loadDefaultModels(InputStream modelStream) {
+<span class="fc" id="L56">        BufferedReader bReader = new BufferedReader(new InputStreamReader(modelStream, UTF_8));</span>
+
+<span class="fc" id="L58">        NNTrainedModelBuilder nnBuilder = new NNTrainedModelBuilder();</span>
+        String line;
+        try {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            while ((line = bReader.readLine()) != null) {</span>
+<span class="fc" id="L62">                line = line.trim();</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">                if (line.startsWith(&quot;#&quot;)) {</span>
+<span class="fc" id="L64">                    readDescription(nnBuilder, line);</span>
+                } else {
+<span class="fc" id="L66">                    readNNParams(nnBuilder, line);</span>
+                    // add this model into map of trained models.
+<span class="fc" id="L68">                    super.registerModels(nnBuilder.getType(), nnBuilder.build());</span>
+                }
+
+            }
+<span class="nc" id="L72">        } catch (IOException e) {</span>
+<span class="nc" id="L73">            throw new RuntimeException(&quot;Unable to read the default media type registry&quot;, e);</span>
+<span class="fc" id="L74">        }</span>
+<span class="fc" id="L75">    }</span>
+
+    /**
+     * this method gets overwritten to register load neural network models
+     */
+    @Override
+    public void loadDefaultModels(ClassLoader classLoader) {
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        if (classLoader == null) {</span>
+<span class="nc" id="L83">            classLoader = TrainedModelDetector.class.getClassLoader();</span>
+        }
+
+        // This allows us to replicate class.getResource() when using
+        // the classloader directly
+<span class="fc" id="L88">        String classPrefix =</span>
+<span class="fc" id="L89">                TrainedModelDetector.class.getPackage().getName().replace('.', '/') + &quot;/&quot;;</span>
+
+        // Get the core URL, and all the extensions URLs
+<span class="fc" id="L92">        URL modelURL = classLoader.getResource(classPrefix + EXAMPLE_NNMODEL_FILE);</span>
+<span class="fc" id="L93">        Objects.requireNonNull(modelURL,</span>
+                &quot;required resource &quot; + classPrefix + EXAMPLE_NNMODEL_FILE + &quot; not found&quot;);
+<span class="fc" id="L95">        try (InputStream stream = modelURL.openStream()) {</span>
+<span class="fc" id="L96">            loadDefaultModels(stream);</span>
+<span class="nc" id="L97">        } catch (IOException e) {</span>
+<span class="nc" id="L98">            throw new RuntimeException(&quot;Unable to read the default media type registry&quot;, e);</span>
+<span class="fc" id="L99">        }</span>
+
+<span class="fc" id="L101">    }</span>
+
+    /**
+     * read the comments where the model configuration is written, e.g the
+     * number of inputs, hiddens and output please ensure the first char in the
+     * given string is # In this example grb model file, there are 4 elements 1)
+     * type 2) number of input units 3) number of hidden units. 4) number of
+     * output units.
+     */
+    private void readDescription(final NNTrainedModelBuilder builder, final String line) {
+        int numInputs;
+        int numHidden;
+        int numOutputs;
+<span class="fc" id="L114">        String[] sarr = line.split(&quot;\t&quot;);</span>
+
+        try {
+<span class="fc" id="L117">            MediaType type = MediaType.parse(sarr[1]);</span>
+<span class="fc" id="L118">            numInputs = Integer.parseInt(sarr[2]);</span>
+<span class="fc" id="L119">            numHidden = Integer.parseInt(sarr[3]);</span>
+<span class="fc" id="L120">            numOutputs = Integer.parseInt(sarr[4]);</span>
+<span class="fc" id="L121">            builder.setNumOfInputs(numInputs);</span>
+<span class="fc" id="L122">            builder.setNumOfHidden(numHidden);</span>
+<span class="fc" id="L123">            builder.setNumOfOutputs(numOutputs);</span>
+<span class="fc" id="L124">            builder.setType(type);</span>
+<span class="nc" id="L125">        } catch (Exception e) {</span>
+<span class="nc" id="L126">            LOG.warn(&quot;Unable to parse the model configuration&quot;, e);</span>
+<span class="nc" id="L127">            throw new RuntimeException(&quot;Unable to parse the model configuration&quot;, e);</span>
+<span class="fc" id="L128">        }</span>
+<span class="fc" id="L129">    }</span>
+
+    /**
+     * Read the next line for the model parameters and populate the build which
+     * later will be used to instantiate the instance of TrainedModel
+     *
+     * @param builder
+     * @param line
+     */
+    private void readNNParams(final NNTrainedModelBuilder builder, final String line) {
+<span class="fc" id="L139">        String[] sarr = line.split(&quot;\t&quot;);</span>
+<span class="fc" id="L140">        int n = sarr.length;</span>
+<span class="fc" id="L141">        float[] params = new float[n];</span>
+        try {
+<span class="fc" id="L143">            int i = 0;</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">            for (String fstr : sarr) {</span>
+<span class="fc" id="L145">                params[i] = Float.parseFloat(fstr);</span>
+<span class="fc" id="L146">                i++;</span>
+            }
+<span class="fc" id="L148">            builder.setParams(params);</span>
+<span class="nc" id="L149">        } catch (Exception e) {</span>
+<span class="nc" id="L150">            LOG.warn(&quot;Unable to parse the model configuration&quot;, e);</span>
+<span class="nc" id="L151">            throw new RuntimeException(&quot;Unable to parse the model configuration&quot;, e);</span>
+<span class="fc" id="L152">        }</span>
+<span class="fc" id="L153">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

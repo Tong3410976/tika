@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EncodingDetectorContext.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">EncodingDetectorContext.java</span></div><h1>EncodingDetectorContext.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Context object that collects encoding detection results from base detectors.
+ * Stored in {@link org.apache.tika.parser.ParseContext} by
+ * {@link CompositeEncodingDetector} so that a {@link MetaEncodingDetector}
+ * can see all candidates and arbitrate. Removed after detection to prevent
+ * contamination during recursive parsing.
+ *
+ * &lt;p&gt;Each base detector contributes a ranked {@link List} of
+ * {@link EncodingResult}s. The context exposes the top result from each
+ * detector as the primary signal, and provides access to all candidates
+ * for richer arbitration strategies.&lt;/p&gt;
+ *
+ * @since Apache Tika 3.2
+ */
+<span class="nc" id="L40">public class EncodingDetectorContext {</span>
+
+<span class="nc" id="L42">    private final List&lt;Result&gt; results = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L43">    private final EncodingProbeCache probeCache = new EncodingProbeCache();</span>
+    private String arbitrationInfo;
+
+    /**
+     * Per-detection cache of the raw detection probe, shared across the detectors in
+     * this chain so they don't each re-read the same leading bytes. It lives and dies
+     * with this context (which is removed after detection), so it never leaks into
+     * recursive/attachment parsing.
+     */
+    public EncodingProbeCache getProbeCache() {
+<span class="nc" id="L53">        return probeCache;</span>
+    }
+
+    /**
+     * Record the ranked results from a child detector.
+     *
+     * @param encodingResults ranked results, highest confidence first; must not be empty
+     * @param detectorName    simple class name of the detector
+     */
+    public void addResult(List&lt;EncodingResult&gt; encodingResults, String detectorName) {
+<span class="nc bnc" id="L63" title="All 4 branches missed.">        if (encodingResults != null &amp;&amp; !encodingResults.isEmpty()) {</span>
+<span class="nc" id="L64">            results.add(new Result(encodingResults, detectorName));</span>
+        }
+<span class="nc" id="L66">    }</span>
+
+    /**
+     * @return unmodifiable list of all per-detector results in detection order
+     */
+    public List&lt;Result&gt; getResults() {
+<span class="nc" id="L72">        return Collections.unmodifiableList(results);</span>
+    }
+
+    /**
+     * Returns the unique charsets from ALL results of every detector,
+     * in detection order (top result first within each detector).
+     *
+     * &lt;p&gt;Using all candidates rather than just each detector's top-1 is
+     * important when a single detector returns a ranked list (e.g., Mojibuster
+     * on a short probe returns [windows-1252, windows-1250, Shift-JIS]). If
+     * only the top-1 were used, CharSoup would see a single charset and
+     * return &quot;unanimous&quot; without ever attempting arbitration.&lt;/p&gt;
+     */
+    public Set&lt;Charset&gt; getUniqueCharsets() {
+<span class="nc" id="L86">        Set&lt;Charset&gt; charsets = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        for (Result r : results) {</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            for (EncodingResult er : r.getEncodingResults()) {</span>
+<span class="nc" id="L89">                charsets.add(er.getCharset());</span>
+<span class="nc" id="L90">            }</span>
+<span class="nc" id="L91">        }</span>
+<span class="nc" id="L92">        return charsets;</span>
+    }
+
+    /**
+     * Returns the highest confidence seen for the given charset across all
+     * detector results (not just top results). Useful for arbitrators that
+     * want to propagate the base detector's confidence for the winning charset.
+     */
+    public float getTopConfidenceFor(Charset charset) {
+<span class="nc" id="L101">        float best = 0f;</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        for (Result r : results) {</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            for (EncodingResult er : r.getEncodingResults()) {</span>
+<span class="nc bnc" id="L104" title="All 4 branches missed.">                if (er.getCharset().equals(charset) &amp;&amp; er.getConfidence() &gt; best) {</span>
+<span class="nc" id="L105">                    best = er.getConfidence();</span>
+                }
+<span class="nc" id="L107">            }</span>
+<span class="nc" id="L108">        }</span>
+<span class="nc" id="L109">        return best;</span>
+    }
+
+    /**
+     * Set by the meta detector to describe how it reached its decision.
+     * Values: &quot;unanimous&quot;, &quot;scored&quot;, &quot;no-stream&quot;, &quot;empty-stream&quot;, etc.
+     */
+    public void setArbitrationInfo(String info) {
+<span class="nc" id="L117">        this.arbitrationInfo = info;</span>
+<span class="nc" id="L118">    }</span>
+
+    public String getArbitrationInfo() {
+<span class="nc" id="L121">        return arbitrationInfo;</span>
+    }
+
+    /**
+     * A single detector's contribution: its ranked list of candidates and its name.
+     */
+    public static class Result {
+        private final List&lt;EncodingResult&gt; encodingResults;
+        private final String detectorName;
+
+<span class="nc" id="L131">        public Result(List&lt;EncodingResult&gt; encodingResults, String detectorName) {</span>
+<span class="nc" id="L132">            this.encodingResults = Collections.unmodifiableList(</span>
+                    new ArrayList&lt;&gt;(encodingResults));
+<span class="nc" id="L134">            this.detectorName = detectorName;</span>
+<span class="nc" id="L135">        }</span>
+
+        /**
+         * All ranked results from this detector, highest confidence first.
+         */
+        public List&lt;EncodingResult&gt; getEncodingResults() {
+<span class="nc" id="L141">            return encodingResults;</span>
+        }
+
+        /**
+         * The top-ranked charset from this detector.
+         */
+        public Charset getCharset() {
+<span class="nc" id="L148">            return encodingResults.get(0).getCharset();</span>
+        }
+
+        /**
+         * The confidence of the top-ranked result from this detector.
+         */
+        public float getConfidence() {
+<span class="nc" id="L155">            return encodingResults.get(0).getConfidence();</span>
+        }
+
+        /**
+         * The {@link EncodingResult.ResultType} of the top-ranked result from this detector.
+         */
+        public EncodingResult.ResultType getResultType() {
+<span class="nc" id="L162">            return encodingResults.get(0).getResultType();</span>
+        }
+
+        public String getDetectorName() {
+<span class="nc" id="L166">            return detectorName;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L171">            return detectorName + &quot;=&quot; + encodingResults.get(0);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

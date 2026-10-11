@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParseContext.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">ParseContext.java</span></div><h1>ParseContext.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.writefilter.MetadataWriteLimiterFactory;
+
+/**
+ * Parse context. Used to pass context information to Tika parsers.
+ *
+ * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-275&quot;&gt;TIKA-275&lt;/a&gt;
+ * @since Apache Tika 0.5
+ */
+<span class="fc" id="L34">public class ParseContext implements Serializable {</span>
+
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = -5921436862145826534L;
+
+    /**
+     * Map of typed objects in this context, keyed by class name.
+     */
+<span class="fc" id="L44">    private final Map&lt;String, Object&gt; context = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Map of JSON configs, keyed by component name (e.g., &quot;pdf-parser&quot;).
+     * This is the source of truth for round-trip serialization.
+     * Using JsonConfig interface allows for future extension with metadata.
+     */
+<span class="fc" id="L51">    private final Map&lt;String, JsonConfig&gt; jsonConfigs = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Cache of resolved objects from jsonConfigs, keyed by component name.
+     * This is ignored during serialization to preserve round-trip fidelity.
+     * Note: Not final because Java serialization bypasses constructor initialization.
+     */
+<span class="fc" id="L58">    private transient Map&lt;String, Object&gt; resolvedConfigs = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Adds the given value to the context as an implementation of the given
+     * interface.
+     *
+     * @param key   the interface implemented by the given value
+     * @param value the value to be added, or &lt;code&gt;null&lt;/code&gt; to remove
+     */
+    public &lt;T&gt; void set(Class&lt;T&gt; key, T value) {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (value != null) {</span>
+<span class="fc" id="L69">            context.put(key.getName(), value);</span>
+        } else {
+<span class="fc" id="L71">            context.remove(key.getName());</span>
+        }
+<span class="fc" id="L73">    }</span>
+
+    /**
+     * Returns the object in this context that implements the given interface.
+     *
+     * @param key the interface implemented by the requested object
+     * @return the object that implements the given interface,
+     * or &lt;code&gt;null&lt;/code&gt; if not found
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T get(Class&lt;T&gt; key) {
+<span class="fc" id="L84">        return (T) context.get(key.getName());</span>
+    }
+
+    /**
+     * Returns the object in this context that implements the given interface,
+     * or the given default value if such an object is not found.
+     *
+     * @param key          the interface implemented by the requested object
+     * @param defaultValue value to return if the requested object is not found
+     * @return the object that implements the given interface,
+     * or the given default value if not found
+     */
+    public &lt;T&gt; T get(Class&lt;T&gt; key, T defaultValue) {
+<span class="nc" id="L97">        T value = get(key);</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (value != null) {</span>
+<span class="nc" id="L99">            return value;</span>
+        } else {
+<span class="nc" id="L101">            return defaultValue;</span>
+        }
+    }
+
+    /**
+     * Sets a JSON configuration by component name.
+     * &lt;p&gt;
+     * This stores the JSON config for later resolution. The JSON will be
+     * deserialized when requested via the component registry in tika-serialization.
+     * &lt;p&gt;
+     * Example:
+     * &lt;pre&gt;
+     * parseContext.setJsonConfig(&quot;pdf-parser&quot;, () -&amp;gt; &quot;{\&quot;ocr\&quot;: {\&quot;strategy\&quot;: \&quot;AUTO\&quot;}}&quot;);
+     * parseContext.setJsonConfig(&quot;handler-config&quot;, () -&amp;gt; &quot;{\&quot;type\&quot;: \&quot;XML\&quot;}&quot;);
+     * &lt;/pre&gt;
+     *
+     * @param name   the component name (e.g., &quot;pdf-parser&quot;, &quot;handler-config&quot;)
+     * @param config the JSON configuration
+     * @since Apache Tika 4.0
+     */
+    public void setJsonConfig(String name, JsonConfig config) {
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (config != null) {</span>
+<span class="fc" id="L123">            jsonConfigs.put(name, config);</span>
+        } else {
+<span class="nc" id="L125">            jsonConfigs.remove(name);</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (resolvedConfigs != null) {</span>
+<span class="nc" id="L127">                resolvedConfigs.remove(name);</span>
+            }
+        }
+<span class="fc" id="L130">    }</span>
+
+    /**
+     * Sets a JSON configuration by component name using a raw JSON string.
+     * &lt;p&gt;
+     * Convenience method that wraps the string in a JsonConfig.
+     *
+     * @param name the component name (e.g., &quot;pdf-parser&quot;, &quot;handler-config&quot;)
+     * @param json the JSON configuration string
+     * @since Apache Tika 4.0
+     */
+    public void setJsonConfig(String name, String json) {
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        setJsonConfig(name, json != null ? new StringJsonConfig(json) : null);</span>
+<span class="fc" id="L143">    }</span>
+
+    /**
+     * A simple Serializable implementation of JsonConfig that holds a JSON string.
+     * This is used internally to ensure JSON configs can be serialized via Java serialization.
+     */
+<span class="fc" id="L149">    private record StringJsonConfig(String json) implements JsonConfig, Serializable {</span>
+        private static final long serialVersionUID = 1L;
+    }
+
+    /**
+     * Gets a JSON configuration by component name.
+     *
+     * @param name the component name
+     * @return the JsonConfig, or null if not found
+     * @since Apache Tika 4.0
+     */
+    public JsonConfig getJsonConfig(String name) {
+<span class="nc" id="L161">        return jsonConfigs.get(name);</span>
+    }
+
+    /**
+     * Returns all JSON configurations for serialization.
+     *
+     * @return unmodifiable map of component name to JsonConfig
+     * @since Apache Tika 4.0
+     */
+    public Map&lt;String, JsonConfig&gt; getJsonConfigs() {
+<span class="fc" id="L171">        return Collections.unmodifiableMap(jsonConfigs);</span>
+    }
+
+    /**
+     * Gets a resolved configuration object from the cache.
+     * &lt;p&gt;
+     * This is used by tika-serialization after deserializing a JSON config.
+     * The resolved object is cached here to avoid repeated deserialization.
+     *
+     * @param name the component name
+     * @return the resolved object, or null if not cached
+     * @since Apache Tika 4.0
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T getResolvedConfig(String name) {
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        if (resolvedConfigs == null) {</span>
+<span class="nc" id="L187">            return null;</span>
+        }
+<span class="fc" id="L189">        return (T) resolvedConfigs.get(name);</span>
+    }
+
+    /**
+     * Caches a resolved configuration object.
+     * &lt;p&gt;
+     * Called by tika-serialization after deserializing a JSON config.
+     *
+     * @param name   the component name
+     * @param config the resolved configuration object
+     * @since Apache Tika 4.0
+     */
+    public void setResolvedConfig(String name, Object config) {
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (resolvedConfigs == null) {</span>
+<span class="nc" id="L203">            resolvedConfigs = new HashMap&lt;&gt;();</span>
+        }
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">        if (config != null) {</span>
+<span class="fc" id="L206">            resolvedConfigs.put(name, config);</span>
+        } else {
+<span class="nc" id="L208">            resolvedConfigs.remove(name);</span>
+        }
+<span class="fc" id="L210">    }</span>
+
+    /**
+     * Checks if a JSON configuration exists for the given component name.
+     *
+     * @param name the component name
+     * @return true if a JSON config exists
+     * @since Apache Tika 4.0
+     */
+    public boolean hasJsonConfig(String name) {
+<span class="fc" id="L220">        return jsonConfigs.containsKey(name);</span>
+    }
+
+    public boolean isEmpty() {
+<span class="nc bnc" id="L224" title="All 4 branches missed.">        return context.isEmpty() &amp;&amp; jsonConfigs.isEmpty();</span>
+    }
+
+    /**
+     * Copies all entries from the source ParseContext into this one.
+     * Existing entries in this context are overwritten by source entries.
+     * &lt;p&gt;
+     * This copies both typed objects (from context map) and JSON configs.
+     *
+     * @param source the ParseContext to copy from
+     * @since Apache Tika 4.0
+     */
+    public void copyFrom(ParseContext source) {
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">        if (source == null) {</span>
+<span class="nc" id="L238">            return;</span>
+        }
+        // Copy typed objects
+<span class="fc" id="L241">        context.putAll(source.context);</span>
+        // Copy JSON configs, invalidating stale resolved state for overridden keys.
+        // When a source jsonConfig overrides an existing entry, the previously resolved
+        // object is stale and must be cleared so resolveAll() will re-resolve from the
+        // new JSON config.
+<span class="fc bfc" id="L246" title="All 2 branches covered.">        for (Map.Entry&lt;String, JsonConfig&gt; entry : source.jsonConfigs.entrySet()) {</span>
+<span class="fc" id="L247">            String key = entry.getKey();</span>
+<span class="fc" id="L248">            jsonConfigs.put(key, entry.getValue());</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">            if (resolvedConfigs != null) {</span>
+<span class="fc" id="L250">                resolvedConfigs.remove(key);</span>
+            }
+<span class="fc" id="L252">        }</span>
+        // Copy resolved configs from source (if any)
+<span class="pc bpc" id="L254" title="1 of 4 branches missed.">        if (source.resolvedConfigs != null &amp;&amp; !source.resolvedConfigs.isEmpty()) {</span>
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">            if (resolvedConfigs == null) {</span>
+<span class="nc" id="L256">                resolvedConfigs = new HashMap&lt;&gt;();</span>
+            }
+<span class="fc" id="L258">            resolvedConfigs.putAll(source.resolvedConfigs);</span>
+        }
+<span class="fc" id="L260">    }</span>
+
+    /**
+     * Creates a new Metadata object with any configured limits applied.
+     * &lt;p&gt;
+     * If a {@link MetadataWriteLimiterFactory} is configured in this ParseContext, the returned
+     * Metadata will have a write limiter that enforces those limits. Otherwise,
+     * returns a plain Metadata object.
+     * &lt;p&gt;
+     * Parsers should use this method instead of {@code new Metadata()} when creating
+     * metadata for embedded documents, to ensure limits are applied at creation time
+     * rather than later during parsing.
+     * &lt;p&gt;
+     * Example usage:
+     * &lt;pre&gt;
+     * Metadata embeddedMetadata = Metadata.newInstance(context);
+     * embeddedMetadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, name);
+     * // limits are already applied, no data bypasses the limiter
+     * &lt;/pre&gt;
+     *
+     * @return a new Metadata object, with limits applied if configured
+     * @since Apache Tika 4.0
+     * @see Metadata#newInstance(ParseContext)
+     */
+    public Metadata newMetadata() {
+<span class="nc" id="L285">        return Metadata.newInstance(this);</span>
+    }
+
+
+    /**
+     * Returns the internal context map for serialization purposes.
+     * The returned map is unmodifiable.
+     * &lt;p&gt;
+     * This method is intended for use by serialization frameworks only.
+     * Keys are fully-qualified class names, values are the objects stored in the context.
+     *
+     * @return an unmodifiable view of the context map
+     * @since Apache Tika 4.0
+     */
+    public Map&lt;String, Object&gt; getContextMap() {
+<span class="nc" id="L300">        return Collections.unmodifiableMap(context);</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L306">            return true;</span>
+        }
+<span class="nc bnc" id="L308" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L309">            return false;</span>
+        }
+
+<span class="nc" id="L312">        ParseContext that = (ParseContext) o;</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        if (!context.equals(that.context)) {</span>
+<span class="nc" id="L314">            return false;</span>
+        }
+<span class="nc" id="L316">        return jsonConfigs.equals(that.jsonConfigs);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L321">        int result = context.hashCode();</span>
+<span class="nc" id="L322">        result = 31 * result + jsonConfigs.hashCode();</span>
+<span class="nc" id="L323">        return result;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L328">        return &quot;ParseContext{&quot; +</span>
+                &quot;context=&quot; + context +
+                &quot;, jsonConfigs=&quot; + jsonConfigs +
+                '}';
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

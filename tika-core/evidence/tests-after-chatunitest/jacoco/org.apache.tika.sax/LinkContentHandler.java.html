@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LinkContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">LinkContentHandler.java</span></div><h1>LinkContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import static org.apache.tika.sax.XHTMLContentHandler.XHTML;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.helpers.DefaultHandler;
+
+/**
+ * Content handler that collects links from an XHTML document.
+ */
+public class LinkContentHandler extends DefaultHandler {
+
+    /**
+     * Stack of link builders, one for each level of nested links currently
+     * being processed. A usual case of a nested link would be a hyperlinked
+     * image (&lt;code&gt;&amp;a href=&quot;...&quot;&amp;gt;&amp;lt;img src=&quot;...&quot;&amp;gt;&amp;lt;&amp;gt;&lt;/code&gt;),
+     * but it's possible (though unlikely) for also other kinds of nesting
+     * to occur.
+     */
+<span class="fc" id="L40">    private final LinkedList&lt;LinkBuilder&gt; builderStack = new LinkedList&lt;&gt;();</span>
+
+    /**
+     * Collected links
+     */
+<span class="fc" id="L45">    private final List&lt;Link&gt; links = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * Whether to collapse whitespace in anchor text
+     */
+    private final boolean collapseWhitespaceInAnchor;
+
+    /**
+     * Default constructor
+     */
+    public LinkContentHandler() {
+<span class="fc" id="L56">        this(false);</span>
+<span class="fc" id="L57">    }</span>
+
+    /**
+     * Default constructor
+     *
+     * @param collapseWhitespaceInAnchor
+     */
+    public LinkContentHandler(boolean collapseWhitespaceInAnchor) {
+<span class="fc" id="L65">        super();</span>
+
+<span class="fc" id="L67">        this.collapseWhitespaceInAnchor = collapseWhitespaceInAnchor;</span>
+<span class="fc" id="L68">    }</span>
+
+    /**
+     * Returns the list of collected links.
+     *
+     * @return collected links
+     */
+    public List&lt;Link&gt; getLinks() {
+<span class="fc" id="L76">        return links;</span>
+    }
+
+    //-------------------------------------------------------&lt; ContentHandler&gt;
+
+    @Override
+    public void startElement(String uri, String local, String name, Attributes attributes) {
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (XHTML.equals(uri)) {</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (&quot;a&quot;.equals(local)) {</span>
+<span class="fc" id="L85">                LinkBuilder builder = new LinkBuilder(&quot;a&quot;);</span>
+<span class="fc" id="L86">                builder.setURI(attributes.getValue(&quot;&quot;, &quot;href&quot;));</span>
+<span class="fc" id="L87">                builder.setTitle(attributes.getValue(&quot;&quot;, &quot;title&quot;));</span>
+<span class="fc" id="L88">                builder.setRel(attributes.getValue(&quot;&quot;, &quot;rel&quot;));</span>
+<span class="fc" id="L89">                builderStack.addFirst(builder);</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">            } else if (&quot;link&quot;.equals(local)) {</span>
+<span class="fc" id="L91">                LinkBuilder builder = new LinkBuilder(&quot;link&quot;);</span>
+<span class="fc" id="L92">                builder.setURI(attributes.getValue(&quot;&quot;, &quot;href&quot;));</span>
+<span class="fc" id="L93">                builder.setRel(attributes.getValue(&quot;&quot;, &quot;rel&quot;));</span>
+<span class="fc" id="L94">                builderStack.addFirst(builder);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            } else if (&quot;script&quot;.equals(local)) {</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">                if (attributes.getValue(&quot;&quot;, &quot;src&quot;) != null) {</span>
+<span class="fc" id="L97">                    LinkBuilder builder = new LinkBuilder(&quot;script&quot;);</span>
+<span class="fc" id="L98">                    builder.setURI(attributes.getValue(&quot;&quot;, &quot;src&quot;));</span>
+<span class="fc" id="L99">                    builderStack.addFirst(builder);</span>
+<span class="fc" id="L100">                }</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">            } else if (&quot;iframe&quot;.equals(local)) {</span>
+<span class="fc" id="L102">                LinkBuilder builder = new LinkBuilder(&quot;iframe&quot;);</span>
+<span class="fc" id="L103">                builder.setURI(attributes.getValue(&quot;&quot;, &quot;src&quot;));</span>
+<span class="fc" id="L104">                builderStack.addFirst(builder);</span>
+<span class="pc bnc" id="L105" title="All 2 branches missed.">            } else if (&quot;img&quot;.equals(local)) {</span>
+<span class="nc" id="L106">                LinkBuilder builder = new LinkBuilder(&quot;img&quot;);</span>
+<span class="nc" id="L107">                builder.setURI(attributes.getValue(&quot;&quot;, &quot;src&quot;));</span>
+<span class="nc" id="L108">                builder.setTitle(attributes.getValue(&quot;&quot;, &quot;title&quot;));</span>
+<span class="nc" id="L109">                builder.setRel(attributes.getValue(&quot;&quot;, &quot;rel&quot;));</span>
+<span class="nc" id="L110">                builderStack.addFirst(builder);</span>
+
+<span class="nc" id="L112">                String alt = attributes.getValue(&quot;&quot;, &quot;alt&quot;);</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">                if (alt != null) {</span>
+<span class="nc" id="L114">                    char[] ch = alt.toCharArray();</span>
+<span class="nc" id="L115">                    characters(ch, 0, ch.length);</span>
+                }
+            }
+        }
+<span class="fc" id="L119">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) {
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        for (LinkBuilder builder : builderStack) {</span>
+<span class="fc" id="L124">            builder.characters(ch, start, length);</span>
+<span class="fc" id="L125">        }</span>
+<span class="fc" id="L126">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) {
+<span class="nc" id="L130">        characters(ch, start, length);</span>
+<span class="nc" id="L131">    }</span>
+
+    @Override
+    public void endElement(String uri, String local, String name) {
+<span class="pc bpc" id="L135" title="1 of 4 branches missed.">        if (!builderStack.isEmpty() &amp;&amp; XHTML.equals(uri)) {</span>
+<span class="pc bpc" id="L136" title="1 of 6 branches missed.">            if (&quot;a&quot;.equals(local) || &quot;img&quot;.equals(local) || &quot;link&quot;.equals(local) ||</span>
+<span class="pc bpc" id="L137" title="1 of 4 branches missed.">                    &quot;script&quot;.equals(local) || &quot;iframe&quot;.equals(local)) {</span>
+                // ensure this is the correct builder. not all &lt;/script&gt; tags correspond
+                // to a LinkBuilder, e.g. for embedded scripts
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">                if (builderStack.getFirst().getType().equals(local)) {</span>
+<span class="fc" id="L141">                    LinkBuilder builder = builderStack.removeFirst();</span>
+<span class="fc" id="L142">                    links.add(builder.getLink(collapseWhitespaceInAnchor));</span>
+                }
+            }
+        }
+<span class="fc" id="L146">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

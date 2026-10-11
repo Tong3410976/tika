@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TIFF.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">TIFF.java</span></div><h1>TIFF.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * XMP Exif TIFF schema. This is a collection of
+ * {@link Property property definition} constants for the Exif TIFF
+ * properties defined in the XMP standard.
+ *
+ * @see &lt;a href=&quot;http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/xmp/pdfs/cc-201306/XMPSpecificationPart2.pdf&quot;
+ * &gt;XMP Specification, Part 2: Standard Schemas&lt;/a&gt;
+ * @since Apache Tika 0.8
+ */
+public interface TIFF {
+
+    /**
+     * &quot;Number of bits per component in each channel.&quot;
+     */
+<span class="fc" id="L33">    Property BITS_PER_SAMPLE = Property.internalIntegerSequence(&quot;tiff:BitsPerSample&quot;);</span>
+
+    /**
+     * &quot;Image height in pixels.&quot;
+     */
+<span class="fc" id="L38">    Property IMAGE_LENGTH = Property.internalInteger(&quot;tiff:ImageLength&quot;);</span>
+
+    /**
+     * &quot;Image width in pixels.&quot;
+     */
+<span class="fc" id="L43">    Property IMAGE_WIDTH = Property.internalInteger(&quot;tiff:ImageWidth&quot;);</span>
+
+    /**
+     * &quot;Number of components per pixel.&quot;
+     */
+<span class="fc" id="L48">    Property SAMPLES_PER_PIXEL = Property.internalInteger(&quot;tiff:SamplesPerPixel&quot;);</span>
+
+    /**
+     * Did the Flash fire when taking this image?
+     */
+<span class="fc" id="L53">    Property FLASH_FIRED = Property.internalBoolean(&quot;exif:Flash&quot;);</span>
+
+    /**
+     * &quot;Exposure time in seconds.&quot;
+     */
+<span class="fc" id="L58">    Property EXPOSURE_TIME = Property.internalRational(&quot;exif:ExposureTime&quot;);</span>
+
+    /**
+     * &quot;F-Number.&quot;
+     * The f-number is the focal length divided by the &quot;effective&quot; aperture
+     * diameter. It is a dimensionless number that is a measure of lens speed.
+     */
+<span class="fc" id="L65">    Property F_NUMBER = Property.internalRational(&quot;exif:FNumber&quot;);</span>
+
+    /**
+     * &quot;Focal length of the lens, in millimeters.&quot;
+     */
+<span class="fc" id="L70">    Property FOCAL_LENGTH = Property.internalRational(&quot;exif:FocalLength&quot;);</span>
+
+    /**
+     * &quot;ISO Speed and ISO Latitude of the input device as specified in ISO 12232&quot;
+     */
+<span class="fc" id="L75">    Property ISO_SPEED_RATINGS = Property.internalIntegerSequence(&quot;exif:IsoSpeedRatings&quot;);</span>
+
+    /**
+     * &quot;Manufacturer of the recording equipment.&quot;
+     */
+<span class="fc" id="L80">    Property EQUIPMENT_MAKE = Property.internalText(&quot;tiff:Make&quot;);</span>
+
+    /**
+     * &quot;Model name or number of the recording equipment.&quot;
+     */
+<span class="fc" id="L85">    Property EQUIPMENT_MODEL = Property.internalText(&quot;tiff:Model&quot;);</span>
+
+    /**
+     * &quot;Software or firmware used to generate the image.&quot;
+     */
+<span class="fc" id="L90">    Property SOFTWARE = Property.internalText(&quot;tiff:Software&quot;);</span>
+
+    /**
+     * &quot;The Orientation of the image.&quot;
+     * 1 = 0th row at top, 0th column at left
+     * 2 = 0th row at top, 0th column at right
+     * 3 = 0th row at bottom, 0th column at right
+     * 4 = 0th row at bottom, 0th column at left
+     * 5 = 0th row at left, 0th column at top
+     * 6 = 0th row at right, 0th column at top
+     * 7 = 0th row at right, 0th column at bottom
+     * 8 = 0th row at left, 0th column at bottom
+     */
+<span class="fc" id="L103">    Property ORIENTATION =</span>
+<span class="fc" id="L104">            Property.internalClosedChoise(&quot;tiff:Orientation&quot;, &quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;4&quot;, &quot;5&quot;, &quot;6&quot;, &quot;7&quot;,</span>
+                    &quot;8&quot;);
+
+    /**
+     * &quot;Horizontal resolution in pixels per unit.&quot;
+     */
+<span class="fc" id="L110">    Property RESOLUTION_HORIZONTAL = Property.internalRational(&quot;tiff:XResolution&quot;);</span>
+
+    /**
+     * &quot;Vertical resolution in pixels per unit.&quot;
+     */
+<span class="fc" id="L115">    Property RESOLUTION_VERTICAL = Property.internalRational(&quot;tiff:YResolution&quot;);</span>
+
+    /**
+     * &quot;Units used for Horizontal and Vertical Resolutions.&quot;
+     * One of &quot;Inch&quot; or &quot;cm&quot;
+     */
+<span class="fc" id="L121">    Property RESOLUTION_UNIT = Property.internalClosedChoise(&quot;tiff:ResolutionUnit&quot;, &quot;Inch&quot;, &quot;cm&quot;);</span>
+
+    /**
+     * &quot;Date and time when original image was generated&quot;
+     */
+<span class="fc" id="L126">    Property ORIGINAL_DATE = Property.internalDate(&quot;exif:DateTimeOriginal&quot;);</span>
+
+<span class="fc" id="L128">    Property EXIF_PAGE_COUNT = Property.externalInteger(&quot;exif:PageCount&quot;);</span>
+
+    /** Camera-body serial number. */
+<span class="fc" id="L131">    Property SERIAL_NUMBER = Property.internalText(&quot;aux:SerialNumber&quot;);</span>
+
+    /** Human-readable lens description, e.g. &quot;70-200mm f/2.8&quot;. */
+<span class="fc" id="L134">    Property LENS = Property.internalText(&quot;aux:Lens&quot;);</span>
+
+    /** Lens spec: min/max focal length and aperture. */
+<span class="fc" id="L137">    Property LENS_INFO = Property.internalText(&quot;aux:LensInfo&quot;);</span>
+
+    /** Numeric lens identifier. */
+<span class="fc" id="L140">    Property LENS_ID = Property.internalText(&quot;aux:LensID&quot;);</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

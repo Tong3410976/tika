@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MAPI.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">MAPI.java</span></div><h1>MAPI.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ *
+ * Properties that typically appear in MSG/PST message format files.
+ *
+ * @since Apache Tika 4.0
+ */
+public interface MAPI {
+
+    String PREFIX_MAPI_META = &quot;mapi&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+    String PREFIX_MAPI_ATTACH_META = &quot;mapi:attach&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+    String PREFIX_MAPI_PROPERTY = PREFIX_MAPI_META + &quot;property&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+<span class="nc" id="L30">    PassthroughPrefix PROPERTY = PassthroughPrefix.file(PREFIX_MAPI_PROPERTY, &quot;MAPI named properties&quot;);</span>
+
+    /**
+     * MAPI message class.  What type of .msg/MAPI file is it?
+     * This is normalized via &quot;mapi_message_classes.properties
+     */
+<span class="nc" id="L36">    Property MESSAGE_CLASS = Property.internalText(PREFIX_MAPI_META + &quot;message-class&quot;);</span>
+
+    /**
+     * MAPI message class.  What type of .msg/MAPI file is it?
+     * This is the raw value that is retrieved from the underlying chunk
+     */
+<span class="nc" id="L42">    Property MESSAGE_CLASS_RAW = Property.internalText(PREFIX_MAPI_META + &quot;message-class-raw&quot;);</span>
+
+<span class="nc" id="L44">    Property SENT_BY_SERVER_TYPE = Property.internalText(PREFIX_MAPI_META + &quot;sent-by-server-type&quot;);</span>
+
+<span class="nc" id="L46">    Property FROM_REPRESENTING_NAME = Property.internalText(PREFIX_MAPI_META + &quot;from-representing-name&quot;);</span>
+
+<span class="nc" id="L48">    Property FROM_REPRESENTING_EMAIL = Property.internalText(PREFIX_MAPI_META + &quot;from-representing-email&quot;);</span>
+
+<span class="nc" id="L50">    Property SUBMISSION_ACCEPTED_AT_TIME = Property.internalDate(PREFIX_MAPI_META + &quot;msg-submission-accepted-at-time&quot;);</span>
+
+    // PidTagClientSubmitTime -- distinct MAPI prop from the provider-side SUBMISSION_ACCEPTED_AT_TIME.
+<span class="nc" id="L53">    Property CLIENT_SUBMIT_TIME = Property.internalDate(PREFIX_MAPI_META + &quot;msg-client-submit-time&quot;);</span>
+
+    // CREATED/MODIFIED fallback when no CLIENT_SUBMIT_TIME.
+<span class="nc" id="L56">    Property MESSAGE_DELIVERY_TIME = Property.internalDate(PREFIX_MAPI_META + &quot;message-delivery-time&quot;);</span>
+
+    // Storage-level timestamps, not content dates -- don't use for CREATED/MODIFIED (TIKA-4798).
+<span class="nc" id="L59">    Property CREATION_TIME = Property.internalDate(PREFIX_MAPI_META + &quot;creation-time&quot;);</span>
+<span class="nc" id="L60">    Property LAST_MODIFICATION_TIME = Property.internalDate(PREFIX_MAPI_META + &quot;last-modification-time&quot;);</span>
+
+<span class="nc" id="L62">    Property SUBMISSION_ID = Property.internalText(PREFIX_MAPI_META + &quot;msg-submission-id&quot;);</span>
+
+<span class="nc" id="L64">    Property INTERNET_MESSAGE_ID = Property.internalText(PREFIX_MAPI_META + &quot;internet-message-id&quot;);</span>
+
+<span class="nc" id="L66">    Property INTERNET_REFERENCES = Property.internalTextBag(PREFIX_MAPI_META + &quot;internet-references&quot;);</span>
+
+
+<span class="nc" id="L69">    Property CONVERSATION_TOPIC = Property.internalText(PREFIX_MAPI_META + &quot;conversation-topic&quot;);</span>
+
+<span class="nc" id="L71">    Property CONVERSATION_INDEX = Property.internalText(PREFIX_MAPI_META + &quot;conversation-index&quot;);</span>
+<span class="nc" id="L72">    Property IN_REPLY_TO_ID = Property.internalText(PREFIX_MAPI_META + &quot;in-reply-to-id&quot;);</span>
+
+<span class="nc" id="L74">    Property RECIPIENTS_STRING = Property.internalText(PREFIX_MAPI_META + &quot;recipients-string&quot;);</span>
+<span class="nc" id="L75">    Property IMPORTANCE = Property.internalInteger(PREFIX_MAPI_META + &quot;importance&quot;);</span>
+<span class="nc" id="L76">    Property PRIORTY = Property.internalInteger(PREFIX_MAPI_META + &quot;priority&quot;);</span>
+<span class="nc" id="L77">    Property IS_FLAGGED = Property.internalBoolean(PREFIX_MAPI_META + &quot;is-flagged&quot;);</span>
+
+<span class="nc" id="L79">    Property BODY_TYPES_PROCESSED = Property.internalTextBag(PREFIX_MAPI_META + &quot;body-types-processed&quot;);</span>
+
+<span class="nc" id="L81">    Property ATTACH_LONG_PATH_NAME = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;long-path-name&quot;);</span>
+<span class="nc" id="L82">    Property ATTACH_LONG_FILE_NAME = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;long-file-name&quot;);</span>
+<span class="nc" id="L83">    Property ATTACH_FILE_NAME = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;file-name&quot;);</span>
+<span class="nc" id="L84">    Property ATTACH_CONTENT_ID = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;content-id&quot;);</span>
+<span class="nc" id="L85">    Property ATTACH_CONTENT_LOCATION = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;content-location&quot;);</span>
+<span class="nc" id="L86">    Property ATTACH_DISPLAY_NAME = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;display-name&quot;);</span>
+<span class="nc" id="L87">    Property ATTACH_EXTENSION = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;extension&quot;);</span>
+<span class="nc" id="L88">    Property ATTACH_MIME = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;mime&quot;);</span>
+<span class="nc" id="L89">    Property ATTACH_LANGUAGE = Property.internalText(PREFIX_MAPI_ATTACH_META + &quot;language&quot;);</span>
+
+    /**
+     * PidTagAttachFlags (0x3714) — indicates which body formats might reference this attachment.
+     * Bit 1 (0x1) = ATT_INVISIBLE_IN_HTML
+     * Bit 2 (0x2) = ATT_INVISIBLE_IN_RTF
+     * Bit 3 (0x4) = ATT_RENDERED_IN_BODY
+     */
+<span class="nc" id="L97">    Property ATTACH_FLAGS = Property.internalInteger(PREFIX_MAPI_ATTACH_META + &quot;flags&quot;);</span>
+
+    /**
+     * PidTagAttachmentHidden (0x7FFE) — indicates whether this attachment is hidden from the end
+     * user. Inline images typically have this set to true.
+     */
+<span class="nc" id="L103">    Property ATTACH_HIDDEN = Property.internalBoolean(PREFIX_MAPI_ATTACH_META + &quot;hidden&quot;);</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CachingInputStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">CachingInputStream.java</span></div><h1>CachingInputStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
+
+/**
+ * Package-private InputStream wrapper that caches all bytes read,
+ * allowing seeking back to any previously-read position.
+ * &lt;p&gt;
+ * Bytes are cached in a {@link StreamCache} which stores them in memory
+ * up to a threshold, then spills to a temporary file.
+ */
+class CachingInputStream extends InputStream {
+
+    private final InputStream source;
+    private final StreamCache cache;
+
+    private long position;      // Current logical position in the stream
+    private boolean sourceExhausted;
+
+<span class="fc" id="L38">    CachingInputStream(InputStream source, StreamCache cache) {</span>
+<span class="fc" id="L39">        this.source = source;</span>
+<span class="fc" id="L40">        this.cache = cache;</span>
+<span class="fc" id="L41">        this.position = 0;</span>
+<span class="fc" id="L42">        this.sourceExhausted = false;</span>
+<span class="fc" id="L43">    }</span>
+
+    @Override
+    public int read() throws IOException {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (position &lt; cache.size()) {</span>
+            // Reading from cache (replay mode)
+<span class="fc" id="L49">            int b = cache.readAt(position);</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">            if (b != -1) {</span>
+<span class="fc" id="L51">                position++;</span>
+            }
+<span class="fc" id="L53">            return b;</span>
+        }
+
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (sourceExhausted) {</span>
+<span class="fc" id="L57">            return -1;</span>
+        }
+
+        // Reading new byte from source
+<span class="fc" id="L61">        int b = source.read();</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (b == -1) {</span>
+<span class="fc" id="L63">            sourceExhausted = true;</span>
+<span class="fc" id="L64">            return -1;</span>
+        }
+
+<span class="fc" id="L67">        cache.append(b);</span>
+<span class="fc" id="L68">        position++;</span>
+<span class="fc" id="L69">        return b;</span>
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if (len == 0) {</span>
+<span class="nc" id="L75">            return 0;</span>
+        }
+
+<span class="fc" id="L78">        int totalRead = 0;</span>
+
+        // First, read any available bytes from cache
+<span class="fc" id="L81">        long cacheSize = cache.size();</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (position &lt; cacheSize) {</span>
+<span class="fc" id="L83">            int availableInCache = (int) Math.min(len, cacheSize - position);</span>
+<span class="fc" id="L84">            int n = cache.readAt(position, b, off, availableInCache);</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            if (n &gt; 0) {</span>
+<span class="fc" id="L86">                position += n;</span>
+<span class="fc" id="L87">                totalRead += n;</span>
+<span class="fc" id="L88">                off += n;</span>
+<span class="fc" id="L89">                len -= n;</span>
+            }
+        }
+
+        // If we need more bytes and source isn't exhausted, read from source
+<span class="fc bfc" id="L94" title="All 4 branches covered.">        if (len &gt; 0 &amp;&amp; !sourceExhausted) {</span>
+<span class="fc" id="L95">            int n = source.read(b, off, len);</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">            if (n == -1) {</span>
+<span class="fc" id="L97">                sourceExhausted = true;</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">            } else if (n &gt; 0) {</span>
+<span class="fc" id="L99">                cache.append(b, off, n);</span>
+<span class="fc" id="L100">                position += n;</span>
+<span class="fc" id="L101">                totalRead += n;</span>
+            }
+        }
+
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        return totalRead &gt; 0 ? totalRead : -1;</span>
+    }
+
+    @Override
+    public long skip(long n) throws IOException {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (n &lt;= 0) {</span>
+<span class="nc" id="L111">            return 0;</span>
+        }
+
+        // We need to actually read the bytes to cache them
+<span class="nc" id="L115">        long skipped = 0;</span>
+<span class="nc" id="L116">        byte[] buffer = new byte[4096];</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        while (skipped &lt; n) {</span>
+<span class="nc" id="L118">            int toRead = (int) Math.min(buffer.length, n - skipped);</span>
+<span class="nc" id="L119">            int read = read(buffer, 0, toRead);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if (read == -1) {</span>
+<span class="nc" id="L121">                break;</span>
+            }
+<span class="nc" id="L123">            skipped += read;</span>
+<span class="nc" id="L124">        }</span>
+<span class="nc" id="L125">        return skipped;</span>
+    }
+
+    /**
+     * Seek to a specific position in the stream.
+     * Can only seek to positions that have already been read (cached).
+     */
+    void seekTo(long newPosition) throws IOException {
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">        if (newPosition &lt; 0) {</span>
+<span class="nc" id="L134">            throw new IOException(&quot;Cannot seek to negative position: &quot; + newPosition);</span>
+        }
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if (newPosition &gt; cache.size()) {</span>
+<span class="nc" id="L137">            throw new IOException(&quot;Cannot seek past cached content. Position: &quot; + newPosition + &quot;, cached: &quot; + cache.size());</span>
+        }
+<span class="fc" id="L139">        this.position = newPosition;</span>
+<span class="fc" id="L140">    }</span>
+
+    /**
+     * Get the current position in the stream.
+     */
+    long getPosition() {
+<span class="fc" id="L146">        return position;</span>
+    }
+
+    /**
+     * Get the number of bytes currently cached.
+     */
+    long getCachedSize() {
+<span class="nc" id="L153">        return cache.size();</span>
+    }
+
+    /**
+     * Force all remaining content to be read and cached, then return the file path.
+     */
+    Path spillToFile(String suffix) throws IOException {
+<span class="fc" id="L160">        return cache.toFile(source, suffix);</span>
+    }
+
+    /**
+     * Check if the cache has spilled to a file.
+     */
+    boolean isFileBacked() {
+<span class="nc" id="L167">        return cache.isFileBacked();</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="fc" id="L172">        source.close();</span>
+<span class="fc" id="L173">        cache.close();</span>
+<span class="fc" id="L174">    }</span>
+
+    /**
+     * Close only the cache, not the underlying source stream.
+     * Used when TikaInputStream spills to file - the source stream
+     * (e.g., an archive stream) may need to remain open.
+     */
+    void closeCacheOnly() throws IOException {
+<span class="fc" id="L182">        cache.close();</span>
+<span class="fc" id="L183">    }</span>
+
+    @Override
+    public int available() throws IOException {
+        // Return cached bytes available from current position
+<span class="fc" id="L188">        long cachedAvailable = cache.size() - position;</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        if (cachedAvailable &gt; 0) {</span>
+<span class="fc" id="L190">            return (int) Math.min(cachedAvailable, Integer.MAX_VALUE);</span>
+        }
+<span class="fc" id="L192">        return source.available();</span>
+    }
+
+    // Mark/reset support using seekTo
+<span class="fc" id="L196">    private long markPosition = -1;</span>
+
+    @Override
+    public synchronized void mark(int readlimit) {
+<span class="nc" id="L200">        markPosition = position;</span>
+<span class="nc" id="L201">    }</span>
+
+    @Override
+    public synchronized void reset() throws IOException {
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        if (markPosition &lt; 0) {</span>
+<span class="nc" id="L206">            throw new IOException(&quot;Mark not set&quot;);</span>
+        }
+<span class="nc" id="L208">        seekTo(markPosition);</span>
+<span class="nc" id="L209">    }</span>
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L213">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

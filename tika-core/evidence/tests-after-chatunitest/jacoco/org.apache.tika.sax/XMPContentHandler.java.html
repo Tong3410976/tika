@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XMPContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">XMPContentHandler.java</span></div><h1>XMPContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.AttributesImpl;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+
+/**
+ * Content handler decorator that simplifies the task of producing XMP output.
+ *
+ * @since Apache Tika 1.0
+ */
+public class XMPContentHandler extends SafeContentHandler {
+
+    /**
+     * The RDF namespace URI
+     */
+    public static final String RDF = &quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;;
+
+    /**
+     * The XMP namespace URI
+     */
+    public static final String XMP = &quot;http://ns.adobe.com/xap/1.0/&quot;;
+
+<span class="nc" id="L44">    private static final Attributes EMPTY_ATTRIBUTES = new AttributesImpl();</span>
+<span class="nc" id="L45">    private String prefix = null;</span>
+<span class="nc" id="L46">    private String uri = null;</span>
+
+    public XMPContentHandler(ContentHandler handler) {
+<span class="nc" id="L49">        super(handler);</span>
+<span class="nc" id="L50">    }</span>
+
+    //------------------------------------------&lt; public convenience methods &gt;
+
+    /**
+     * Starts an XMP document by setting up the namespace mappings and
+     * writing out the following header:
+     * &lt;pre&gt;
+     * &amp;lt;rdf:RDF&amp;gt;
+     * &lt;/pre&gt;
+     */
+    @Override
+    public void startDocument() throws SAXException {
+<span class="nc" id="L63">        super.startDocument();</span>
+
+<span class="nc" id="L65">        startPrefixMapping(&quot;rdf&quot;, RDF);</span>
+<span class="nc" id="L66">        startPrefixMapping(&quot;xmp&quot;, XMP);</span>
+
+<span class="nc" id="L68">        startElement(RDF, &quot;RDF&quot;, &quot;rdf:RDF&quot;, EMPTY_ATTRIBUTES);</span>
+<span class="nc" id="L69">    }</span>
+
+    /**
+     * Ends the XMP document by writing the following footer and
+     * clearing the namespace mappings:
+     * &lt;pre&gt;
+     * &amp;lt;/rdf:RDF&amp;gt;
+     * &lt;/pre&gt;
+     */
+    @Override
+    public void endDocument() throws SAXException {
+<span class="nc" id="L80">        endElement(RDF, &quot;RDF&quot;, &quot;rdf:RDF&quot;);</span>
+
+<span class="nc" id="L82">        endPrefixMapping(&quot;xmp&quot;);</span>
+<span class="nc" id="L83">        endPrefixMapping(&quot;rdf&quot;);</span>
+
+<span class="nc" id="L85">        super.endDocument();</span>
+<span class="nc" id="L86">    }</span>
+
+    public void startDescription(String about, String prefix, String uri) throws SAXException {
+<span class="nc" id="L89">        this.prefix = prefix;</span>
+<span class="nc" id="L90">        this.uri = uri;</span>
+
+<span class="nc" id="L92">        startPrefixMapping(prefix, uri);</span>
+<span class="nc" id="L93">        AttributesImpl attributes = new AttributesImpl();</span>
+<span class="nc" id="L94">        attributes.addAttribute(RDF, &quot;about&quot;, &quot;rdf:about&quot;, &quot;CDATA&quot;, about);</span>
+<span class="nc" id="L95">        startElement(RDF, &quot;Description&quot;, &quot;rdf:Description&quot;, attributes);</span>
+<span class="nc" id="L96">    }</span>
+
+    public void endDescription() throws SAXException {
+<span class="nc" id="L99">        endElement(RDF, &quot;Description&quot;, &quot;rdf:Description&quot;);</span>
+<span class="nc" id="L100">        endPrefixMapping(prefix);</span>
+
+<span class="nc" id="L102">        this.uri = null;</span>
+<span class="nc" id="L103">        this.prefix = null;</span>
+<span class="nc" id="L104">    }</span>
+
+    public void property(String name, String value) throws SAXException {
+<span class="nc" id="L107">        String qname = prefix + &quot;:&quot; + name;</span>
+<span class="nc" id="L108">        startElement(uri, name, qname, EMPTY_ATTRIBUTES);</span>
+<span class="nc" id="L109">        characters(value.toCharArray(), 0, value.length());</span>
+<span class="nc" id="L110">        endElement(uri, name, qname);</span>
+<span class="nc" id="L111">    }</span>
+
+    public void metadata(Metadata metadata) throws SAXException {
+<span class="nc" id="L114">        description(metadata, &quot;xmp&quot;, XMP);</span>
+<span class="nc" id="L115">        description(metadata, &quot;dc&quot;, &quot;http://purl.org/dc/elements/1.1/&quot;);</span>
+<span class="nc" id="L116">        description(metadata, &quot;xmpTPg&quot;, &quot;http://ns.adobe.com/xap/1.0/t/pg/&quot;);</span>
+<span class="nc" id="L117">        description(metadata, &quot;xmpRigths&quot;, &quot;http://ns.adobe.com/xap/1.0/rights/&quot;);</span>
+<span class="nc" id="L118">        description(metadata, &quot;xmpMM&quot;, &quot;http://ns.adobe.com/xap/1.0/mm/&quot;);</span>
+<span class="nc" id="L119">        description(metadata, &quot;xmpidq&quot;, &quot;http://ns.adobe.com/xmp/identifier/qual/1.0/&quot;);</span>
+<span class="nc" id="L120">        description(metadata, &quot;xmpBJ&quot;, &quot;http://ns.adobe.com/xap/1.0/bj/&quot;);</span>
+<span class="nc" id="L121">        description(metadata, &quot;xmpDM&quot;, &quot;http://ns.adobe.com/xmp/1.0/DynamicMedia/&quot;);</span>
+<span class="nc" id="L122">        description(metadata, &quot;pdf&quot;, &quot;http://ns.adobe.com/pdf/1.3/&quot;);</span>
+<span class="nc" id="L123">        description(metadata, &quot;photoshop&quot;, &quot;s http://ns.adobe.com/photoshop/1.0/&quot;);</span>
+<span class="nc" id="L124">        description(metadata, &quot;crs&quot;, &quot;http://ns.adobe.com/camera-raw-settings/1.0/&quot;);</span>
+<span class="nc" id="L125">        description(metadata, &quot;tiff&quot;, &quot;http://ns.adobe.com/tiff/1.0/&quot;);</span>
+<span class="nc" id="L126">        description(metadata, &quot;exif&quot;, &quot;http://ns.adobe.com/exif/1.0/&quot;);</span>
+<span class="nc" id="L127">        description(metadata, &quot;aux&quot;, &quot;http://ns.adobe.com/exif/1.0/aux/&quot;);</span>
+<span class="nc" id="L128">    }</span>
+
+    private void description(Metadata metadata, String prefix, String uri) throws SAXException {
+<span class="nc" id="L131">        int count = 0;</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        for (Property property : Property.getProperties(prefix)) {</span>
+<span class="nc" id="L133">            String value = metadata.get(property);</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            if (value != null) {</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">                if (count++ == 0) {</span>
+<span class="nc" id="L136">                    startDescription(&quot;&quot;, prefix, uri);</span>
+                }
+<span class="nc" id="L138">                property(property.getName().substring(prefix.length() + 1), value);</span>
+            }
+<span class="nc" id="L140">        }</span>
+
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (count &gt; 0) {</span>
+<span class="nc" id="L143">            endDescription();</span>
+        }
+<span class="nc" id="L145">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

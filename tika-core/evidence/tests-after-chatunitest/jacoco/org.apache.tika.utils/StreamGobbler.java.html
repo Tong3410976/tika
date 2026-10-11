@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StreamGobbler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">StreamGobbler.java</span></div><h1>StreamGobbler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+public class StreamGobbler implements Runnable {
+
+    // Maximum chars to buffer for a single line before truncating.
+    // Prevents OOM from a process outputting gigabytes without a newline.
+    private static final int MAX_LINE_LENGTH = 1_000_000;
+
+    private final InputStream is;
+    private final int maxBufferLength;
+<span class="nc" id="L36">    List&lt;String&gt; lines = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L37">    long streamLength = 0;</span>
+<span class="nc" id="L38">    boolean isTruncated = false;</span>
+
+<span class="nc" id="L40">    public StreamGobbler(InputStream is, int maxBufferLength) {</span>
+<span class="nc" id="L41">        this.is = is;</span>
+<span class="nc" id="L42">        this.maxBufferLength = maxBufferLength;</span>
+<span class="nc" id="L43">    }</span>
+
+
+    @Override
+    public void run() {
+<span class="nc" id="L48">        try (Reader r = new BufferedReader(</span>
+                new InputStreamReader(is, StandardCharsets.UTF_8))) {
+<span class="nc" id="L50">            String line = readLineBounded(r);</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            while (line != null) {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">                if (maxBufferLength &gt;= 0) {</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">                    if (streamLength + line.length() &gt; maxBufferLength) {</span>
+<span class="nc" id="L54">                        int len = maxBufferLength - (int) streamLength;</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">                        if (len &gt; 0) {</span>
+<span class="nc" id="L56">                            isTruncated = true;</span>
+<span class="nc" id="L57">                            String truncatedLine =</span>
+<span class="nc" id="L58">                                    line.substring(0, Math.min(line.length(), len));</span>
+<span class="nc" id="L59">                            lines.add(truncatedLine);</span>
+                        }
+<span class="nc" id="L61">                    } else {</span>
+<span class="nc" id="L62">                        lines.add(line);</span>
+                    }
+                }
+<span class="nc" id="L65">                streamLength += line.length();</span>
+<span class="nc" id="L66">                line = readLineBounded(r);</span>
+            }
+<span class="nc" id="L68">        } catch (IOException e) {</span>
+<span class="nc" id="L69">            return;</span>
+<span class="nc" id="L70">        }</span>
+<span class="nc" id="L71">    }</span>
+
+    /**
+     * Reads a line from the reader, capping at {@link #MAX_LINE_LENGTH} chars.
+     * Any remaining chars on the line are discarded. Returns null at EOF.
+     */
+    private String readLineBounded(Reader r) throws IOException {
+<span class="nc" id="L78">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L79">        boolean discarding = false;</span>
+        int ch;
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        while ((ch = r.read()) != -1) {</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            if (ch == '\n') {</span>
+<span class="nc" id="L83">                break;</span>
+            }
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (ch == '\r') {</span>
+                // peek for \r\n
+<span class="nc" id="L87">                r.mark(1);</span>
+<span class="nc" id="L88">                int next = r.read();</span>
+<span class="nc bnc" id="L89" title="All 4 branches missed.">                if (next != '\n' &amp;&amp; next != -1) {</span>
+<span class="nc" id="L90">                    r.reset();</span>
+                }
+                break;
+            }
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            if (!discarding) {</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">                if (sb.length() &lt; MAX_LINE_LENGTH) {</span>
+<span class="nc" id="L96">                    sb.append((char) ch);</span>
+                } else {
+<span class="nc" id="L98">                    discarding = true;</span>
+<span class="nc" id="L99">                    isTruncated = true;</span>
+                }
+            }
+            // When discarding, we still consume chars until newline/EOF
+            // to keep the stream position correct.
+        }
+<span class="nc bnc" id="L105" title="All 4 branches missed.">        if (ch == -1 &amp;&amp; sb.length() == 0) {</span>
+<span class="nc" id="L106">            return null;</span>
+        }
+<span class="nc" id="L108">        return sb.toString();</span>
+    }
+
+    public List&lt;String&gt; getLines() {
+<span class="nc" id="L112">        return lines;</span>
+    }
+
+    public long getStreamLength() {
+<span class="nc" id="L116">        return streamLength;</span>
+    }
+
+    public boolean getIsTruncated() {
+<span class="nc" id="L120">        return isTruncated;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

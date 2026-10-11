@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GeoPointMetadataFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.filter</a> &gt; <span class="el_source">GeoPointMetadataFilter.java</span></div><h1>GeoPointMetadataFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.filter;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ConfigDeserializer;
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.utils.StringUtils;
+
+/**
+ * If {@link Metadata} contains a {@link TikaCoreProperties#LATITUDE} and
+ * a {@link TikaCoreProperties#LONGITUDE}, this filter concatenates those with a
+ * comma in the order LATITUDE,LONGITUDE.
+ *
+ * If you need any other mappings, please open a ticket on our JIRA.
+ */
+@TikaComponent
+public class GeoPointMetadataFilter extends MetadataFilterBase {
+
+    /**
+     * Configuration class for JSON deserialization.
+     */
+<span class="nc" id="L39">    public static class Config {</span>
+<span class="nc" id="L40">        public String geoPointFieldName = &quot;location&quot;;</span>
+    }
+
+<span class="nc" id="L43">    String geoPointFieldName = &quot;location&quot;;</span>
+
+<span class="nc" id="L45">    public GeoPointMetadataFilter() {</span>
+<span class="nc" id="L46">    }</span>
+
+    /**
+     * Constructor with explicit Config object.
+     *
+     * @param config the configuration
+     */
+<span class="nc" id="L53">    public GeoPointMetadataFilter(Config config) {</span>
+<span class="nc" id="L54">        this.geoPointFieldName = config.geoPointFieldName;</span>
+<span class="nc" id="L55">    }</span>
+
+    /**
+     * Constructor for JSON configuration.
+     * Requires Jackson on the classpath.
+     *
+     * @param jsonConfig JSON configuration
+     */
+    public GeoPointMetadataFilter(JsonConfig jsonConfig) {
+<span class="nc" id="L64">        this(ConfigDeserializer.buildConfig(jsonConfig, Config.class));</span>
+<span class="nc" id="L65">    }</span>
+
+    /**
+     * Set the field for the concatenated LATITUDE,LONGITUDE string.
+     * The default if &amp;dquot;location&amp;dquot;
+     *
+     * @param geoPointFieldName field name to use for the geopoint field
+     */
+    public void setGeoPointFieldName(String geoPointFieldName) {
+<span class="nc" id="L74">        this.geoPointFieldName = geoPointFieldName;</span>
+<span class="nc" id="L75">    }</span>
+
+    public String getGeoPointFieldName() {
+<span class="nc" id="L78">        return geoPointFieldName;</span>
+    }
+
+    @Override
+    protected void filter(Metadata metadata) {
+<span class="nc" id="L83">        String lat = metadata.get(TikaCoreProperties.LATITUDE);</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (StringUtils.isEmpty(lat)) {</span>
+<span class="nc" id="L85">            return;</span>
+        }
+<span class="nc" id="L87">        String lng = metadata.get(TikaCoreProperties.LONGITUDE);</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (StringUtils.isEmpty(lng)) {</span>
+<span class="nc" id="L89">            return;</span>
+        }
+        // target field name is operator-configured; may legitimately be a reserved key
+<span class="nc" id="L92">        metadata.setTrusted(geoPointFieldName, lat + &quot;,&quot; + lng);</span>
+<span class="nc" id="L93">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

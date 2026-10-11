@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MimeTypes.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">MimeTypes.java</span></div><h1>MimeTypes.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+// JDK imports
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import javax.xml.namespace.QName;
+
+import org.apache.tika.Tika;
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.detect.Detector;
+import org.apache.tika.detect.TextDetector;
+import org.apache.tika.detect.XmlRootExtractor;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * This class is a MimeType repository. It gathers a set of MimeTypes and
+ * enables to retrieves a content-type from its name, from a file name, or from
+ * a magic character sequence.
+ * &lt;p&gt;
+ * The MIME type detection methods that take an {@link InputStream} as
+ * an argument will never reads more than {@link #getMinLength()} bytes
+ * from the stream. Also the given stream is never
+ * {@link InputStream#close() closed}, {@link InputStream#mark(int) marked},
+ * or {@link InputStream#reset() reset} by the methods. Thus a client can
+ * use the {@link InputStream#markSupported() mark feature} of the stream
+ * (if available) to restore the stream back to the state it was before type
+ * detection if it wants to process the stream based on the detected type.
+ */
+@TikaComponent(spi = false)
+public final class MimeTypes implements Detector, Serializable {
+
+    /**
+     * Name of the {@link #rootMimeType root} type, application/octet-stream.
+     */
+    public static final String OCTET_STREAM = &quot;application/octet-stream&quot;;
+    /**
+     * Name of the {@link #textMimeType text} type, text/plain.
+     */
+    public static final String PLAIN_TEXT = &quot;text/plain&quot;;
+    /**
+     * Name of the {@link #xmlMimeType xml} type, application/xml.
+     */
+    public static final String XML = &quot;application/xml&quot;;
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = -1350863170146349036L;
+<span class="fc" id="L78">    private static final Map&lt;ClassLoader, MimeTypes&gt; CLASSLOADER_SPECIFIC_DEFAULT_TYPES =</span>
+            new HashMap&lt;&gt;();
+<span class="fc" id="L80">    private static MimeTypes DEFAULT_TYPES = null;</span>
+    /**
+     * Root type, application/octet-stream.
+     */
+    private final MimeType rootMimeType;
+    private final List&lt;MimeType&gt; rootMimeTypeL;
+    /**
+     * Text type, text/plain.
+     */
+    private final MimeType textMimeType;
+    /**
+     * html type, text/html
+     */
+    private final MimeType htmlMimeType;
+    /**
+     * xml type, application/xml
+     */
+    private final MimeType xmlMimeType;
+    /**
+     * Registered media types and their aliases.
+     */
+<span class="fc" id="L101">    private final MediaTypeRegistry registry = new MediaTypeRegistry();</span>
+    /**
+     * All the registered MimeTypes indexed on their canonical names
+     */
+<span class="fc" id="L105">    private final Map&lt;MediaType, MimeType&gt; types = new HashMap&lt;&gt;();</span>
+    /**
+     * The patterns matcher
+     */
+<span class="fc" id="L109">    private final Patterns patterns = new Patterns(registry);</span>
+    /**
+     * Sorted list of all registered magics
+     */
+<span class="fc" id="L113">    private final List&lt;Magic&gt; magics = new ArrayList&lt;&gt;();</span>
+    /**
+     * Sorted list of all registered rootXML
+     */
+<span class="fc" id="L117">    private final List&lt;MimeType&gt; xmls = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L119">    public MimeTypes() {</span>
+<span class="fc" id="L120">        rootMimeType = new MimeType(MediaType.OCTET_STREAM);</span>
+<span class="fc" id="L121">        textMimeType = new MimeType(MediaType.TEXT_PLAIN);</span>
+<span class="fc" id="L122">        htmlMimeType = new MimeType(MediaType.TEXT_HTML);</span>
+<span class="fc" id="L123">        xmlMimeType = new MimeType(MediaType.APPLICATION_XML);</span>
+
+<span class="fc" id="L125">        rootMimeTypeL = Collections.singletonList(rootMimeType);</span>
+
+<span class="fc" id="L127">        add(rootMimeType);</span>
+<span class="fc" id="L128">        add(textMimeType);</span>
+<span class="fc" id="L129">        add(xmlMimeType);</span>
+<span class="fc" id="L130">    }</span>
+
+    /**
+     * Get the default MimeTypes. This includes all the build in
+     * media types, and any custom override ones present.
+     *
+     * @return MimeTypes default type registry
+     */
+    public static synchronized MimeTypes getDefaultMimeTypes() {
+<span class="fc" id="L139">        return getDefaultMimeTypes(null);</span>
+    }
+
+    /**
+     * Get the default MimeTypes. This includes all the built-in
+     * media types, and any custom override ones present.
+     *
+     * @param classLoader to use, if not the default
+     * @return MimeTypes default type registry
+     */
+    public static synchronized MimeTypes getDefaultMimeTypes(ClassLoader classLoader) {
+<span class="fc" id="L150">        MimeTypes types = DEFAULT_TYPES;</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (classLoader != null) {</span>
+<span class="fc" id="L152">            types = CLASSLOADER_SPECIFIC_DEFAULT_TYPES.get(classLoader);</span>
+        }
+
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        if (types == null) {</span>
+            try {
+<span class="fc" id="L157">                types = MimeTypesFactory</span>
+<span class="fc" id="L158">                        .create(&quot;tika-mimetypes.xml&quot;, &quot;custom-mimetypes.xml&quot;, classLoader);</span>
+<span class="nc" id="L159">            } catch (MimeTypeException e) {</span>
+<span class="nc" id="L160">                throw new RuntimeException(&quot;Unable to parse the default media type registry&quot;, e);</span>
+<span class="nc" id="L161">            } catch (IOException e) {</span>
+<span class="nc" id="L162">                throw new RuntimeException(&quot;Unable to read the default media type registry&quot;, e);</span>
+<span class="fc" id="L163">            }</span>
+
+<span class="fc bfc" id="L165" title="All 2 branches covered.">            if (classLoader == null) {</span>
+<span class="fc" id="L166">                DEFAULT_TYPES = types;</span>
+            } else {
+<span class="fc" id="L168">                CLASSLOADER_SPECIFIC_DEFAULT_TYPES.put(classLoader, types);</span>
+            }
+        }
+<span class="fc" id="L171">        return types;</span>
+    }
+
+    /**
+     * Find the Mime Content Type of a document from its name.
+     * Returns application/octet-stream if no better match is found.
+     *
+     * @param name of the document to analyze.
+     * @return the Mime Content Type of the specified document name
+     * @deprecated Use {@link Tika#detect(String)} instead
+     */
+    @Deprecated
+    public MimeType getMimeType(String name) {
+<span class="fc" id="L184">        MimeType type = patterns.matches(name);</span>
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        if (type != null) {</span>
+<span class="fc" id="L186">            return type;</span>
+        }
+<span class="fc" id="L188">        type = patterns.matches(name.toLowerCase(Locale.ENGLISH));</span>
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">        if (type != null) {</span>
+<span class="nc" id="L190">            return type;</span>
+        } else {
+<span class="fc" id="L192">            return rootMimeType;</span>
+        }
+    }
+
+    /**
+     * Find the Mime Content Type of a document stored in the given file.
+     * Returns application/octet-stream if no better match is found.
+     *
+     * @param file file to analyze
+     * @return the Mime Content Type of the specified document
+     * @throws MimeTypeException if the type can't be detected
+     * @throws IOException       if the file can't be read
+     * @deprecated Use {@link Tika#detect(File)} instead
+     */
+    @Deprecated
+    public MimeType getMimeType(File file) throws MimeTypeException, IOException {
+<span class="nc" id="L208">        return forName(new Tika(this).detect(file));</span>
+    }
+
+    /**
+     * Returns the MIME type that best matches the given first few bytes
+     * of a document stream. Returns application/octet-stream if no better
+     * match is found.
+     * &lt;p&gt;
+     * If multiple matches are found, the best (highest priority) matching
+     * type is returned. If multiple matches are found with the same priority,
+     * then all of these are returned.
+     * &lt;p&gt;
+     * The given byte array is expected to be at least {@link #getMinLength()}
+     * long, or shorter only if the document stream itself is shorter.
+     *
+     * @param data first few bytes of a document stream
+     * @return matching MIME type
+     */
+    List&lt;MimeType&gt; getMimeType(byte[] data) {
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">        if (data == null) {</span>
+<span class="nc" id="L228">            throw new IllegalArgumentException(&quot;Data is missing&quot;);</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">        } else if (data.length == 0) {</span>
+            // See https://issues.apache.org/jira/browse/TIKA-483
+<span class="fc" id="L231">            return rootMimeTypeL;</span>
+        }
+
+        // Then, check for magic bytes
+<span class="fc" id="L235">        List&lt;MimeType&gt; result = new ArrayList&lt;&gt;(1);</span>
+<span class="fc" id="L236">        int currentPriority = -1;</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">        for (Magic magic : magics) {</span>
+<span class="fc bfc" id="L238" title="All 4 branches covered.">            if (currentPriority &gt; 0 &amp;&amp; currentPriority &gt; magic.getPriority()) {</span>
+<span class="fc" id="L239">                break;</span>
+            }
+<span class="fc bfc" id="L241" title="All 2 branches covered.">            if (magic.eval(data)) {</span>
+<span class="fc" id="L242">                result.add(magic.getType());</span>
+<span class="fc" id="L243">                currentPriority = magic.getPriority();</span>
+            }
+<span class="fc" id="L245">        }</span>
+
+<span class="fc bfc" id="L247" title="All 2 branches covered.">        if (!result.isEmpty()) {</span>
+<span class="fc bfc" id="L248" title="All 2 branches covered.">            for (int i = 0; i &lt; result.size(); i++) {</span>
+<span class="fc" id="L249">                final MimeType matched = result.get(i);</span>
+
+                // When detecting generic XML (or possibly XHTML),
+                // extract the root element and match it against known types
+<span class="fc bfc" id="L253" title="All 2 branches covered.">                if (&quot;application/xml&quot;.equals(matched.getName()) ||</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">                        &quot;text/html&quot;.equals(matched.getName())) {</span>
+<span class="fc" id="L255">                    XmlRootExtractor extractor = new XmlRootExtractor();</span>
+
+<span class="fc" id="L257">                    QName rootElement = extractor.extractRootElement(data);</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">                    if (rootElement != null) {</span>
+<span class="fc bfc" id="L259" title="All 2 branches covered.">                        for (MimeType type : xmls) {</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">                            if (type.matchesXML(rootElement.getNamespaceURI(),</span>
+<span class="fc" id="L261">                                    rootElement.getLocalPart())) {</span>
+<span class="fc" id="L262">                                result.set(i, type);</span>
+<span class="fc" id="L263">                                break;</span>
+                            }
+<span class="fc" id="L265">                        }</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">                    } else if (&quot;application/xml&quot;.equals(matched.getName())) {</span>
+                        // Our XML magic is higher than our HTML magic
+                        // So, if we got here, we might have a HTML file that's
+                        //  invalid XML. So, try our HTML magics explicitly (TIKA-2419)
+<span class="fc" id="L270">                        boolean isHTML = false;</span>
+<span class="fc bfc" id="L271" title="All 2 branches covered.">                        for (Magic magic : magics) {</span>
+<span class="fc bfc" id="L272" title="All 2 branches covered.">                            if (!magic.getType().equals(htmlMimeType)) {</span>
+<span class="fc" id="L273">                                continue;</span>
+                            }
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">                            if (magic.eval(data)) {</span>
+<span class="nc" id="L276">                                isHTML = true;</span>
+<span class="nc" id="L277">                                break;</span>
+                            }
+<span class="fc" id="L279">                        }</span>
+
+                        // Otherwise, downgrade from application/xml to text/plain
+                        //  since the document seems not to be well-formed.
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">                        if (isHTML) {</span>
+<span class="nc" id="L284">                            result.set(i, htmlMimeType);</span>
+                        } else {
+<span class="fc" id="L286">                            result.set(i, textMimeType);</span>
+                        }
+                    }
+                }
+            }
+<span class="fc" id="L291">            return result;</span>
+        }
+
+        // Finally, assume plain text if no control bytes are found
+        try {
+<span class="fc" id="L296">            TextDetector detector = new TextDetector(getMinLength());</span>
+<span class="fc" id="L297">            try (TikaInputStream tis = TikaInputStream.get(data)) {</span>
+<span class="fc" id="L298">                MimeType type = forName(detector.detect(tis, new Metadata(), new ParseContext()).toString());</span>
+<span class="fc" id="L299">                return Collections.singletonList(type);</span>
+            }
+<span class="nc" id="L301">        } catch (Exception e) {</span>
+<span class="nc" id="L302">            return rootMimeTypeL;</span>
+        }
+    }
+
+    /**
+     * Reads the first {@link #getMinLength()} bytes from the given stream.
+     * If the stream is shorter, then the entire content of the stream is
+     * returned.
+     * &lt;p&gt;
+     * The given stream is never {@link InputStream#close() closed},
+     * {@link InputStream#mark(int) marked}, or
+     * {@link InputStream#reset() reset} by this method.
+     *
+     * @param stream stream to be read
+     * @return first {@link #getMinLength()} (or fewer) bytes of the stream
+     * @throws IOException if the stream can not be read
+     */
+    byte[] readMagicHeader(InputStream stream) throws IOException {
+<span class="pc bpc" id="L320" title="1 of 2 branches missed.">        if (stream == null) {</span>
+<span class="nc" id="L321">            throw new IllegalArgumentException(&quot;InputStream is missing&quot;);</span>
+        }
+
+<span class="fc" id="L324">        byte[] bytes = new byte[getMinLength()];</span>
+<span class="fc" id="L325">        int totalRead = 0;</span>
+
+<span class="fc" id="L327">        int lastRead = stream.read(bytes);</span>
+<span class="fc bfc" id="L328" title="All 2 branches covered.">        while (lastRead != -1) {</span>
+<span class="fc" id="L329">            totalRead += lastRead;</span>
+<span class="pc bpc" id="L330" title="1 of 2 branches missed.">            if (totalRead == bytes.length) {</span>
+<span class="nc" id="L331">                return bytes;</span>
+            }
+<span class="fc" id="L333">            lastRead = stream.read(bytes, totalRead, bytes.length - totalRead);</span>
+        }
+
+<span class="fc" id="L336">        byte[] shorter = new byte[totalRead];</span>
+<span class="fc" id="L337">        System.arraycopy(bytes, 0, shorter, 0, totalRead);</span>
+<span class="fc" id="L338">        return shorter;</span>
+    }
+
+    /**
+     * Returns the registered media type with the given name (or alias).
+     * The named media type is automatically registered (and returned) if
+     * it doesn't already exist.
+     *
+     * @param name media type name (case-insensitive)
+     * @return the registered media type with the given name or alias
+     * @throws MimeTypeException if the given media type name is invalid
+     */
+    public MimeType forName(String name) throws MimeTypeException {
+<span class="fc" id="L351">        MediaType type = MediaType.parse(name);</span>
+<span class="pc bpc" id="L352" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L353">            throw new MimeTypeException(&quot;Invalid media type name: &quot; + name);</span>
+        }
+<span class="fc" id="L355">        MediaType normalisedType = registry.normalize(type);</span>
+<span class="fc" id="L356">        MimeType mime = types.get(normalisedType);</span>
+
+<span class="fc bfc" id="L358" title="All 2 branches covered.">        if (mime == null) {</span>
+<span class="fc" id="L359">            synchronized (this) {</span>
+                // Double check it didn't already get added while
+                //  we were waiting for the lock
+<span class="fc" id="L362">                mime = types.get(normalisedType);</span>
+<span class="pc bpc" id="L363" title="1 of 2 branches missed.">                if (mime == null) {</span>
+<span class="fc" id="L364">                    mime = new MimeType(type);</span>
+<span class="fc" id="L365">                    add(mime);</span>
+<span class="fc" id="L366">                    types.put(type, mime);</span>
+                }
+<span class="fc" id="L368">            }</span>
+        }
+<span class="fc" id="L370">        return mime;</span>
+    }
+
+    /**
+     * Returns the registered, normalised media type with the given name (or alias).
+     *
+     * &lt;p&gt;Unlike {@link #forName(String)}, this function will &lt;em&gt;not&lt;/em&gt; create a
+     * new MimeType and register it. Instead, &lt;code&gt;null&lt;/code&gt; will be returned if
+     * there is no definition available for the given name.
+     *
+     * &lt;p&gt;Also, unlike {@link #forName(String)}, this function may return a
+     * mime type that has fewer parameters than were included in the supplied name.
+     * If the registered mime type has parameters (e.g.
+     * &lt;code&gt;application/dita+xml;format=map&lt;/code&gt;), then those will be maintained.
+     * However, if the supplied name has paramenters that the &lt;em&gt;registered&lt;/em&gt; mime
+     * type does not (e.g. &lt;code&gt;application/xml; charset=UTF-8&lt;/code&gt; as a name,
+     * compared to just &lt;code&gt;application/xml&lt;/code&gt; for the type in the registry),
+     * then those parameters will not be included in the returned type.
+     *
+     * @param name media type name (case-insensitive)
+     * @return the registered media type with the given name or alias, or null if not found
+     * @throws MimeTypeException if the given media type name is invalid
+     */
+    public MimeType getRegisteredMimeType(String name) throws MimeTypeException {
+<span class="fc" id="L394">        MediaType type = MediaType.parse(name);</span>
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">        if (type != null) {</span>
+<span class="fc" id="L396">            MediaType normalisedType = registry.normalize(type);</span>
+<span class="fc" id="L397">            MimeType candidate = types.get(normalisedType);</span>
+<span class="fc bfc" id="L398" title="All 2 branches covered.">            if (candidate != null) {</span>
+<span class="fc" id="L399">                return candidate;</span>
+            }
+<span class="fc bfc" id="L401" title="All 2 branches covered.">            if (normalisedType.hasParameters()) {</span>
+<span class="fc" id="L402">                return types.get(normalisedType.getBaseType());</span>
+            }
+<span class="fc" id="L404">            return null;</span>
+        } else {
+<span class="nc" id="L406">            throw new MimeTypeException(&quot;Invalid media type name: &quot; + name);</span>
+        }
+    }
+
+    public synchronized void setSuperType(MimeType type, MediaType parent) {
+<span class="fc" id="L411">        registry.addSuperType(type.getType(), parent);</span>
+<span class="fc" id="L412">    }</span>
+
+    /**
+     * Adds an alias for the given media type. This method should only
+     * be called from {@link MimeType#addAlias(String)}.
+     *
+     * @param type  media type
+     * @param alias media type alias (normalized to lower case)
+     */
+    synchronized void addAlias(MimeType type, MediaType alias) {
+<span class="fc" id="L422">        registry.addAlias(type.getType(), alias);</span>
+<span class="fc" id="L423">    }</span>
+
+    /**
+     * Adds a file name pattern for the given media type. Assumes that the
+     * pattern being added is &lt;b&gt;not&lt;/b&gt; a JDK standard regular expression.
+     *
+     * @param type    media type
+     * @param pattern file name pattern
+     * @throws MimeTypeException if the pattern conflicts with existing ones
+     */
+    public void addPattern(MimeType type, String pattern) throws MimeTypeException {
+<span class="nc" id="L434">        this.addPattern(type, pattern, false);</span>
+<span class="nc" id="L435">    }</span>
+
+    /**
+     * Adds a file name pattern for the given media type. The caller can specify
+     * whether the pattern being added &lt;b&gt;is&lt;/b&gt; or &lt;b&gt;is not&lt;/b&gt; a JDK standard
+     * regular expression via the &lt;code&gt;isRegex&lt;/code&gt; parameter. If the value
+     * is set to true, then a JDK standard regex is assumed, otherwise the
+     * freedesktop glob type is assumed.
+     *
+     * @param type    media type
+     * @param pattern file name pattern
+     * @param isRegex set to true if JDK std regexs are desired, otherwise set to
+     *                false.
+     * @throws MimeTypeException if the pattern conflicts with existing ones.
+     */
+    public void addPattern(MimeType type, String pattern, boolean isRegex)
+            throws MimeTypeException {
+<span class="fc" id="L452">        patterns.add(pattern, isRegex, type);</span>
+<span class="fc" id="L453">    }</span>
+
+    public MediaTypeRegistry getMediaTypeRegistry() {
+<span class="fc" id="L456">        return registry;</span>
+    }
+
+    /**
+     * Return the minimum length of data to provide to analyzing methods based
+     * on the document's content in order to check all the known MimeTypes.
+     *
+     * @return the minimum length of data to provide.
+     * @see #getMimeType(byte[])
+     */
+    public int getMinLength() {
+        // This needs to be reasonably large to be able to correctly detect
+        // things like XML root elements after initial comment and DTDs
+<span class="fc" id="L469">        return 64 * 1024;</span>
+    }
+
+    /**
+     * Add the specified mime-type in the repository.
+     *
+     * @param type is the mime-type to add.
+     */
+    void add(MimeType type) {
+<span class="fc" id="L478">        registry.addType(type.getType());</span>
+<span class="fc" id="L479">        types.put(type.getType(), type);</span>
+
+        // Update the magics index...
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">        if (type.hasMagic()) {</span>
+<span class="nc" id="L483">            magics.addAll(type.getMagics());</span>
+        }
+
+        // Update the xml (xmlRoot) index...
+<span class="pc bpc" id="L487" title="1 of 2 branches missed.">        if (type.hasRootXML()) {</span>
+<span class="nc" id="L488">            xmls.add(type);</span>
+        }
+<span class="fc" id="L490">    }</span>
+
+    /**
+     * Called after all configured types have been loaded.
+     * Initializes the magics and xmls sets.
+     */
+    void init() {
+<span class="fc bfc" id="L497" title="All 2 branches covered.">        for (MimeType type : types.values()) {</span>
+<span class="fc" id="L498">            magics.addAll(type.getMagics());</span>
+<span class="fc bfc" id="L499" title="All 2 branches covered.">            if (type.hasRootXML()) {</span>
+<span class="fc" id="L500">                xmls.add(type);</span>
+            }
+<span class="fc" id="L502">        }</span>
+<span class="fc" id="L503">        Collections.sort(magics);</span>
+<span class="fc" id="L504">        Collections.sort(xmls);</span>
+<span class="fc" id="L505">    }</span>
+
+    /**
+     * Automatically detects the MIME type of a document based on magic
+     * markers in the stream prefix and any given metadata hints.
+     * &lt;p&gt;
+     * The given stream is expected to support marks, so that this method
+     * can reset the stream to the position it was in before this method
+     * was called.
+     *
+     * @param input    document stream, or &lt;code&gt;null&lt;/code&gt;
+     * @param metadata metadata hints
+     * @return MIME type of the document
+     * @throws IOException if the document stream could not be read
+     */
+    @Override
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext parseContext)
+            throws IOException {
+<span class="fc" id="L523">        List&lt;MimeType&gt; possibleTypes = null;</span>
+
+        // Get type based on magic prefix
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        if (tis != null) {</span>
+<span class="fc" id="L527">            tis.mark(getMinLength());</span>
+            try {
+<span class="fc" id="L529">                byte[] prefix = readMagicHeader(tis);</span>
+<span class="fc" id="L530">                possibleTypes = getMimeType(prefix);</span>
+            } finally {
+<span class="fc" id="L532">                tis.reset();</span>
+            }
+        }
+
+        // Get type based on resourceName hint (if available)
+<span class="fc" id="L537">        String resourceName = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="fc bfc" id="L538" title="All 2 branches covered.">        if (resourceName != null) {</span>
+<span class="fc" id="L539">            String name = null;</span>
+<span class="fc" id="L540">            boolean isHttp = false;</span>
+
+            // Deal with a URI or a path name in as the resource  name
+            try {
+<span class="fc" id="L544">                URI uri = new URI(resourceName);</span>
+<span class="fc" id="L545">                String scheme = uri.getScheme();</span>
+<span class="fc bfc" id="L546" title="All 4 branches covered.">                isHttp = scheme != null &amp;&amp; scheme.startsWith(&quot;http&quot;); // http or https</span>
+<span class="fc" id="L547">                String path = uri.getPath();</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">                if (path != null) {</span>
+<span class="fc" id="L549">                    int slash = path.lastIndexOf('/');</span>
+<span class="pc bpc" id="L550" title="1 of 2 branches missed.">                    if (slash + 1 &lt; path.length()) {</span>
+<span class="fc" id="L551">                        name = path.substring(slash + 1);</span>
+                    }
+                }
+<span class="nc" id="L554">            } catch (URISyntaxException e) {</span>
+<span class="nc" id="L555">                name = resourceName;</span>
+<span class="fc" id="L556">            }</span>
+
+<span class="pc bpc" id="L558" title="1 of 2 branches missed.">            if (name != null) {</span>
+<span class="fc" id="L559">                MimeType hint = getMimeType(name);</span>
+
+                // For server-side scripting languages, we cannot rely on the filename to detect
+                // the mime type
+<span class="fc bfc" id="L563" title="All 4 branches covered.">                if (!(isHttp &amp;&amp; hint.isInterpreted())) {</span>
+                    // If we have some types based on mime magic, try to specialise
+                    //  and/or select the type based on that
+                    // Otherwise, use the type identified from the name
+<span class="fc" id="L567">                    possibleTypes = applyHint(possibleTypes, hint);</span>
+                }
+            }
+        }
+
+        // Get type based on metadata hint (if available)
+<span class="fc" id="L573">        String typeName = metadata.get(Metadata.CONTENT_TYPE);</span>
+<span class="fc bfc" id="L574" title="All 2 branches covered.">        if (typeName != null) {</span>
+            try {
+<span class="fc" id="L576">                MimeType hint = forName(typeName);</span>
+<span class="fc" id="L577">                possibleTypes = applyHint(possibleTypes, hint);</span>
+<span class="nc" id="L578">            } catch (MimeTypeException e) {</span>
+                // Malformed type name, ignore
+<span class="fc" id="L580">            }</span>
+        }
+
+<span class="pc bpc" id="L583" title="1 of 4 branches missed.">        if (possibleTypes == null || possibleTypes.isEmpty()) {</span>
+            // Report that we don't know what it is
+<span class="fc" id="L585">            return MediaType.OCTET_STREAM;</span>
+        } else {
+<span class="fc" id="L587">            return possibleTypes.get(0).getType();</span>
+        }
+    }
+
+    /**
+     * Use the MimeType hint to try to clarify or specialise the current
+     * possible types list.
+     * If the hint is a specialised form, use that instead
+     * If there are multiple possible types, use the hint to select one
+     */
+    private List&lt;MimeType&gt; applyHint(List&lt;MimeType&gt; possibleTypes, MimeType hint) {
+<span class="pc bpc" id="L598" title="1 of 4 branches missed.">        if (possibleTypes == null || possibleTypes.isEmpty()) {</span>
+<span class="fc" id="L599">            return Collections.singletonList(hint);</span>
+        } else {
+<span class="fc bfc" id="L601" title="All 2 branches covered.">            for (final MimeType type : possibleTypes) {</span>
+<span class="fc bfc" id="L602" title="All 2 branches covered.">                if (hint.equals(type) ||</span>
+<span class="fc bfc" id="L603" title="All 2 branches covered.">                        registry.isSpecializationOf(hint.getType(), type.getType())) {</span>
+                    // Use just this type
+<span class="fc" id="L605">                    return Collections.singletonList(hint);</span>
+                }
+<span class="fc" id="L607">            }</span>
+        }
+
+        // Hint didn't help, sorry
+<span class="fc" id="L611">        return possibleTypes;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OfficeOpenXMLExtended.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">OfficeOpenXMLExtended.java</span></div><h1>OfficeOpenXMLExtended.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * Extended properties as defined in the Office Open XML specification part Four.
+ * Those properties are omitted which have equivalent properties defined in the ODF
+ * namespace like &quot;word count&quot;.
+ * Also not all properties from the specification are defined here, yet. Only those which have
+ * been in use by the parsers so far.
+ *
+ * @see &lt;a href=&quot;http://www.iso.org/iso/iso_catalogue/catalogue_tc/catalogue_detail.htm?csnumber=59575&quot;
+ * &gt;ISO document of Office Open XML specification&lt;/a&gt;
+ * @see &lt;a href=&quot;http://www.ecma-international.org/publications/standards/Ecma-376.htm&quot;
+ * &gt;ECMA document of Office Open XML specification&lt;/a&gt;
+ */
+public interface OfficeOpenXMLExtended {
+    String NAMESPACE_URI =
+            &quot;http://schemas.openxmlformats.org/officeDocument/2006/extended-properties/&quot;;
+    String WORD_PROCESSING_NAMESPACE_URI =
+            &quot;http://schemas.openxmlformats.org/wordprocessingml/2006/main&quot;;
+    String PREFIX = &quot;extended-properties&quot;;
+    String WORD_PROCESSING_PREFIX = &quot;w&quot;;
+    String SECURITY_NONE = &quot;None&quot;;
+    String SECURITY_PASSWORD_PROTECTED = &quot;PasswordProtected&quot;;
+    String SECURITY_READ_ONLY_RECOMMENDED = &quot;ReadOnlyRecommended&quot;;
+    String SECURITY_READ_ONLY_ENFORCED = &quot;ReadOnlyEnforced&quot;;
+    String SECURITY_LOCKED_FOR_ANNOTATIONS = &quot;LockedForAnnotations&quot;;
+    String SECURITY_UNKNOWN = &quot;Unknown&quot;;
+
+<span class="fc" id="L45">    Property TEMPLATE = Property.externalText(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Template&quot;);
+
+<span class="fc" id="L48">    Property MANAGER = Property.externalTextBag(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Manager&quot;);
+
+<span class="fc" id="L51">    Property COMPANY = Property.externalText(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Company&quot;);
+
+<span class="fc" id="L54">    Property PRESENTATION_FORMAT = Property.externalText(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;PresentationFormat&quot;);
+
+<span class="fc" id="L57">    Property NOTES = Property.externalInteger(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Notes&quot;);
+
+<span class="fc" id="L60">    Property TOTAL_TIME = Property.externalInteger(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;TotalTime&quot;);
+
+<span class="fc" id="L63">    Property HIDDEN_SLIDES = Property.externalInteger(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;HiddenSlides&quot;);
+
+<span class="fc" id="L66">    Property APPLICATION = Property.externalText(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Application&quot;);
+
+<span class="fc" id="L69">    Property APP_VERSION = Property.externalText(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;AppVersion&quot;);
+    //Integer flag
+<span class="fc" id="L72">    Property DOC_SECURITY = Property.externalInteger(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;DocSecurity&quot;);
+
+    //Human readable string explaining doc security flag
+<span class="fc" id="L76">    Property DOC_SECURITY_STRING = Property.externalClosedChoise(</span>
+            PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;doc-security-string&quot;,
+            SECURITY_NONE, SECURITY_PASSWORD_PROTECTED, SECURITY_READ_ONLY_RECOMMENDED,
+            SECURITY_READ_ONLY_ENFORCED, SECURITY_LOCKED_FOR_ANNOTATIONS, SECURITY_UNKNOWN);
+
+<span class="fc" id="L81">    Property COMMENTS = Property.externalTextBag(</span>
+            WORD_PROCESSING_PREFIX + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;Comments&quot;);
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

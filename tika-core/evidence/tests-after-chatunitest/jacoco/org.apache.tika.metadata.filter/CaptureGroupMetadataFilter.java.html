@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CaptureGroupMetadataFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.filter</a> &gt; <span class="el_source">CaptureGroupMetadataFilter.java</span></div><h1>CaptureGroupMetadataFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.filter;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ConfigDeserializer;
+import org.apache.tika.config.Initializable;
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.exception.TikaConfigException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.utils.StringUtils;
+
+
+/**
+ * This filter runs a regex against the first value in the &quot;sourceField&quot;.
+ * If the pattern matches, it extracts the first group of the first match and
+ * set's the &quot;targetField&quot;'s value to that first group.
+ * &lt;p/&gt;
+ * If there is a match, this will overwrite whatever value is in the
+ * &quot;targetField&quot;.
+ * &lt;p/&gt;
+ * If there is not a match, this filter will be a no-op.
+ * &lt;p/&gt;
+ * If there are multiple matches, this filter will capture only the first.
+ * Open a ticket if you need different behavior.
+ * &lt;p/&gt;
+ * If the source field has multiple values, this will run the regex
+ * against only the first value.
+ * &lt;p/&gt;
+ * If the source field does not exist, this filter will be a no-op.
+ * &lt;p/&gt;
+ * If the target field is the same value as the source field, this filter
+ * will overwrite the value in that field. Again, if there are multiple
+ * values in that field, those will all be overwritten.
+ */
+@TikaComponent
+public class CaptureGroupMetadataFilter extends MetadataFilterBase implements Initializable {
+
+    /**
+     * Configuration class for JSON deserialization.
+     */
+<span class="nc" id="L60">    public static class Config {</span>
+        public String regex;
+        public String sourceField;
+        public String targetField;
+    }
+
+    private String regexString;
+    private Pattern regex;
+    private String sourceField;
+    private String targetField;
+
+<span class="nc" id="L71">    public CaptureGroupMetadataFilter() {</span>
+<span class="nc" id="L72">    }</span>
+
+    /**
+     * Constructor with explicit Config object.
+     *
+     * @param config the configuration
+     */
+<span class="nc" id="L79">    public CaptureGroupMetadataFilter(Config config) throws TikaConfigException {</span>
+<span class="nc" id="L80">        this.regexString = config.regex;</span>
+<span class="nc" id="L81">        this.sourceField = config.sourceField;</span>
+<span class="nc" id="L82">        this.targetField = config.targetField;</span>
+        // Validate and initialize
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (StringUtils.isBlank(sourceField)) {</span>
+<span class="nc" id="L85">            throw new TikaConfigException(&quot;Must specify a 'sourceField'&quot;);</span>
+        }
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (StringUtils.isBlank(targetField)) {</span>
+<span class="nc" id="L88">            throw new TikaConfigException(&quot;Must specify a 'targetField'&quot;);</span>
+        }
+        try {
+<span class="nc" id="L91">            this.regex = Pattern.compile(regexString);</span>
+<span class="nc" id="L92">        } catch (PatternSyntaxException e) {</span>
+<span class="nc" id="L93">            throw new TikaConfigException(&quot;Couldn't parse regex&quot;, e);</span>
+<span class="nc" id="L94">        }</span>
+<span class="nc" id="L95">    }</span>
+
+    /**
+     * Constructor for JSON configuration.
+     * Requires Jackson on the classpath.
+     *
+     * @param jsonConfig JSON configuration
+     */
+    public CaptureGroupMetadataFilter(JsonConfig jsonConfig) throws TikaConfigException {
+<span class="nc" id="L104">        this(ConfigDeserializer.buildConfig(jsonConfig, Config.class));</span>
+<span class="nc" id="L105">    }</span>
+
+    @Override
+    protected void filter(Metadata metadata) {
+<span class="nc" id="L109">        String val = metadata.get(sourceField);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (StringUtils.isBlank(val)) {</span>
+<span class="nc" id="L111">            return;</span>
+        }
+<span class="nc" id="L113">        Matcher m = regex.matcher(val);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (m.find()) {</span>
+            // target field name is operator-configured; may legitimately be a reserved key
+<span class="nc" id="L116">            metadata.setTrusted(targetField, m.group(1));</span>
+        }
+<span class="nc" id="L118">    }</span>
+
+    public void setRegex(String regex) {
+<span class="nc" id="L121">        this.regexString = regex;</span>
+<span class="nc" id="L122">    }</span>
+
+    public void setSourceField(String sourceField) {
+<span class="nc" id="L125">        this.sourceField = sourceField;</span>
+<span class="nc" id="L126">    }</span>
+
+    public void setTargetField(String targetField) {
+<span class="nc" id="L129">        this.targetField = targetField;</span>
+<span class="nc" id="L130">    }</span>
+
+    public String getRegex() {
+<span class="nc" id="L133">        return regexString;</span>
+    }
+
+    public String getSourceField() {
+<span class="nc" id="L137">        return sourceField;</span>
+    }
+
+    public String getTargetField() {
+<span class="nc" id="L141">        return targetField;</span>
+    }
+
+    @Override
+    public void initialize() throws TikaConfigException {
+        try {
+<span class="nc" id="L147">            regex = Pattern.compile(regexString);</span>
+<span class="nc" id="L148">        } catch (PatternSyntaxException e) {</span>
+<span class="nc" id="L149">            throw new TikaConfigException(&quot;Couldn't parse regex&quot;, e);</span>
+<span class="nc" id="L150">        }</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        if (StringUtils.isBlank(sourceField)) {</span>
+<span class="nc" id="L152">            throw new TikaConfigException(&quot;Must specify a 'sourceField'&quot;);</span>
+        }
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (StringUtils.isBlank(targetField)) {</span>
+<span class="nc" id="L155">            throw new TikaConfigException(&quot;Must specify a 'targetField'&quot;);</span>
+        }
+<span class="nc" id="L157">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

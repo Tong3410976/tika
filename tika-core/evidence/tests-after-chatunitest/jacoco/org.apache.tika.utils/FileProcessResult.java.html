@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileProcessResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">FileProcessResult.java</span></div><h1>FileProcessResult.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+<span class="nc" id="L19">public class FileProcessResult {</span>
+
+<span class="nc" id="L21">    String stderr = &quot;&quot;;</span>
+<span class="nc" id="L22">    String stdout = &quot;&quot;;</span>
+<span class="nc" id="L23">    int exitValue = -1;</span>
+<span class="nc" id="L24">    long processTimeMillis = -1;</span>
+<span class="nc" id="L25">    boolean isTimeout = false;</span>
+<span class="nc" id="L26">    long stdoutLength = -1;</span>
+<span class="nc" id="L27">    long stderrLength = -1;</span>
+<span class="nc" id="L28">    boolean stderrTruncated = false;</span>
+<span class="nc" id="L29">    boolean stdoutTruncated = false;</span>
+
+    public String getStderr() {
+<span class="nc" id="L32">        return stderr;</span>
+    }
+
+    public String getStdout() {
+<span class="nc" id="L36">        return stdout;</span>
+    }
+
+    public int getExitValue() {
+<span class="nc" id="L40">        return exitValue;</span>
+    }
+
+    public long getProcessTimeMillis() {
+<span class="nc" id="L44">        return processTimeMillis;</span>
+    }
+
+    public boolean isTimeout() {
+<span class="nc" id="L48">        return isTimeout;</span>
+    }
+
+    public long getStdoutLength() {
+<span class="nc" id="L52">        return stdoutLength;</span>
+    }
+
+    public long getStderrLength() {
+<span class="nc" id="L56">        return stderrLength;</span>
+    }
+
+    public boolean isStderrTruncated() {
+<span class="nc" id="L60">        return stderrTruncated;</span>
+    }
+
+    public boolean isStdoutTruncated() {
+<span class="nc" id="L64">        return stdoutTruncated;</span>
+    }
+
+    public void setStderr(String stderr) {
+<span class="nc" id="L68">        this.stderr = stderr;</span>
+<span class="nc" id="L69">    }</span>
+
+    public void setStdout(String stdout) {
+<span class="nc" id="L72">        this.stdout = stdout;</span>
+<span class="nc" id="L73">    }</span>
+
+    public void setExitValue(int exitValue) {
+<span class="nc" id="L76">        this.exitValue = exitValue;</span>
+<span class="nc" id="L77">    }</span>
+
+    public void setProcessTimeMillis(long processTimeMillis) {
+<span class="nc" id="L80">        this.processTimeMillis = processTimeMillis;</span>
+<span class="nc" id="L81">    }</span>
+
+    public void setTimeout(boolean timeout) {
+<span class="nc" id="L84">        isTimeout = timeout;</span>
+<span class="nc" id="L85">    }</span>
+
+    public void setStdoutLength(long stdoutLength) {
+<span class="nc" id="L88">        this.stdoutLength = stdoutLength;</span>
+<span class="nc" id="L89">    }</span>
+
+    public void setStderrLength(long stderrLength) {
+<span class="nc" id="L92">        this.stderrLength = stderrLength;</span>
+<span class="nc" id="L93">    }</span>
+
+    public void setStderrTruncated(boolean stderrTruncated) {
+<span class="nc" id="L96">        this.stderrTruncated = stderrTruncated;</span>
+<span class="nc" id="L97">    }</span>
+
+    public void setStdoutTruncated(boolean stdoutTruncated) {
+<span class="nc" id="L100">        this.stdoutTruncated = stdoutTruncated;</span>
+<span class="nc" id="L101">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L105">        return &quot;FileProcessResult{&quot; +</span>
+                &quot;stderr='&quot; + stderr + '\'' +
+                &quot;, stdout='&quot; + stdout + '\'' +
+                &quot;, exitValue=&quot; + exitValue +
+                &quot;, processTimeMillis=&quot; + processTimeMillis +
+                &quot;, isTimeout=&quot; + isTimeout +
+                &quot;, stdoutLength=&quot; + stdoutLength +
+                &quot;, stderrLength=&quot; + stderrLength +
+                &quot;, stderrTruncated=&quot; + stderrTruncated +
+                &quot;, stdoutTruncated=&quot; + stdoutTruncated +
+                '}';
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

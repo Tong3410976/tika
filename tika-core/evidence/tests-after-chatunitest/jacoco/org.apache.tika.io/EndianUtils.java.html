@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EndianUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">EndianUtils.java</span></div><h1>EndianUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+import org.apache.tika.exception.TikaException;
+
+/**
+ * General Endian Related Utilties.
+ * &lt;p&gt;
+ * This class provides static utility methods for input/output operations
+ * on numbers in Big and Little Endian formats.
+ * &lt;p&gt;
+ * Origin of code: Based on the version in POI
+ */
+<span class="nc" id="L32">public class EndianUtils {</span>
+    private static final int LONG_SIZE = 8;
+
+    /**
+     * Get a LE short value from an InputStream
+     *
+     * @param stream the InputStream from which the short is to be read
+     * @return the short (16-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static short readShortLE(InputStream stream)
+            throws IOException, BufferUnderrunException {
+<span class="nc" id="L45">        return (short) readUShortLE(stream);</span>
+    }
+
+    /**
+     * Get a BE short value from an InputStream
+     *
+     * @param stream the InputStream from which the short is to be read
+     * @return the short (16-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static short readShortBE(InputStream stream)
+            throws IOException, BufferUnderrunException {
+<span class="nc" id="L58">        return (short) readUShortBE(stream);</span>
+    }
+
+    public static int readUShortLE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="nc" id="L62">        int ch1 = stream.read();</span>
+<span class="nc" id="L63">        int ch2 = stream.read();</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if ((ch1 | ch2) &lt; 0) {</span>
+<span class="nc" id="L65">            throw new BufferUnderrunException();</span>
+        }
+<span class="nc" id="L67">        return (ch2 &lt;&lt; 8) + (ch1);</span>
+    }
+
+    public static int readUShortBE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="nc" id="L71">        int ch1 = stream.read();</span>
+<span class="nc" id="L72">        int ch2 = stream.read();</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if ((ch1 | ch2) &lt; 0) {</span>
+<span class="nc" id="L74">            throw new BufferUnderrunException();</span>
+        }
+<span class="nc" id="L76">        return (ch1 &lt;&lt; 8) + (ch2);</span>
+    }
+
+    /**
+     * Get a LE unsigned int value from an InputStream
+     *
+     * @param stream the InputStream from which the int is to be read
+     * @return the int (32-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static long readUIntLE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="fc" id="L88">        int ch1 = stream.read();</span>
+<span class="fc" id="L89">        int ch2 = stream.read();</span>
+<span class="fc" id="L90">        int ch3 = stream.read();</span>
+<span class="fc" id="L91">        int ch4 = stream.read();</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if ((ch1 | ch2 | ch3 | ch4) &lt; 0) {</span>
+<span class="fc" id="L93">            throw new BufferUnderrunException();</span>
+        }
+<span class="fc" id="L95">        return ((ch4 &lt;&lt; 24) + (ch3 &lt;&lt; 16) + (ch2 &lt;&lt; 8) + (ch1)) &amp; 0x00FFFFFFFFl;</span>
+    }
+
+    /**
+     * Get a BE unsigned int value from an InputStream
+     *
+     * @param stream the InputStream from which the int is to be read
+     * @return the int (32-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static long readUIntBE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="fc" id="L107">        int ch1 = stream.read();</span>
+<span class="fc" id="L108">        int ch2 = stream.read();</span>
+<span class="fc" id="L109">        int ch3 = stream.read();</span>
+<span class="fc" id="L110">        int ch4 = stream.read();</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        if ((ch1 | ch2 | ch3 | ch4) &lt; 0) {</span>
+<span class="nc" id="L112">            throw new BufferUnderrunException();</span>
+        }
+<span class="fc" id="L114">        return ((ch1 &lt;&lt; 24) + (ch2 &lt;&lt; 16) + (ch3 &lt;&lt; 8) + (ch4)) &amp; 0x00FFFFFFFFl;</span>
+    }
+
+    /**
+     * Get a LE int value from an InputStream
+     *
+     * @param stream the InputStream from which the int is to be read
+     * @return the int (32-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static int readIntLE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="nc" id="L126">        int ch1 = stream.read();</span>
+<span class="nc" id="L127">        int ch2 = stream.read();</span>
+<span class="nc" id="L128">        int ch3 = stream.read();</span>
+<span class="nc" id="L129">        int ch4 = stream.read();</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if ((ch1 | ch2 | ch3 | ch4) &lt; 0) {</span>
+<span class="nc" id="L131">            throw new BufferUnderrunException();</span>
+        }
+<span class="nc" id="L133">        return (ch4 &lt;&lt; 24) + (ch3 &lt;&lt; 16) + (ch2 &lt;&lt; 8) + (ch1);</span>
+    }
+
+    /**
+     * Get a BE int value from an InputStream
+     *
+     * @param stream the InputStream from which the int is to be read
+     * @return the int (32-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static int readIntBE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="nc" id="L145">        int ch1 = stream.read();</span>
+<span class="nc" id="L146">        int ch2 = stream.read();</span>
+<span class="nc" id="L147">        int ch3 = stream.read();</span>
+<span class="nc" id="L148">        int ch4 = stream.read();</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if ((ch1 | ch2 | ch3 | ch4) &lt; 0) {</span>
+<span class="nc" id="L150">            throw new BufferUnderrunException();</span>
+        }
+<span class="nc" id="L152">        return (ch1 &lt;&lt; 24) + (ch2 &lt;&lt; 16) + (ch3 &lt;&lt; 8) + (ch4);</span>
+    }
+
+    /**
+     * Get a PDP-11 style Middle Endian int value from an InputStream
+     *
+     * @param stream the InputStream from which the int is to be read
+     * @return the int (32-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static int readIntME(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="fc" id="L164">        int ch1 = stream.read();</span>
+<span class="fc" id="L165">        int ch2 = stream.read();</span>
+<span class="fc" id="L166">        int ch3 = stream.read();</span>
+<span class="fc" id="L167">        int ch4 = stream.read();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if ((ch1 | ch2 | ch3 | ch4) &lt; 0) {</span>
+<span class="fc" id="L169">            throw new BufferUnderrunException();</span>
+        }
+<span class="fc" id="L171">        return (ch2 &lt;&lt; 24) + (ch1 &lt;&lt; 16) + (ch4 &lt;&lt; 8) + (ch3);</span>
+    }
+
+    /**
+     * Get a LE long value from an InputStream
+     *
+     * @param stream the InputStream from which the long is to be read
+     * @return the long (64-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static long readLongLE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="nc" id="L183">        int ch1 = stream.read();</span>
+<span class="nc" id="L184">        int ch2 = stream.read();</span>
+<span class="nc" id="L185">        int ch3 = stream.read();</span>
+<span class="nc" id="L186">        int ch4 = stream.read();</span>
+<span class="nc" id="L187">        int ch5 = stream.read();</span>
+<span class="nc" id="L188">        int ch6 = stream.read();</span>
+<span class="nc" id="L189">        int ch7 = stream.read();</span>
+<span class="nc" id="L190">        int ch8 = stream.read();</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        if ((ch1 | ch2 | ch3 | ch4 | ch5 | ch6 | ch7 | ch8) &lt; 0) {</span>
+<span class="nc" id="L192">            throw new BufferUnderrunException();</span>
+        }
+
+<span class="nc" id="L195">        return ((long) ch8 &lt;&lt; 56) + ((long) ch7 &lt;&lt; 48) + ((long) ch6 &lt;&lt; 40) + ((long) ch5 &lt;&lt; 32) +</span>
+                ((long) ch4 &lt;&lt; 24) + // cast to long to preserve bit 31 (sign bit for ints)
+                (ch3 &lt;&lt; 16) + (ch2 &lt;&lt; 8) + (ch1);
+    }
+
+    /**
+     * Get a NE long value from an InputStream
+     *
+     * @param stream the InputStream from which the long is to be read
+     * @return the long (64-bit) value
+     * @throws IOException             will be propagated back to the caller
+     * @throws BufferUnderrunException if the stream cannot provide enough bytes
+     */
+    public static long readLongBE(InputStream stream) throws IOException, BufferUnderrunException {
+<span class="nc" id="L209">        int ch1 = stream.read();</span>
+<span class="nc" id="L210">        int ch2 = stream.read();</span>
+<span class="nc" id="L211">        int ch3 = stream.read();</span>
+<span class="nc" id="L212">        int ch4 = stream.read();</span>
+<span class="nc" id="L213">        int ch5 = stream.read();</span>
+<span class="nc" id="L214">        int ch6 = stream.read();</span>
+<span class="nc" id="L215">        int ch7 = stream.read();</span>
+<span class="nc" id="L216">        int ch8 = stream.read();</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">        if ((ch1 | ch2 | ch3 | ch4 | ch5 | ch6 | ch7 | ch8) &lt; 0) {</span>
+<span class="nc" id="L218">            throw new BufferUnderrunException();</span>
+        }
+
+<span class="nc" id="L221">        return ((long) ch1 &lt;&lt; 56) + ((long) ch2 &lt;&lt; 48) + ((long) ch3 &lt;&lt; 40) + ((long) ch4 &lt;&lt; 32) +</span>
+                ((long) ch5 &lt;&lt; 24) + // cast to long to preserve bit 31 (sign bit for ints)
+                (ch6 &lt;&lt; 16) + (ch7 &lt;&lt; 8) + (ch8);
+    }
+
+    /**
+     * Gets the integer value that is stored in UTF-8 like fashion, in Big Endian
+     * but with the high bit on each number indicating if it continues or not
+     */
+    public static long readUE7(InputStream stream) throws IOException {
+        int i;
+<span class="fc" id="L232">        long v = 0;</span>
+<span class="fc" id="L233">        int max = 6;</span>
+<span class="fc" id="L234">        int read = 0;</span>
+<span class="pc bpc" id="L235" title="2 of 4 branches missed.">        while ((i = stream.read()) &gt;= 0 &amp;&amp; read++ &lt; max) {</span>
+<span class="fc" id="L236">            v = v &lt;&lt; 7;</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">            if ((i &amp; 128) == 128) {</span>
+                // Continues
+<span class="fc" id="L239">                v += (i &amp; 127);</span>
+            } else {
+                // Last value
+<span class="fc" id="L242">                v += i;</span>
+<span class="fc" id="L243">                break;</span>
+            }
+        }
+<span class="pc bpc" id="L246" title="1 of 2 branches missed.">        if (i &lt; 0) {</span>
+<span class="nc" id="L247">            throw new IOException(&quot;Buffer underun; expected one more byte&quot;);</span>
+        }
+<span class="fc" id="L249">        return v;</span>
+    }
+
+    /**
+     * Get a LE short value from the beginning of a byte array
+     *
+     * @param data the byte array
+     * @return the short (16-bit) value
+     */
+    public static short getShortLE(byte[] data) {
+<span class="nc" id="L259">        return getShortLE(data, 0);</span>
+    }
+
+    /**
+     * Get a LE short value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the short (16-bit) value
+     */
+    public static short getShortLE(byte[] data, int offset) {
+<span class="nc" id="L270">        return (short) getUShortLE(data, offset);</span>
+    }
+
+    /**
+     * Get a LE unsigned short value from the beginning of a byte array
+     *
+     * @param data the byte array
+     * @return the unsigned short (16-bit) value in an int
+     */
+    public static int getUShortLE(byte[] data) {
+<span class="nc" id="L280">        return getUShortLE(data, 0);</span>
+    }
+
+    /**
+     * Get a LE unsigned short value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the unsigned short (16-bit) value in an integer
+     */
+    public static int getUShortLE(byte[] data, int offset) {
+<span class="nc" id="L291">        int b0 = data[offset] &amp; 0xFF;</span>
+<span class="nc" id="L292">        int b1 = data[offset + 1] &amp; 0xFF;</span>
+<span class="nc" id="L293">        return (b1 &lt;&lt; 8) + (b0);</span>
+    }
+
+    /**
+     * Get a BE short value from the beginning of a byte array
+     *
+     * @param data the byte array
+     * @return the short (16-bit) value
+     */
+    public static short getShortBE(byte[] data) {
+<span class="nc" id="L303">        return getShortBE(data, 0);</span>
+    }
+
+    /**
+     * Get a BE short value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the short (16-bit) value
+     */
+    public static short getShortBE(byte[] data, int offset) {
+<span class="nc" id="L314">        return (short) getUShortBE(data, offset);</span>
+    }
+
+    /**
+     * Get a BE unsigned short value from the beginning of a byte array
+     *
+     * @param data the byte array
+     * @return the unsigned short (16-bit) value in an int
+     */
+    public static int getUShortBE(byte[] data) {
+<span class="nc" id="L324">        return getUShortBE(data, 0);</span>
+    }
+
+    /**
+     * Get a BE unsigned short value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the unsigned short (16-bit) value in an integer
+     */
+    public static int getUShortBE(byte[] data, int offset) {
+<span class="nc" id="L335">        int b0 = data[offset] &amp; 0xFF;</span>
+<span class="nc" id="L336">        int b1 = data[offset + 1] &amp; 0xFF;</span>
+<span class="nc" id="L337">        return (b0 &lt;&lt; 8) + (b1);</span>
+    }
+
+    /**
+     * Get a LE int value from the beginning of a byte array
+     *
+     * @param data the byte array
+     * @return the int (32-bit) value
+     */
+    public static int getIntLE(byte[] data) {
+<span class="nc" id="L347">        return getIntLE(data, 0);</span>
+    }
+
+    /**
+     * Get a LE int value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the int (32-bit) value
+     */
+    public static int getIntLE(byte[] data, int offset) {
+<span class="nc" id="L358">        int i = offset;</span>
+<span class="nc" id="L359">        int b0 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L360">        int b1 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L361">        int b2 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L362">        int b3 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L363">        return (b3 &lt;&lt; 24) + (b2 &lt;&lt; 16) + (b1 &lt;&lt; 8) + (b0);</span>
+    }
+
+    /**
+     * Get a BE int value from the beginning of a byte array
+     *
+     * @param data the byte array
+     * @return the int (32-bit) value
+     */
+    public static int getIntBE(byte[] data) {
+<span class="nc" id="L373">        return getIntBE(data, 0);</span>
+    }
+
+    /**
+     * Get a BE int value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the int (32-bit) value
+     */
+    public static int getIntBE(byte[] data, int offset) {
+<span class="nc" id="L384">        int i = offset;</span>
+<span class="nc" id="L385">        int b0 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L386">        int b1 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L387">        int b2 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L388">        int b3 = data[i++] &amp; 0xFF;</span>
+<span class="nc" id="L389">        return (b0 &lt;&lt; 24) + (b1 &lt;&lt; 16) + (b2 &lt;&lt; 8) + (b3);</span>
+    }
+
+    /**
+     * Get a LE unsigned int value from a byte array
+     *
+     * @param data the byte array
+     * @return the unsigned int (32-bit) value in a long
+     */
+    public static long getUIntLE(byte[] data) {
+<span class="nc" id="L399">        return getUIntLE(data, 0);</span>
+    }
+
+    /**
+     * Get a LE unsigned int value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the unsigned int (32-bit) value in a long
+     */
+    public static long getUIntLE(byte[] data, int offset) {
+<span class="nc" id="L410">        long retNum = getIntLE(data, offset);</span>
+<span class="nc" id="L411">        return retNum &amp; 0x00FFFFFFFFl;</span>
+    }
+
+    /**
+     * Get a BE unsigned int value from a byte array
+     *
+     * @param data the byte array
+     * @return the unsigned int (32-bit) value in a long
+     */
+    public static long getUIntBE(byte[] data) {
+<span class="nc" id="L421">        return getUIntBE(data, 0);</span>
+    }
+
+    /**
+     * Get a BE unsigned int value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the unsigned int (32-bit) value in a long
+     */
+    public static long getUIntBE(byte[] data, int offset) {
+<span class="nc" id="L432">        long retNum = getIntBE(data, offset);</span>
+<span class="nc" id="L433">        return retNum &amp; 0x00FFFFFFFFl;</span>
+    }
+
+    /**
+     * Get a LE long value from a byte array
+     *
+     * @param data   the byte array
+     * @param offset a starting offset into the byte array
+     * @return the long (64-bit) value
+     */
+    public static long getLongLE(byte[] data, int offset) {
+<span class="nc" id="L444">        long result = 0;</span>
+
+<span class="nc bnc" id="L446" title="All 2 branches missed.">        for (int j = offset + LONG_SIZE - 1; j &gt;= offset; j--) {</span>
+<span class="nc" id="L447">            result &lt;&lt;= 8;</span>
+<span class="nc" id="L448">            result |= 0xff &amp; data[j];</span>
+        }
+<span class="nc" id="L450">        return result;</span>
+    }
+
+    /**
+     * Convert an 'unsigned' byte to an integer. ie, don't carry across the
+     * sign.
+     *
+     * @param b Description of the Parameter
+     * @return Description of the Return Value
+     */
+    public static int ubyteToInt(byte b) {
+<span class="nc" id="L461">        return b &amp; 0xFF;</span>
+    }
+
+    /**
+     * get the unsigned value of a byte.
+     *
+     * @param data   the byte array.
+     * @param offset a starting offset into the byte array.
+     * @return the unsigned value of the byte as a 16 bit short
+     */
+    public static short getUByte(byte[] data, int offset) {
+<span class="nc" id="L472">        return (short) (data[offset] &amp; 0xFF);</span>
+    }
+
+
+    public static class BufferUnderrunException extends TikaException {
+        private static final long serialVersionUID = 8358288231138076276L;
+
+        public BufferUnderrunException() {
+<span class="fc" id="L480">            super(&quot;Insufficient data left in stream for required read&quot;);</span>
+<span class="fc" id="L481">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

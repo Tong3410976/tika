@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasicContentHandlerFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">BasicContentHandlerFactory.java</span></div><h1>BasicContentHandlerFactory.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.util.Locale;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.helpers.DefaultHandler;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.OutputLimits;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Basic factory for creating common types of ContentHandlers.
+ * &lt;p&gt;
+ * Implements {@link StreamingContentHandlerFactory} to support both in-memory
+ * content extraction and streaming output to an OutputStream.
+ */
+@TikaComponent(defaultFor = ContentHandlerFactory.class)
+public class BasicContentHandlerFactory implements StreamingContentHandlerFactory, WriteLimiter {
+
+<span class="pc" id="L42">    private HANDLER_TYPE type = HANDLER_TYPE.MARKDOWN;</span>
+<span class="pc" id="L43">    private int writeLimit = -1;</span>
+<span class="pc" id="L44">    private boolean throwOnWriteLimitReached = true;</span>
+<span class="pc" id="L45">    private boolean validateXHTML = false;</span>
+    private transient ParseContext parseContext;
+
+    /**
+     * No-arg constructor for bean-style configuration (e.g., Jackson deserialization).
+     * Creates a factory with MARKDOWN handler type, unlimited write, and throwOnWriteLimitReached=true.
+     */
+<span class="nc" id="L52">    public BasicContentHandlerFactory() {</span>
+<span class="nc" id="L53">    }</span>
+
+    /**
+     * Create a BasicContentHandlerFactory with {@link #throwOnWriteLimitReached} is true
+     * @param type       basic type of handler
+     * @param writeLimit max number of characters to store; if &lt; 0,
+     *                   the handler will store all characters
+     */
+    public BasicContentHandlerFactory(HANDLER_TYPE type, int writeLimit) {
+<span class="fc" id="L62">        this(type, writeLimit, true, null);</span>
+<span class="fc" id="L63">    }</span>
+
+    /**
+     *
+     * @param type basic type of handler
+     * @param writeLimit maximum number of characters to store
+     * @param throwOnWriteLimitReached whether or not to throw a
+     *          {@link org.apache.tika.exception.WriteLimitReachedException}
+     *                                 when the write limit has been reached
+     * @param parseContext to store the writelimitreached warning if
+     *                 throwOnWriteLimitReached is set to &lt;code&gt;false&lt;/code&gt;
+     */
+    public BasicContentHandlerFactory(HANDLER_TYPE type, int writeLimit,
+<span class="fc" id="L76">                                      boolean throwOnWriteLimitReached, ParseContext parseContext) {</span>
+<span class="fc" id="L77">        this.type = type;</span>
+<span class="fc" id="L78">        this.writeLimit = writeLimit;</span>
+<span class="fc" id="L79">        this.throwOnWriteLimitReached = throwOnWriteLimitReached;</span>
+<span class="fc" id="L80">        this.parseContext = parseContext;</span>
+<span class="pc bpc" id="L81" title="3 of 4 branches missed.">        if (throwOnWriteLimitReached == false &amp;&amp; parseContext == null) {</span>
+<span class="nc" id="L82">            throw new IllegalArgumentException(&quot;parse context must not be null if &quot; +</span>
+                    &quot;throwOnWriteLimitReached is false&quot;);
+        }
+<span class="fc" id="L85">    }</span>
+
+    /**
+     * When true, every handler produced by this factory is wrapped in a
+     * {@link StrictXHTMLValidator} so that any malformed XHTML event sequence
+     * emitted by a parser throws a {@link org.xml.sax.SAXException} at the
+     * offending event. Defaults to false. Intended for catching parser bugs
+     * in development / corpus scans; off in production for performance and
+     * because not every caller wants validation failures to surface as
+     * parser exceptions.
+     */
+    public void setValidateXHTML(boolean validateXHTML) {
+<span class="fc" id="L97">        this.validateXHTML = validateXHTML;</span>
+<span class="fc" id="L98">    }</span>
+
+    public boolean isValidateXHTML() {
+<span class="nc" id="L101">        return validateXHTML;</span>
+    }
+
+    /**
+     * Creates a new BasicContentHandlerFactory configured from OutputLimits in the ParseContext.
+     * &lt;p&gt;
+     * If OutputLimits is present in the context, the factory will be configured with those
+     * limits (writeLimit, throwOnWriteLimit). Otherwise, default values are used.
+     *
+     * @param type the handler type
+     * @param context the ParseContext (required if throwOnWriteLimit is false)
+     * @return a configured BasicContentHandlerFactory
+     */
+    public static BasicContentHandlerFactory newInstance(HANDLER_TYPE type, ParseContext context) {
+<span class="nc" id="L115">        OutputLimits limits = OutputLimits.get(context);</span>
+<span class="nc" id="L116">        return new BasicContentHandlerFactory(type, limits.getWriteLimit(),</span>
+<span class="nc" id="L117">                limits.isThrowOnWriteLimit(), context);</span>
+    }
+
+    /**
+     * Tries to parse string into handler type.  Returns default if string is null or
+     * parse fails.
+     * &lt;p/&gt;
+     * Options: xml, html, text, body, ignore (no content), markdown/md
+     *
+     * @param handlerTypeName string to parse
+     * @param defaultType     type to return if parse fails
+     * @return handler type
+     */
+    public static HANDLER_TYPE parseHandlerType(String handlerTypeName, HANDLER_TYPE defaultType) {
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">        if (handlerTypeName == null) {</span>
+<span class="nc" id="L132">            return defaultType;</span>
+        }
+
+<span class="fc" id="L135">        String lcHandlerTypeName = handlerTypeName.toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L136" title="7 of 8 branches missed.">        switch (lcHandlerTypeName) {</span>
+            case &quot;xml&quot;:
+<span class="nc" id="L138">                return HANDLER_TYPE.XML;</span>
+            case &quot;text&quot;:
+<span class="nc" id="L140">                return HANDLER_TYPE.TEXT;</span>
+            case &quot;txt&quot;:
+<span class="nc" id="L142">                return HANDLER_TYPE.TEXT;</span>
+            case &quot;html&quot;:
+<span class="nc" id="L144">                return HANDLER_TYPE.HTML;</span>
+            case &quot;body&quot;:
+<span class="nc" id="L146">                return HANDLER_TYPE.BODY;</span>
+            case &quot;ignore&quot;:
+<span class="nc" id="L148">                return HANDLER_TYPE.IGNORE;</span>
+            case &quot;markdown&quot;:
+            case &quot;md&quot;:
+<span class="fc" id="L151">                return HANDLER_TYPE.MARKDOWN;</span>
+            default:
+<span class="nc" id="L153">                return defaultType;</span>
+        }
+    }
+
+    @Override
+    public ContentHandler createHandler() {
+<span class="fc" id="L159">        return maybeValidate(createHandlerInner());</span>
+    }
+
+    private ContentHandler createHandlerInner() {
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        if (type == HANDLER_TYPE.BODY) {</span>
+<span class="fc" id="L164">            return new BodyContentHandler(</span>
+                    new WriteOutContentHandler(new ToTextContentHandler(), writeLimit,
+                    throwOnWriteLimitReached, parseContext));
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        } else if (type == HANDLER_TYPE.IGNORE) {</span>
+<span class="fc" id="L168">            return new NoOpContentHandler();</span>
+        }
+<span class="fc" id="L170">        ContentHandler formatHandler = getFormatHandler();</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        if (writeLimit &lt; 0) {</span>
+<span class="fc" id="L172">            return formatHandler;</span>
+        }
+<span class="fc" id="L174">        return new WriteOutContentHandler(formatHandler, writeLimit, throwOnWriteLimitReached,</span>
+                parseContext);
+    }
+
+    private ContentHandler maybeValidate(ContentHandler h) {
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        return validateXHTML ? new StrictXHTMLValidator(h) : h;</span>
+    }
+
+    private ContentHandler getFormatHandler() {
+<span class="pc bpc" id="L183" title="1 of 5 branches missed.">        switch (type) {</span>
+            case TEXT:
+<span class="fc" id="L185">                return new ToTextContentHandler();</span>
+            case HTML:
+<span class="fc" id="L187">                return new ToHTMLContentHandler();</span>
+            case XML:
+<span class="fc" id="L189">                return new ToXMLContentHandler();</span>
+            case MARKDOWN:
+<span class="fc" id="L191">                return new ToMarkdownContentHandler();</span>
+            default:
+<span class="nc" id="L193">                return new ToTextContentHandler();</span>
+        }
+    }
+
+    @Override
+    public ContentHandler createHandler(OutputStream os, Charset charset) {
+<span class="fc" id="L199">        return maybeValidate(createHandlerInner(os, charset));</span>
+    }
+
+    private ContentHandler createHandlerInner(OutputStream os, Charset charset) {
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        if (type == HANDLER_TYPE.IGNORE) {</span>
+<span class="nc" id="L204">            return new NoOpContentHandler();</span>
+        }
+        try {
+<span class="fc bfc" id="L207" title="All 2 branches covered.">            if (writeLimit &gt; -1) {</span>
+<span class="pc bpc" id="L208" title="3 of 6 branches missed.">                switch (type) {</span>
+                    case BODY:
+<span class="fc" id="L210">                        return new WriteOutContentHandler(</span>
+                                new BodyContentHandler(new OutputStreamWriter(os, charset)),
+                                writeLimit);
+                    case TEXT:
+<span class="fc" id="L214">                        return new WriteOutContentHandler(</span>
+<span class="fc" id="L215">                                new ToTextContentHandler(os, charset.name()), writeLimit);</span>
+                    case HTML:
+<span class="fc" id="L217">                        return new WriteOutContentHandler(</span>
+<span class="fc" id="L218">                                new ToHTMLContentHandler(os, charset.name()), writeLimit);</span>
+                    case XML:
+<span class="nc" id="L220">                        return new WriteOutContentHandler(</span>
+<span class="nc" id="L221">                                new ToXMLContentHandler(os, charset.name()), writeLimit);</span>
+                    case MARKDOWN:
+<span class="nc" id="L223">                        return new WriteOutContentHandler(</span>
+<span class="nc" id="L224">                                new ToMarkdownContentHandler(os, charset.name()), writeLimit);</span>
+                    default:
+<span class="nc" id="L226">                        return new WriteOutContentHandler(</span>
+<span class="nc" id="L227">                                new ToTextContentHandler(os, charset.name()), writeLimit);</span>
+                }
+            } else {
+<span class="pc bpc" id="L230" title="3 of 6 branches missed.">                switch (type) {</span>
+                    case BODY:
+<span class="fc" id="L232">                        return new BodyContentHandler(new OutputStreamWriter(os, charset));</span>
+                    case TEXT:
+<span class="fc" id="L234">                        return new ToTextContentHandler(os, charset.name());</span>
+                    case HTML:
+<span class="fc" id="L236">                        return new ToHTMLContentHandler(os, charset.name());</span>
+                    case XML:
+<span class="nc" id="L238">                        return new ToXMLContentHandler(os, charset.name());</span>
+                    case MARKDOWN:
+<span class="nc" id="L240">                        return new ToMarkdownContentHandler(os, charset.name());</span>
+                    default:
+<span class="nc" id="L242">                        return new ToTextContentHandler(os, charset.name());</span>
+
+                }
+            }
+<span class="nc" id="L246">        } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L247">            throw new RuntimeException(&quot;couldn't find charset for name: &quot; + charset);</span>
+        }
+    }
+
+    /**
+     * @return handler type used by this factory
+     */
+    public HANDLER_TYPE getType() {
+<span class="nc" id="L255">        return type;</span>
+    }
+
+    @Override
+    public String handlerTypeName() {
+<span class="fc" id="L260">        return type.name();</span>
+    }
+
+    /**
+     * Sets the handler type.
+     * @param type the handler type
+     */
+    public void setType(HANDLER_TYPE type) {
+<span class="nc" id="L268">        this.type = type;</span>
+<span class="nc" id="L269">    }</span>
+
+    /**
+     * Common handler types for content.
+     */
+<span class="fc" id="L274">    public enum HANDLER_TYPE {</span>
+<span class="fc" id="L275">        BODY, IGNORE, //don't store content</span>
+<span class="fc" id="L276">        TEXT, HTML, XML, MARKDOWN</span>
+    }
+
+    public int getWriteLimit() {
+<span class="fc" id="L280">        return writeLimit;</span>
+    }
+
+    /**
+     * Sets the write limit.
+     * @param writeLimit max characters to extract; -1 for unlimited
+     */
+    public void setWriteLimit(int writeLimit) {
+<span class="nc" id="L288">        this.writeLimit = writeLimit;</span>
+<span class="nc" id="L289">    }</span>
+
+    @Override
+    public boolean isThrowOnWriteLimitReached() {
+<span class="fc" id="L293">        return throwOnWriteLimitReached;</span>
+    }
+
+    /**
+     * Sets whether to throw an exception when write limit is reached.
+     * @param throwOnWriteLimitReached true to throw, false to silently stop
+     */
+    public void setThrowOnWriteLimitReached(boolean throwOnWriteLimitReached) {
+<span class="nc" id="L301">        this.throwOnWriteLimitReached = throwOnWriteLimitReached;</span>
+<span class="nc" id="L302">    }</span>
+
+    /**
+     * Sets the parse context for storing warnings when throwOnWriteLimitReached is false.
+     * @param parseContext the parse context
+     */
+    public void setParseContext(ParseContext parseContext) {
+<span class="nc" id="L309">        this.parseContext = parseContext;</span>
+<span class="nc" id="L310">    }</span>
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L314" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L315">            return true;</span>
+        }
+<span class="nc bnc" id="L317" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L318">            return false;</span>
+        }
+<span class="nc" id="L320">        BasicContentHandlerFactory that = (BasicContentHandlerFactory) o;</span>
+<span class="nc bnc" id="L321" title="All 8 branches missed.">        return writeLimit == that.writeLimit &amp;&amp;</span>
+                throwOnWriteLimitReached == that.throwOnWriteLimitReached &amp;&amp;
+                validateXHTML == that.validateXHTML &amp;&amp;
+                type == that.type;
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc bnc" id="L329" title="All 2 branches missed.">        int result = type != null ? type.hashCode() : 0;</span>
+<span class="nc" id="L330">        result = 31 * result + writeLimit;</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">        result = 31 * result + (throwOnWriteLimitReached ? 1 : 0);</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">        result = 31 * result + (validateXHTML ? 1 : 0);</span>
+<span class="nc" id="L333">        return result;</span>
+    }
+
+    /**
+     * DefaultHandler, but with toString() returning &quot;&quot; instead of the default
+     * Object identity string. Callers that want to know whether a parse
+     * actually produced content can blank-check toString() directly -- no
+     * need to special-case DefaultHandler's class identity, which breaks the
+     * moment this handler is wrapped by a decorator (e.g. StrictXHTMLValidator
+     * when validateXHTML is set): ContentHandlerDecorator.toString() delegates
+     * to the wrapped handler, so the empty string still propagates through.
+     */
+    private static final class NoOpContentHandler extends DefaultHandler {
+        @Override
+        public String toString() {
+<span class="fc" id="L348">            return &quot;&quot;;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

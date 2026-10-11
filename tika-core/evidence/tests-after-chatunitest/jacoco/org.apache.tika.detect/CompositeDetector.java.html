@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">CompositeDetector.java</span></div><h1>CompositeDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.StringUtils;
+
+/**
+ * Content type detector that combines multiple different detection mechanisms.
+ */
+public class CompositeDetector implements Detector {
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 5980683158436430252L;
+
+    private final MediaTypeRegistry registry;
+
+    private final List&lt;Detector&gt; detectors;
+
+    public CompositeDetector(MediaTypeRegistry registry, List&lt;Detector&gt; detectors,
+<span class="fc" id="L49">                             Collection&lt;Class&lt;? extends Detector&gt;&gt; excludeDetectors) {</span>
+<span class="pc bpc" id="L50" title="3 of 4 branches missed.">        if (excludeDetectors == null || excludeDetectors.isEmpty()) {</span>
+<span class="fc" id="L51">            this.detectors = detectors;</span>
+        } else {
+<span class="nc" id="L53">            this.detectors = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">            for (Detector d : detectors) {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">                if (!isExcluded(excludeDetectors, d.getClass())) {</span>
+<span class="nc" id="L56">                    this.detectors.add(d);</span>
+                }
+<span class="nc" id="L58">            }</span>
+        }
+<span class="fc" id="L60">        this.registry = registry;</span>
+<span class="fc" id="L61">    }</span>
+
+    public CompositeDetector(MediaTypeRegistry registry, List&lt;Detector&gt; detectors) {
+<span class="fc" id="L64">        this(registry, detectors, null);</span>
+<span class="fc" id="L65">    }</span>
+
+    public CompositeDetector(List&lt;Detector&gt; detectors) {
+<span class="nc" id="L68">        this(new MediaTypeRegistry(), detectors);</span>
+<span class="nc" id="L69">    }</span>
+
+    public CompositeDetector(Detector... detectors) {
+<span class="nc" id="L72">        this(Arrays.asList(detectors));</span>
+<span class="nc" id="L73">    }</span>
+
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext parseContext)
+            throws IOException {
+<span class="fc" id="L77">        MediaType override = detectOverrides(metadata);</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (override != null) {</span>
+<span class="nc" id="L79">            return override;</span>
+        }
+<span class="fc" id="L81">        MediaType type = MediaType.OCTET_STREAM;</span>
+
+        //we have to iterate through all detectors because the override detector may
+        //be within a CompositeDetector
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        for (Detector detector : getDetectors()) {</span>
+<span class="nc" id="L86">            MediaType detected = detector.detect(tis, metadata, parseContext);</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">            if (registry.isSpecializationOf(detected, type)) {</span>
+<span class="nc" id="L88">                type = detected;</span>
+            }
+<span class="nc" id="L90">        }</span>
+<span class="fc" id="L91">        return type;</span>
+    }
+
+    /**
+     *
+     * @param metadata
+     * @return mediaType if a parseable mediatype was sent in via user or parser overrides
+     */
+    private static MediaType detectOverrides(Metadata metadata) {
+<span class="fc" id="L100">        String override = metadata.get(TikaCoreProperties.CONTENT_TYPE_USER_OVERRIDE);</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if (!StringUtils.isBlank(override)) {</span>
+<span class="nc" id="L102">            MediaType mt = MediaType.parse(override);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            if (mt != null) {</span>
+<span class="nc" id="L104">                return mt;</span>
+            }
+        }
+<span class="fc" id="L107">        override = metadata.get(TikaCoreProperties.CONTENT_TYPE_PARSER_OVERRIDE);</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (!StringUtils.isBlank(override)) {</span>
+<span class="nc" id="L109">            MediaType mt = MediaType.parse(override);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (mt != null) {</span>
+<span class="nc" id="L111">                return mt;</span>
+            }
+        }
+<span class="fc" id="L114">        return null;</span>
+    }
+    /**
+     * Returns the component detectors.
+     */
+    public List&lt;Detector&gt; getDetectors() {
+<span class="fc" id="L120">        return Collections.unmodifiableList(detectors);</span>
+    }
+
+    private boolean isExcluded(Collection&lt;Class&lt;? extends Detector&gt;&gt; excludeDetectors,
+                               Class&lt;? extends Detector&gt; d) {
+<span class="nc bnc" id="L125" title="All 4 branches missed.">        return excludeDetectors.contains(d) || assignableFrom(excludeDetectors, d);</span>
+    }
+
+    private boolean assignableFrom(Collection&lt;Class&lt;? extends Detector&gt;&gt; excludeDetectors,
+                                   Class&lt;? extends Detector&gt; d) {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        for (Class&lt;? extends Detector&gt; e : excludeDetectors) {</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (e.isAssignableFrom(d)) {</span>
+<span class="nc" id="L132">                return true;</span>
+            }
+<span class="nc" id="L134">        }</span>
+<span class="nc" id="L135">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FilenameUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">FilenameUtils.java</span></div><h1>FilenameUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.tika.extractor.EmbeddedDocumentUtil;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MimeTypeException;
+import org.apache.tika.mime.MimeTypes;
+import org.apache.tika.utils.StringUtils;
+
+
+<span class="nc" id="L34">public class FilenameUtils {</span>
+
+<span class="fc" id="L36">    private static final MimeTypes MIME_TYPES = MimeTypes.getDefaultMimeTypes();</span>
+<span class="fc" id="L37">    private static final Pattern PROTOCOL_PATTERN = Pattern.compile(&quot;[A-Za-z0-9]{1,10}://+&quot;);</span>
+    /**
+     * Reserved characters
+     */
+<span class="fc" id="L41">    public final static char[] RESERVED_FILENAME_CHARACTERS =</span>
+            {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+                    0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
+                    0x1B, 0x1C, 0x1D, 0x1E, 0x1F, '?', ':', '*', '&lt;', '&gt;', '|', '&quot;', '\''};
+
+<span class="fc" id="L46">    private final static HashSet&lt;Character&gt; RESERVED = new HashSet&lt;&gt;(38);</span>
+
+
+    static {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        for (char reservedFilenameCharacter : RESERVED_FILENAME_CHARACTERS) {</span>
+<span class="fc" id="L51">            RESERVED.add(reservedFilenameCharacter);</span>
+        }
+    }
+
+<span class="fc" id="L55">    private final static Pattern ASCII_NUMERIC = Pattern.compile(&quot;\\A\\.(?i)[a-z0-9]{1,5}\\Z&quot;);</span>
+
+    /**
+     * Scans the given file name for reserved characters on different OSs and
+     * file systems and returns a sanitized version of the name with the
+     * reserved chars replaced by their hexadecimal value.
+     * &lt;p&gt;
+     * For example &lt;code&gt;why?.zip&lt;/code&gt; will be converted into &lt;code&gt;why%3F.zip&lt;/code&gt;
+     *
+     * @param name the file name to be normalized - NOT NULL
+     * @return the normalized file name
+     * @throws IllegalArgumentException if name is null
+     */
+    public static String normalize(final String name) {
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L70">            throw new IllegalArgumentException(&quot;name cannot be null&quot;);</span>
+        }
+
+<span class="fc" id="L73">        StringBuilder sb = new StringBuilder();</span>
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        for (char c : name.toCharArray()) {</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">            if (RESERVED.contains(c)) {</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">                sb.append('%').append((c &lt; 16) ? &quot;0&quot; : &quot;&quot;)</span>
+<span class="fc" id="L78">                        .append(Integer.toHexString(c).toUpperCase(Locale.ROOT));</span>
+            } else {
+<span class="fc" id="L80">                sb.append(c);</span>
+            }
+        }
+
+<span class="fc" id="L84">        return sb.toString();</span>
+    }
+
+    /**
+     * This is a duplication of the algorithm and functionality
+     * available in commons io FilenameUtils.  If Java's File were
+     * able handle Windows file paths correctly in linux,
+     * we wouldn't need this.
+     * &lt;p&gt;
+     * The goal of this is to get a filename from a path.
+     * The package parsers and some other embedded doc
+     * extractors could put anything into TikaCoreProperties.RESOURCE_NAME_KEY.
+     * &lt;p&gt;
+     * If a careless client used that filename as if it were a
+     * filename and not a path when writing embedded files,
+     * bad things could happen.  Consider: &quot;../../../my_ppt.ppt&quot;.
+     * &lt;p&gt;
+     * Consider using this in combination with {@link #normalize(String)}.
+     *
+     * @param path path to strip
+     * @return empty string or a filename, never null
+     */
+    public static String getName(final String path) {
+
+<span class="fc bfc" id="L108" title="All 4 branches covered.">        if (path == null || path.isEmpty()) {</span>
+<span class="fc" id="L109">            return StringUtils.EMPTY;</span>
+        }
+<span class="fc" id="L111">        int unix = path.lastIndexOf(&quot;/&quot;);</span>
+<span class="fc" id="L112">        int windows = path.lastIndexOf(&quot;\\&quot;);</span>
+        //some macintosh file names are stored with : as the delimiter
+        //also necessary to properly handle C:somefilename
+<span class="fc" id="L115">        int colon = path.lastIndexOf(&quot;:&quot;);</span>
+<span class="fc" id="L116">        String cand = path.substring(Math.max(colon, Math.max(unix, windows)) + 1);</span>
+<span class="pc bpc" id="L117" title="1 of 4 branches missed.">        if (cand.equals(&quot;..&quot;) || cand.equals(&quot;.&quot;)) {</span>
+<span class="fc" id="L118">            return StringUtils.EMPTY;</span>
+        }
+<span class="fc" id="L120">        return cand;</span>
+    }
+
+    /**
+     * This includes the period, e.g. &quot;.pdf&quot;.
+     * This requires that an extension contain only ascii alphanumerics
+     * and it requires that an extension length be 5 or less.
+     * @param path
+     * @return the suffix or an empty string if one could not be found
+     */
+    public static String getSuffixFromPath(String path) {
+<span class="fc" id="L131">        String n = getName(path);</span>
+<span class="fc" id="L132">        int i = n.lastIndexOf(&quot;.&quot;);</span>
+        //arbitrarily sets max extension length
+<span class="fc bfc" id="L134" title="All 4 branches covered.">        if (i &gt; -1 &amp;&amp; n.length() - i &lt; 6) {</span>
+<span class="fc" id="L135">            String suffix = n.substring(i);</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">            if (ASCII_NUMERIC.matcher(suffix).matches()) {</span>
+<span class="fc" id="L137">                return suffix;</span>
+            }
+        }
+<span class="fc" id="L140">        return StringUtils.EMPTY;</span>
+    }
+
+    public static String getSanitizedEmbeddedFileName(Metadata metadata,
+                                                      String defaultExtension, int maxLength) {
+<span class="fc" id="L145">        String path = getEmbeddedName(metadata);</span>
+        //fName could be a full path or null
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        if (StringUtils.isBlank(path)) {</span>
+<span class="fc" id="L148">            return null;</span>
+        }
+<span class="fc" id="L150">        path = path.replaceAll(&quot;\u0000&quot;, &quot; &quot;);</span>
+<span class="pc bpc" id="L151" title="1 of 4 branches missed.">        if (path.startsWith(&quot;\&quot;&quot;) &amp;&amp; path.endsWith(&quot;\&quot;&quot;)) {</span>
+<span class="fc" id="L152">            path = path.substring(1, path.length() - 1);</span>
+        }
+
+<span class="fc" id="L155">        int prefixLength = getPrefixLength(path);</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">        if (prefixLength &gt; 0) {</span>
+<span class="fc" id="L157">            path = path.substring(prefixLength);</span>
+        }
+<span class="fc" id="L159">        path = path.replaceAll(&quot;[:\\\\]+&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L160">        String fName = getName(path);</span>
+<span class="fc" id="L161">        fName = normalize(fName);</span>
+<span class="fc" id="L162">        String extension = FilenameUtils.getSuffixFromPath(fName);</span>
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        if (extension.equals(fName)) {</span>
+<span class="fc" id="L164">            return null;</span>
+        }
+<span class="fc" id="L166">        String namePart = null;</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        if (StringUtils.isBlank(extension)) {</span>
+<span class="fc" id="L168">            namePart = fName;</span>
+<span class="fc" id="L169">            extension = calculateExtension(metadata, defaultExtension);</span>
+        } else {
+<span class="fc" id="L171">            namePart = fName.substring(0, fName.length() - extension.length());</span>
+        }
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (StringUtils.isBlank(namePart)) {</span>
+<span class="nc" id="L174">            return null;</span>
+        }
+        //remove all initial .
+<span class="fc" id="L177">        namePart = namePart.replaceAll(&quot;\\A\\.+&quot;, &quot;_&quot;);</span>
+        //defense in depth. We shouldn't need this
+<span class="fc" id="L179">        namePart = namePart.replaceAll(&quot;(\\.\\.)+&quot;, &quot;_&quot;);</span>
+<span class="fc" id="L180">        namePart = namePart.replaceAll(&quot;[/\\\\]+&quot;, &quot;_&quot;);</span>
+<span class="fc" id="L181">        namePart = namePart.replaceAll(&quot;:+&quot;, &quot;_&quot;);</span>
+<span class="fc" id="L182">        namePart = namePart.trim();</span>
+
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">        if (StringUtils.isBlank(namePart)) {</span>
+<span class="nc" id="L185">            return null;</span>
+        }
+
+        //if path is &gt; max length, return only the name part
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        if (namePart.length() &gt; maxLength) {</span>
+<span class="fc" id="L190">            return namePart.substring(0, maxLength - extension.length() - 3) + &quot;...&quot; + extension;</span>
+        }
+<span class="fc" id="L192">        return namePart + extension;</span>
+
+    }
+
+    /**
+     * This tries to sanitize dangerous user generated embedded file paths.
+     * If trusting these paths for writing files, users should run checks to make
+     * sure that the generated file path does not zipslip out of the target directory.
+     *
+     * @param metadata
+     * @param defaultExtension
+     * @param maxLength
+     * @return
+     */
+    public static String getSanitizedEmbeddedFilePath(Metadata metadata,
+                                                      String defaultExtension, int maxLength) {
+<span class="fc" id="L208">        String path = getEmbeddedPath(metadata);</span>
+        //fName could be a full path or null
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        if (StringUtils.isBlank(path)) {</span>
+<span class="fc" id="L211">            return null;</span>
+        }
+<span class="fc" id="L213">        path = path.replaceAll(&quot;\u0000&quot;, &quot; &quot;);</span>
+<span class="fc" id="L214">        int prefixLength = getPrefixLength(path);</span>
+<span class="fc bfc" id="L215" title="All 2 branches covered.">        if (prefixLength &gt; 0) {</span>
+<span class="fc" id="L216">            path = path.substring(prefixLength);</span>
+        }
+<span class="fc" id="L218">        path = path.replaceAll(&quot;\\\\&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L219">        path = removeProtocol(path);</span>
+<span class="fc" id="L220">        path = path.replaceAll(&quot;:+&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L221">        path = path.replaceAll(&quot;/+&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L222">        path = normalize(path);</span>
+<span class="fc" id="L223">        path = path.replaceAll(&quot;\\.{2,}&quot;, &quot;.&quot;);</span>
+<span class="fc" id="L224">        path = path.replaceAll(&quot;\\./&quot;, &quot;/&quot;);</span>
+<span class="fc bfc" id="L225" title="All 2 branches covered.">        if (path.isBlank()) {</span>
+<span class="fc" id="L226">            return null;</span>
+        }
+<span class="fc" id="L228">        path = path.replaceAll(&quot;\\A/+&quot;, &quot;&quot;);</span>
+<span class="fc" id="L229">        path = path.replaceAll(&quot;/+\\Z&quot;, &quot;&quot;);</span>
+<span class="fc" id="L230">        String fName = getName(path);</span>
+<span class="pc bpc" id="L231" title="1 of 2 branches missed.">        if (StringUtils.isBlank(fName)) {</span>
+<span class="nc" id="L232">            return null;</span>
+        }
+<span class="fc" id="L234">        String relPath = &quot;&quot;;</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (path.length() &gt; fName.length()) {</span>
+<span class="fc" id="L236">            relPath = path.substring(0, path.length() - fName.length() - 1);</span>
+        }
+<span class="fc" id="L238">        String extension = FilenameUtils.getSuffixFromPath(fName);</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">        if (extension.equals(path)) {</span>
+<span class="fc" id="L240">            return extension;</span>
+        }
+<span class="fc" id="L242">        String namePart = null;</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">        if (StringUtils.isBlank(extension)) {</span>
+<span class="fc" id="L244">            namePart = path;</span>
+<span class="fc" id="L245">            extension = calculateExtension(metadata, defaultExtension);</span>
+        } else {
+<span class="fc" id="L247">            namePart = fName.substring(0, fName.length() - extension.length());</span>
+        }
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">        if (StringUtils.isBlank(namePart)) {</span>
+<span class="nc" id="L250">            return null;</span>
+        }
+        //remove all initial .
+<span class="fc" id="L253">        namePart = namePart.replaceAll(&quot;\\A\\.+&quot;, &quot;_&quot;);</span>
+        //defense in depth. We shouldn't need this
+<span class="fc" id="L255">        namePart = namePart.replaceAll(&quot;\\.{2,}&quot;, &quot;.&quot;);</span>
+<span class="fc" id="L256">        namePart = namePart.replaceAll(&quot;[/\\\\]+&quot;, &quot;_&quot;);</span>
+
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">        if (StringUtils.isBlank(namePart)) {</span>
+<span class="nc" id="L259">            return null;</span>
+        }
+<span class="fc bfc" id="L261" title="All 2 branches covered.">        String retPath = StringUtils.isBlank(relPath) ? namePart + extension : relPath + &quot;/&quot; + namePart + extension;</span>
+
+        //if path is &gt; max length, return only the name part
+<span class="fc bfc" id="L264" title="All 2 branches covered.">        if (retPath.length() &gt; maxLength) {</span>
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">            if (namePart.length() &gt; maxLength) {</span>
+<span class="fc" id="L266">                return namePart.substring(0, maxLength - extension.length() - 3) + &quot;...&quot; + extension;</span>
+            }
+<span class="nc" id="L268">            return namePart + extension;</span>
+        }
+<span class="fc" id="L270">        return retPath;</span>
+    }
+
+    /**
+     * Resolves {@code name} against {@code dir} and returns the result only if it stays
+     * within {@code dir}.
+     * &lt;p&gt;
+     * The result is {@link Path#normalize() normalized} before it is checked. This is the
+     * load-bearing step: without it, resolving a name such as {@code ../x} yields the literal
+     * path {@code dir/../x}, whose path elements still begin with {@code dir}, so the
+     * {@link Path#startsWith(Path)} check below would wrongly accept it. Normalizing first
+     * collapses the {@code ..} so the check sees the real location.
+     * &lt;p&gt;
+     * Containment is tested with {@link Path#startsWith(Path)} (element by element) rather
+     * than by comparing path strings, so a sibling whose name merely shares a textual prefix
+     * with {@code dir} (for example {@code /a/bc} against {@code /a/b}) is correctly treated
+     * as being outside {@code dir}.
+     *
+     * @param dir  the directory the resolved path must stay within
+     * @param name the child name to resolve against {@code dir}; may contain relative
+     *             segments such as {@code ..}
+     * @return the resolved, normalized path, guaranteed to start with the normalized
+     *         {@code dir}
+     * @throws IOException if {@code name} resolves to a location outside {@code dir}
+     */
+    public static Path resolveWithin(Path dir, String name) throws IOException {
+<span class="fc" id="L296">        Path normalizedDir = dir.normalize();</span>
+<span class="fc" id="L297">        Path resolved = normalizedDir.resolve(name).normalize();</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">        if (!resolved.startsWith(normalizedDir)) {</span>
+<span class="fc" id="L299">            throw new IOException(</span>
+                    &quot;'&quot; + name + &quot;' resolves to '&quot; + resolved + &quot;', which is outside of '&quot; +
+                            normalizedDir + &quot;'&quot;);
+        }
+
+        // Defense in depth against symlink traversal (only possible if the paths exist).
+<span class="pc bpc" id="L305" title="3 of 4 branches missed.">        if (java.nio.file.Files.exists(resolved) &amp;&amp; java.nio.file.Files.exists(normalizedDir)) {</span>
+<span class="nc" id="L306">            Path realDir = normalizedDir.toRealPath();</span>
+<span class="nc" id="L307">            Path realResolved = resolved.toRealPath();</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            if (!realResolved.startsWith(realDir)) {</span>
+<span class="nc" id="L309">                throw new IOException(</span>
+                        &quot;'&quot; + name + &quot;' resolves to '&quot; + realResolved + &quot;', which is outside of '&quot; +
+                                realDir + &quot;'&quot;);
+            }
+        }
+
+<span class="fc" id="L315">        return resolved;</span>
+    }
+
+    private static int getPrefixLength(String path) {
+<span class="fc" id="L319">        int prefixLength = org.apache.commons.io.FilenameUtils.getPrefixLength(path);</span>
+<span class="fc bfc" id="L320" title="All 2 branches covered.">        if (prefixLength &gt; 0) {</span>
+<span class="fc" id="L321">            return prefixLength;</span>
+        }
+<span class="pc bpc" id="L323" title="7 of 8 branches missed.">        if (path.length() == 2 &amp;&amp; path.charAt(0) &gt;= 'A' &amp;&amp; path.charAt(0) &lt;= 'Z' &amp;&amp; path.charAt(1) == ':') {</span>
+<span class="nc" id="L324">            return 2;</span>
+        }
+<span class="fc" id="L326">        return 0;</span>
+    }
+
+    private static String removeProtocol(String path) {
+<span class="fc" id="L330">        Matcher m = PROTOCOL_PATTERN.matcher(path);</span>
+<span class="fc" id="L331">        int last = -1;</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">        while (m.find()) {</span>
+<span class="fc" id="L333">            last = m.end();</span>
+        }
+<span class="fc bfc" id="L335" title="All 2 branches covered.">        if (last &gt; -1) {</span>
+<span class="fc" id="L336">            return path.substring(last);</span>
+        }
+<span class="fc" id="L338">        return path;</span>
+    }
+
+    //may return null
+    private static String getEmbeddedPath(Metadata metadata) {
+<span class="fc" id="L343">        String path = metadata.get(TikaCoreProperties.EMBEDDED_RESOURCE_PATH);</span>
+<span class="fc bfc" id="L344" title="All 2 branches covered.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="fc" id="L345">            return path;</span>
+        }
+<span class="fc" id="L347">        path = metadata.get(TikaCoreProperties.INTERNAL_PATH);</span>
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="nc" id="L349">            return path;</span>
+        }
+<span class="fc" id="L351">        path = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="pc bpc" id="L352" title="1 of 2 branches missed.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="nc" id="L353">            return path;</span>
+        }
+<span class="fc" id="L355">        path = metadata.get(TikaCoreProperties.EMBEDDED_RELATIONSHIP_ID);</span>
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="nc" id="L357">            return path;</span>
+        }
+<span class="fc" id="L359">        return metadata.get(TikaCoreProperties.ORIGINAL_RESOURCE_NAME);</span>
+    }
+
+    //this tries for resource name first, and then backs off to path
+    private static String getEmbeddedName(Metadata metadata) {
+<span class="fc" id="L364">        String path = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="fc bfc" id="L365" title="All 2 branches covered.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="fc" id="L366">            return path;</span>
+        }
+<span class="fc" id="L368">        path = metadata.get(TikaCoreProperties.INTERNAL_PATH);</span>
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="nc" id="L370">            return path;</span>
+        }
+<span class="fc" id="L372">        path = metadata.get(TikaCoreProperties.EMBEDDED_RELATIONSHIP_ID);</span>
+<span class="pc bpc" id="L373" title="1 of 2 branches missed.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="nc" id="L374">            return path;</span>
+        }
+<span class="fc" id="L376">        path = metadata.get(TikaCoreProperties.EMBEDDED_RESOURCE_PATH);</span>
+<span class="pc bpc" id="L377" title="1 of 2 branches missed.">        if (! StringUtils.isBlank(path)) {</span>
+<span class="nc" id="L378">            return path;</span>
+        }
+<span class="fc" id="L380">        return metadata.get(TikaCoreProperties.ORIGINAL_RESOURCE_NAME);</span>
+    }
+
+    /**
+     * Calculate the extension based on the {@link Metadata#CONTENT_TYPE} value.
+     * On parse exception or null value, return the default value.
+     *
+     * @param metadata
+     * @param defaultValue
+     * @return the extension based on the mime type, including the initial &quot;.&quot;
+     */
+    public static String calculateExtension(Metadata metadata, String defaultValue) {
+<span class="fc" id="L392">        String mime = metadata.get(Metadata.CONTENT_TYPE);</span>
+<span class="fc bfc" id="L393" title="All 2 branches covered.">        if (mime == null) {</span>
+<span class="fc" id="L394">            return defaultValue;</span>
+        }
+        // Normalize OCR routing types (e.g., image/ocr-png -&gt; image/png)
+<span class="fc" id="L397">        mime = EmbeddedDocumentUtil.normalizeMediaType(mime);</span>
+<span class="fc" id="L398">        String ext = lookupExtension(mime);</span>
+<span class="pc bpc" id="L399" title="1 of 2 branches missed.">        if (ext != null) {</span>
+<span class="fc" id="L400">            return ext;</span>
+        }
+<span class="nc" id="L402">        return &quot;.bin&quot;;</span>
+    }
+
+    private static String lookupExtension(String mime) {
+        try {
+<span class="fc" id="L407">            String ext = MIME_TYPES</span>
+<span class="fc" id="L408">                    .forName(mime)</span>
+<span class="fc" id="L409">                    .getExtension();</span>
+<span class="pc bpc" id="L410" title="1 of 2 branches missed.">            if (!StringUtils.isBlank(ext)) {</span>
+<span class="fc" id="L411">                return ext;</span>
+            }
+<span class="nc" id="L413">        } catch (MimeTypeException e) {</span>
+            //swallow
+<span class="nc" id="L415">        }</span>
+<span class="nc" id="L416">        return null;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

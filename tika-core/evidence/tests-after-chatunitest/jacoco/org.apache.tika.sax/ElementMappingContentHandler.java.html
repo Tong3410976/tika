@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ElementMappingContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">ElementMappingContentHandler.java</span></div><h1>ElementMappingContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.Collections;
+import java.util.Map;
+import javax.xml.namespace.QName;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.AttributesImpl;
+
+/**
+ * Content handler decorator that maps element &lt;code&gt;QName&lt;/code&gt;s using
+ * a &lt;code&gt;Map&lt;/code&gt;. Not mappable elements are not forwarded.
+ * Attributes may also be mapped (for each element different using
+ * a &lt;code&gt;Map&lt;/code&gt; for attributes), not mappable attributes are not
+ * forwarded. The default is to not map any attributes and therefore do
+ * not forward any of them.
+ */
+public class ElementMappingContentHandler extends ContentHandlerDecorator {
+
+    private final Map&lt;QName, TargetElement&gt; mappings;
+
+    public ElementMappingContentHandler(ContentHandler handler,
+                                        Map&lt;QName, TargetElement&gt; mappings) {
+<span class="nc" id="L42">        super(handler);</span>
+<span class="nc" id="L43">        this.mappings = mappings;</span>
+<span class="nc" id="L44">    }</span>
+
+    protected static final String getQNameAsString(QName qname) {
+<span class="nc" id="L47">        String prefix = qname.getPrefix();</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (prefix.length() &gt; 0) {</span>
+<span class="nc" id="L49">            return prefix + &quot;:&quot; + qname.getLocalPart();</span>
+        } else {
+<span class="nc" id="L51">            return qname.getLocalPart();</span>
+        }
+    }
+
+    @Override
+    public void startElement(String namespaceURI, String localName, String qName, Attributes atts)
+            throws SAXException {
+<span class="nc" id="L58">        TargetElement mapping = mappings.get(new QName(namespaceURI, localName));</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (mapping != null) {</span>
+<span class="nc" id="L60">            QName tag = mapping.getMappedTagName();</span>
+<span class="nc" id="L61">            super.startElement(tag.getNamespaceURI(), tag.getLocalPart(), getQNameAsString(tag),</span>
+<span class="nc" id="L62">                    mapping.mapAttributes(atts));</span>
+        }
+<span class="nc" id="L64">    }</span>
+
+    @Override
+    public void endElement(String namespaceURI, String localName, String qName)
+            throws SAXException {
+<span class="nc" id="L69">        TargetElement mapping = mappings.get(new QName(namespaceURI, localName));</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (mapping != null) {</span>
+<span class="nc" id="L71">            QName tag = mapping.getMappedTagName();</span>
+<span class="nc" id="L72">            super.endElement(tag.getNamespaceURI(), tag.getLocalPart(), getQNameAsString(tag));</span>
+        }
+<span class="nc" id="L74">    }</span>
+
+    public static class TargetElement {
+
+        private final QName mappedTagName;
+        private final Map&lt;QName, QName&gt; attributesMapping;
+
+        /**
+         * Creates an TargetElement, attributes of this element will
+         * be mapped as specified
+         */
+<span class="nc" id="L85">        public TargetElement(QName mappedTagName, Map&lt;QName, QName&gt; attributesMapping) {</span>
+<span class="nc" id="L86">            this.mappedTagName = mappedTagName;</span>
+<span class="nc" id="L87">            this.attributesMapping = attributesMapping;</span>
+<span class="nc" id="L88">        }</span>
+
+        /**
+         * A shortcut that automatically creates the QName object
+         */
+        public TargetElement(String mappedTagURI, String mappedTagLocalName,
+                             Map&lt;QName, QName&gt; attributesMapping) {
+<span class="nc" id="L95">            this(new QName(mappedTagURI, mappedTagLocalName), attributesMapping);</span>
+<span class="nc" id="L96">        }</span>
+
+        /**
+         * Creates an TargetElement with no attributes, all attributes
+         * will be deleted from SAX stream
+         */
+        public TargetElement(QName mappedTagName) {
+<span class="nc" id="L103">            this(mappedTagName, Collections.emptyMap());</span>
+<span class="nc" id="L104">        }</span>
+
+        /**
+         * A shortcut that automatically creates the QName object
+         */
+        public TargetElement(String mappedTagURI, String mappedTagLocalName) {
+<span class="nc" id="L110">            this(mappedTagURI, mappedTagLocalName, Collections.emptyMap());</span>
+<span class="nc" id="L111">        }</span>
+
+        public QName getMappedTagName() {
+<span class="nc" id="L114">            return mappedTagName;</span>
+        }
+
+        public Map&lt;QName, QName&gt; getAttributesMapping() {
+<span class="nc" id="L118">            return attributesMapping;</span>
+        }
+
+        public Attributes mapAttributes(final Attributes atts) {
+<span class="nc" id="L122">            AttributesImpl natts = new AttributesImpl();</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            for (int i = 0; i &lt; atts.getLength(); i++) {</span>
+<span class="nc" id="L124">                QName name = attributesMapping.get(new QName(atts.getURI(i), atts.getLocalName(i)));</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">                if (name != null) {</span>
+<span class="nc" id="L126">                    natts.addAttribute(name.getNamespaceURI(), name.getLocalPart(),</span>
+<span class="nc" id="L127">                            getQNameAsString(name), atts.getType(i), atts.getValue(i));</span>
+                }
+            }
+<span class="nc" id="L130">            return natts;</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExternalEmbedder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.embedder</a> &gt; <span class="el_source">ExternalEmbedder.java</span></div><h1>ExternalEmbedder.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.embedder;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TemporaryResources;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Embedder that uses an external program (like sed or exiftool) to embed text
+ * content and metadata into a given document.
+ *
+ * @since Apache Tika 1.3
+ */
+<span class="nc" id="L50">public class ExternalEmbedder implements Embedder {</span>
+
+    public static final String INPUT_FILE_TOKEN = &quot;${INPUT}&quot;;
+    public static final String OUTPUT_FILE_TOKEN = &quot;${OUTPUT}&quot;;
+    /**
+     * Token to be replaced with a String array of metadata assignment command
+     * arguments
+     */
+    public static final String METADATA_COMMAND_ARGUMENTS_TOKEN = &quot;${METADATA}&quot;;
+    /**
+     * Token to be replaced with a String array of metadata assignment command
+     * arguments
+     */
+    public static final String METADATA_COMMAND_ARGUMENTS_SERIALIZED_TOKEN =
+            &quot;${METADATA_SERIALIZED}&quot;;
+    private static final long serialVersionUID = -2828829275642475697L;
+<span class="nc" id="L66">    private final TemporaryResources tmp = new TemporaryResources();</span>
+    /**
+     * Media types supported by the external program.
+     */
+<span class="nc" id="L70">    private Set&lt;MediaType&gt; supportedEmbedTypes = Collections.emptySet();</span>
+    /**
+     * Mapping of Tika metadata to command line parameters.
+     */
+<span class="nc" id="L74">    private Map&lt;Property, String[]&gt; metadataCommandArguments = null;</span>
+    /**
+     * The external command to invoke.
+     *
+     * @see Runtime#exec(String[])
+     */
+<span class="nc" id="L80">    private String[] command =</span>
+            new String[]{&quot;sed&quot;, &quot;-e&quot;, &quot;$a\\\n&quot; + METADATA_COMMAND_ARGUMENTS_SERIALIZED_TOKEN,
+                    INPUT_FILE_TOKEN};
+<span class="nc" id="L83">    private String commandAssignmentOperator = &quot;=&quot;;</span>
+<span class="nc" id="L84">    private String commandAssignmentDelimeter = &quot;, &quot;;</span>
+<span class="nc" id="L85">    private String commandAppendOperator = &quot;=&quot;;</span>
+<span class="nc" id="L86">    private boolean quoteAssignmentValues = false;</span>
+
+    /**
+     * Serializes a collection of metadata command line arguments into a single
+     * string.
+     *
+     * @param metadataCommandArguments
+     * @return the serialized metadata arguments string
+     */
+    protected static String serializeMetadata(List&lt;String&gt; metadataCommandArguments) {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (metadataCommandArguments != null) {</span>
+<span class="nc" id="L97">            return Arrays.toString(metadataCommandArguments.toArray());</span>
+        }
+<span class="nc" id="L99">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * Checks to see if the command can be run. Typically used with something
+     * like &quot;myapp --version&quot; to check to see if &quot;myapp&quot; is installed and on the
+     * path.
+     *
+     * @param checkCmd   the check command to run
+     * @param errorValue what is considered an error value?
+     * @return whether or not the check completed without error
+     */
+    public static boolean check(String checkCmd, int... errorValue) {
+<span class="nc" id="L112">        return check(new String[]{checkCmd}, errorValue);</span>
+    }
+
+    /**
+     * Checks to see if the command can be run. Typically used with something
+     * like &quot;myapp --version&quot; to check to see if &quot;myapp&quot; is installed and on the
+     * path.
+     *
+     * @param checkCmd   the check command to run
+     * @param errorValue what is considered an error value?
+     * @return whether or not the check completed without error
+     */
+    public static boolean check(String[] checkCmd, int... errorValue) {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (errorValue.length == 0) {</span>
+<span class="nc" id="L126">            errorValue = new int[]{127};</span>
+        }
+
+        try {
+            Process process;
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (checkCmd.length == 1) {</span>
+<span class="nc" id="L132">                process = Runtime.getRuntime().exec(checkCmd[0]);</span>
+            } else {
+<span class="nc" id="L134">                process = Runtime.getRuntime().exec(checkCmd);</span>
+            }
+<span class="nc" id="L136">            int result = process.waitFor();</span>
+
+<span class="nc bnc" id="L138" title="All 2 branches missed.">            for (int err : errorValue) {</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                if (result == err) {</span>
+<span class="nc" id="L140">                    return false;</span>
+                }
+            }
+<span class="nc" id="L143">            return true;</span>
+<span class="nc" id="L144">        } catch (IOException | InterruptedException e) {</span>
+            // Some problem, command is there or is broken
+<span class="nc" id="L146">            return false;</span>
+        }
+    }
+
+    @Override
+    public Set&lt;MediaType&gt; getSupportedEmbedTypes(ParseContext context) {
+<span class="nc" id="L152">        return getSupportedEmbedTypes();</span>
+    }
+
+    public Set&lt;MediaType&gt; getSupportedEmbedTypes() {
+<span class="nc" id="L156">        return supportedEmbedTypes;</span>
+    }
+
+    public void setSupportedEmbedTypes(Set&lt;MediaType&gt; supportedEmbedTypes) {
+<span class="nc" id="L160">        this.supportedEmbedTypes =</span>
+<span class="nc" id="L161">                Collections.unmodifiableSet(new HashSet&lt;&gt;(supportedEmbedTypes));</span>
+<span class="nc" id="L162">    }</span>
+
+    /**
+     * Gets the command to be run. This can include either of
+     * {@link ExternalParser#INPUT_FILE_TOKEN} or
+     * {@link ExternalParser#OUTPUT_FILE_TOKEN} if the command
+     * needs filenames.
+     *
+     * @return
+     */
+    public String[] getCommand() {
+<span class="nc" id="L173">        return command;</span>
+    }
+
+    /**
+     * Sets the command to be run. This can include either of
+     * {@link ExternalParser#INPUT_FILE_TOKEN} or
+     * {@link ExternalParser#OUTPUT_FILE_TOKEN} if the command
+     * needs filenames.
+     *
+     * @see Runtime#exec(String[])
+     */
+    public void setCommand(String... command) {
+<span class="nc" id="L185">        this.command = command;</span>
+<span class="nc" id="L186">    }</span>
+
+    /**
+     * Gets the assignment operator for the command line tool, i.e. &quot;=&quot;.
+     *
+     * @return the assignment operator
+     */
+    public String getCommandAssignmentOperator() {
+<span class="nc" id="L194">        return commandAssignmentOperator;</span>
+    }
+
+    /**
+     * Sets the assignment operator for the command line tool, i.e. &quot;=&quot;.
+     *
+     * @param commandAssignmentOperator
+     */
+    public void setCommandAssignmentOperator(String commandAssignmentOperator) {
+<span class="nc" id="L203">        this.commandAssignmentOperator = commandAssignmentOperator;</span>
+<span class="nc" id="L204">    }</span>
+
+    /**
+     * Gets the delimiter for multiple assignments for the command line tool,
+     * i.e. &quot;, &quot;.
+     *
+     * @return the assignment delimiter
+     */
+    public String getCommandAssignmentDelimeter() {
+<span class="nc" id="L213">        return commandAssignmentDelimeter;</span>
+    }
+
+    /**
+     * Sets the delimiter for multiple assignments for the command line tool,
+     * i.e. &quot;, &quot;.
+     *
+     * @param commandAssignmentDelimeter
+     */
+    public void setCommandAssignmentDelimeter(String commandAssignmentDelimeter) {
+<span class="nc" id="L223">        this.commandAssignmentDelimeter = commandAssignmentDelimeter;</span>
+<span class="nc" id="L224">    }</span>
+
+    /**
+     * Gets the operator to append rather than replace a value for the command
+     * line tool, i.e. &quot;+=&quot;.
+     *
+     * @return the append operator
+     */
+    public String getCommandAppendOperator() {
+<span class="nc" id="L233">        return commandAppendOperator;</span>
+    }
+
+    /**
+     * Sets the operator to append rather than replace a value for the command
+     * line tool, i.e. &quot;+=&quot;.
+     *
+     * @param commandAppendOperator
+     */
+    public void setCommandAppendOperator(String commandAppendOperator) {
+<span class="nc" id="L243">        this.commandAppendOperator = commandAppendOperator;</span>
+<span class="nc" id="L244">    }</span>
+
+    /**
+     * Gets whether or not to quote assignment values, i.e. tag='value'. The
+     * default is false.
+     *
+     * @return whether or not to quote assignment values
+     */
+    public boolean isQuoteAssignmentValues() {
+<span class="nc" id="L253">        return quoteAssignmentValues;</span>
+    }
+
+    /**
+     * Sets whether or not to quote assignment values, i.e. tag='value'.
+     *
+     * @param quoteAssignmentValues
+     */
+    public void setQuoteAssignmentValues(boolean quoteAssignmentValues) {
+<span class="nc" id="L262">        this.quoteAssignmentValues = quoteAssignmentValues;</span>
+<span class="nc" id="L263">    }</span>
+
+    /**
+     * Gets the map of Metadata keys to command line parameters.
+     *
+     * @return the metadata to CLI param map
+     */
+    public Map&lt;Property, String[]&gt; getMetadataCommandArguments() {
+<span class="nc" id="L271">        return metadataCommandArguments;</span>
+    }
+
+    /**
+     * Sets the map of Metadata keys to command line parameters. Set this to
+     * null to disable Metadata embedding.
+     *
+     * @param arguments
+     */
+    public void setMetadataCommandArguments(Map&lt;Property, String[]&gt; arguments) {
+<span class="nc" id="L281">        this.metadataCommandArguments = arguments;</span>
+<span class="nc" id="L282">    }</span>
+
+    /**
+     * Constructs a collection of command line arguments responsible for setting
+     * individual metadata fields based on the given &lt;code&gt;metadata&lt;/code&gt;.
+     *
+     * @param metadata the metadata to embed
+     * @return the metadata-related command line arguments
+     */
+    protected List&lt;String&gt; getCommandMetadataSegments(Metadata metadata) {
+<span class="nc" id="L292">        List&lt;String&gt; commandMetadataSegments = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L293" title="All 4 branches missed.">        if (metadata == null || metadata.names() == null) {</span>
+<span class="nc" id="L294">            return commandMetadataSegments;</span>
+        }
+<span class="nc bnc" id="L296" title="All 2 branches missed.">        for (String metadataName : metadata.names()) {</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            for (Property property : getMetadataCommandArguments().keySet()) {</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">                if (metadataName.equals(property.getName())) {</span>
+<span class="nc" id="L299">                    String[] metadataCommandArguments = getMetadataCommandArguments().get(property);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">                    if (metadataCommandArguments != null) {</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">                        for (String metadataCommandArgument : metadataCommandArguments) {</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">                            if (metadata.isMultiValued(metadataName)) {</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">                                for (String metadataValue : metadata.getValues(metadataName)) {</span>
+<span class="nc" id="L304">                                    String assignmentValue = metadataValue;</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">                                    if (quoteAssignmentValues) {</span>
+<span class="nc" id="L306">                                        assignmentValue = &quot;'&quot; + assignmentValue + &quot;'&quot;;</span>
+                                    }
+<span class="nc" id="L308">                                    commandMetadataSegments</span>
+<span class="nc" id="L309">                                            .add(metadataCommandArgument + commandAppendOperator +</span>
+                                                    assignmentValue);
+                                }
+                            } else {
+<span class="nc" id="L313">                                String assignmentValue = metadata.get(metadataName);</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">                                if (quoteAssignmentValues) {</span>
+<span class="nc" id="L315">                                    assignmentValue = &quot;'&quot; + assignmentValue + &quot;'&quot;;</span>
+                                }
+<span class="nc" id="L317">                                commandMetadataSegments</span>
+<span class="nc" id="L318">                                        .add(metadataCommandArgument + commandAssignmentOperator +</span>
+                                                assignmentValue);
+                            }
+                        }
+                    }
+                }
+<span class="nc" id="L324">            }</span>
+        }
+<span class="nc" id="L326">        return commandMetadataSegments;</span>
+    }
+
+    /**
+     * Executes the configured external command and passes the given document
+     * stream as a simple XHTML document to the given SAX content handler.
+     * Metadata is only extracted if {@link #setMetadataCommandArguments(Map)}
+     * has been called to set arguments.
+     */
+    @Override
+    public void embed(final Metadata metadata, final InputStream inputStream,
+                      final OutputStream outputStream, final ParseContext context)
+            throws IOException, TikaException {
+
+<span class="nc" id="L340">        boolean inputToStdIn = true;</span>
+<span class="nc" id="L341">        boolean outputFromStdOut = true;</span>
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        boolean hasMetadataCommandArguments =</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">                (metadataCommandArguments != null &amp;&amp; !metadataCommandArguments.isEmpty());</span>
+<span class="nc" id="L344">        boolean serializeMetadataCommandArgumentsToken = false;</span>
+<span class="nc" id="L345">        boolean replacedMetadataCommandArgumentsToken = false;</span>
+
+<span class="nc" id="L347">        TikaInputStream tikaInputStream = TikaInputStream.get(inputStream);</span>
+<span class="nc" id="L348">        File tempOutputFile = null;</span>
+
+<span class="nc" id="L350">        List&lt;String&gt; commandMetadataSegments = null;</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">        if (hasMetadataCommandArguments) {</span>
+<span class="nc" id="L352">            commandMetadataSegments = getCommandMetadataSegments(metadata);</span>
+        }
+
+        // Build our command
+<span class="nc" id="L356">        String[] origCmd = command;</span>
+<span class="nc" id="L357">        List&lt;String&gt; cmd = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">        for (String commandSegment : origCmd) {</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">            if (commandSegment.contains(INPUT_FILE_TOKEN)) {</span>
+<span class="nc" id="L360">                commandSegment = commandSegment.replace(INPUT_FILE_TOKEN,</span>
+<span class="nc" id="L361">                        tikaInputStream.getFile().toString());</span>
+<span class="nc" id="L362">                inputToStdIn = false;</span>
+            }
+<span class="nc bnc" id="L364" title="All 2 branches missed.">            if (commandSegment.contains(OUTPUT_FILE_TOKEN)) {</span>
+<span class="nc" id="L365">                tempOutputFile = tmp.createTemporaryFile();</span>
+<span class="nc" id="L366">                commandSegment = commandSegment</span>
+<span class="nc" id="L367">                        .replace(OUTPUT_FILE_TOKEN, tempOutputFile.toString());</span>
+<span class="nc" id="L368">                outputFromStdOut = false;</span>
+            }
+<span class="nc bnc" id="L370" title="All 2 branches missed.">            if (commandSegment.contains(METADATA_COMMAND_ARGUMENTS_SERIALIZED_TOKEN)) {</span>
+<span class="nc" id="L371">                serializeMetadataCommandArgumentsToken = true;</span>
+            }
+<span class="nc bnc" id="L373" title="All 2 branches missed.">            if (commandSegment.contains(METADATA_COMMAND_ARGUMENTS_TOKEN)) {</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">                if (hasMetadataCommandArguments) {</span>
+<span class="nc" id="L375">                    cmd.addAll(commandMetadataSegments);</span>
+                }
+<span class="nc" id="L377">                replacedMetadataCommandArgumentsToken = true;</span>
+            } else {
+<span class="nc" id="L379">                cmd.add(commandSegment);</span>
+            }
+        }
+<span class="nc bnc" id="L382" title="All 2 branches missed.">        if (hasMetadataCommandArguments) {</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">            if (serializeMetadataCommandArgumentsToken) {</span>
+                // Find all metadata tokens and replace with encapsulated metadata
+<span class="nc" id="L385">                int i = 0;</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">                for (String commandSegment : cmd) {</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">                    if (commandSegment.contains(METADATA_COMMAND_ARGUMENTS_SERIALIZED_TOKEN)) {</span>
+<span class="nc" id="L388">                        commandSegment = commandSegment</span>
+<span class="nc" id="L389">                                .replace(METADATA_COMMAND_ARGUMENTS_SERIALIZED_TOKEN,</span>
+<span class="nc" id="L390">                                        serializeMetadata(commandMetadataSegments));</span>
+<span class="nc" id="L391">                        cmd.set(i, commandSegment);</span>
+                    }
+<span class="nc" id="L393">                    i++;</span>
+<span class="nc" id="L394">                }</span>
+<span class="nc bnc" id="L395" title="All 4 branches missed.">            } else if (!replacedMetadataCommandArgumentsToken &amp;&amp;</span>
+                    !serializeMetadataCommandArgumentsToken) {
+                // Tack metadata onto the end of the cmd as arguments
+<span class="nc" id="L398">                cmd.addAll(commandMetadataSegments);</span>
+            }
+        }
+
+        // Execute
+        Process process;
+<span class="nc bnc" id="L404" title="All 2 branches missed.">        if (cmd.toArray().length == 1) {</span>
+<span class="nc" id="L405">            process = Runtime.getRuntime().exec(cmd.toArray(String[]::new)[0]);</span>
+        } else {
+<span class="nc" id="L407">            process = Runtime.getRuntime().exec(cmd.toArray(String[]::new));</span>
+        }
+
+<span class="nc" id="L410">        UnsynchronizedByteArrayOutputStream stdErrOutputStream = UnsynchronizedByteArrayOutputStream.builder().get();</span>
+
+        try {
+<span class="nc" id="L413">            sendStdErrToOutputStream(process, stdErrOutputStream);</span>
+
+<span class="nc bnc" id="L415" title="All 2 branches missed.">            if (inputToStdIn) {</span>
+<span class="nc" id="L416">                sendInputStreamToStdIn(inputStream, process);</span>
+            } else {
+                // We're not writing to std in this case so close
+<span class="nc" id="L419">                process.getOutputStream().close();</span>
+            }
+
+<span class="nc bnc" id="L422" title="All 2 branches missed.">            if (outputFromStdOut) {</span>
+<span class="nc" id="L423">                sendStdOutToOutputStream(process, outputStream);</span>
+            } else {
+<span class="nc" id="L425">                tmp.dispose();</span>
+                try {
+<span class="nc" id="L427">                    process.waitFor();</span>
+<span class="nc" id="L428">                } catch (InterruptedException ignore) {</span>
+<span class="nc" id="L429">                }</span>
+                // The command is finished, read the output file into the given output stream
+<span class="nc" id="L431">                InputStream tempOutputFileInputStream = TikaInputStream.get(tempOutputFile.toPath());</span>
+<span class="nc" id="L432">                IOUtils.copy(tempOutputFileInputStream, outputStream);</span>
+            }
+        } finally {
+<span class="nc bnc" id="L435" title="All 2 branches missed.">            if (outputFromStdOut) {</span>
+                try {
+<span class="nc" id="L437">                    process.waitFor();</span>
+<span class="nc" id="L438">                } catch (InterruptedException ignore) {</span>
+<span class="nc" id="L439">                }</span>
+            } else {
+                try {
+                    // Clean up temp output files
+<span class="nc" id="L443">                    tempOutputFile.delete();</span>
+<span class="nc" id="L444">                } catch (Exception e) {</span>
+                    //swallow
+<span class="nc" id="L446">                }</span>
+            }
+<span class="nc bnc" id="L448" title="All 2 branches missed.">            if (!inputToStdIn) {</span>
+                // Close input file (and delete if created by up
+                // TemporaryResources.createTemporaryFile)
+<span class="nc" id="L451">                IOUtils.closeQuietly(tikaInputStream);</span>
+            }
+<span class="nc" id="L453">            IOUtils.closeQuietly(outputStream);</span>
+<span class="nc" id="L454">            IOUtils.closeQuietly(stdErrOutputStream);</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">            if (process.exitValue() != 0) {</span>
+<span class="nc" id="L456">                throw new TikaException(&quot;There was an error executing the command line&quot; +</span>
+                        &quot;\nExecutable Command:\n\n&quot; + cmd + &quot;\nExecutable Error:\n\n&quot; +
+<span class="nc" id="L458">                        stdErrOutputStream.toString(UTF_8.name()));</span>
+            }
+        }
+<span class="nc" id="L461">    }</span>
+
+    /**
+     * Creates a new thread for copying a given input stream to a given output stream.
+     *
+     * @param inputStream  the source input stream
+     * @param outputStream the target output stream
+     */
+    private void multiThreadedStreamCopy(final InputStream inputStream,
+                                         final OutputStream outputStream) {
+<span class="nc" id="L471">        new Thread(() -&gt; {</span>
+            try {
+<span class="nc" id="L473">                IOUtils.copy(inputStream, outputStream);</span>
+<span class="nc" id="L474">            } catch (IOException e) {</span>
+<span class="nc" id="L475">                System.out.println(&quot;ERROR: &quot; + e.getMessage());</span>
+<span class="nc" id="L476">            }</span>
+<span class="nc" id="L477">        }).start();</span>
+<span class="nc" id="L478">    }</span>
+
+    /**
+     * Sends the contents of the given input stream to the
+     * standard input of the given process. Potential exceptions are
+     * ignored.
+     * &lt;p&gt;
+     * Note that the given input stream is &lt;em&gt;not&lt;/em&gt; closed by this method.
+     *
+     * @param process     the process
+     * @param inputStream the input stream to send to standard input of the process
+     */
+    private void sendInputStreamToStdIn(final InputStream inputStream, final Process process) {
+<span class="nc" id="L491">        multiThreadedStreamCopy(inputStream, process.getOutputStream());</span>
+<span class="nc" id="L492">    }</span>
+
+    /**
+     * Sends the standard output of the given
+     * process to the given output stream. Potential exceptions are
+     * ignored.
+     * &lt;p&gt;
+     * Note that the given output stream is &lt;em&gt;not&lt;/em&gt; closed by this method.
+     *
+     * @param process      the process
+     * @param outputStream the putput stream to send to standard input of the process
+     */
+    private void sendStdOutToOutputStream(final Process process, final OutputStream outputStream) {
+        try {
+<span class="nc" id="L506">            IOUtils.copy(process.getInputStream(), outputStream);</span>
+<span class="nc" id="L507">        } catch (IOException e) {</span>
+<span class="nc" id="L508">            System.out.println(&quot;ERROR: &quot; + e.getMessage());</span>
+<span class="nc" id="L509">        }</span>
+<span class="nc" id="L510">    }</span>
+
+    /**
+     * Starts a thread that reads and discards the contents of the standard
+     * stream of the given process. Potential exceptions are ignored, and the
+     * stream is closed once fully processed.
+     *
+     * @param process the process
+     *                param outputStream the output stream to send to standard error of the process
+     */
+    private void sendStdErrToOutputStream(final Process process, final OutputStream outputStream) {
+<span class="nc" id="L521">        multiThreadedStreamCopy(process.getErrorStream(), outputStream);</span>
+<span class="nc" id="L522">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

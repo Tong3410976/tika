@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StreamCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">StreamCache.java</span></div><h1>StreamCache.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.BufferedOutputStream;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * Package-private cache that stores bytes in memory up to a threshold,
+ * then spills to a temporary file. Supports reading from any offset.
+ */
+class StreamCache implements Closeable {
+
+    private static final int DEFAULT_MEMORY_THRESHOLD = 1024 * 1024; // 1MB
+
+    private final int memoryThreshold;
+    private final TemporaryResources tmp;
+
+    // Memory storage (null after spill)
+    private byte[] memoryBuffer;
+    private int memorySize;
+
+    // File storage (null until spill)
+    private Path spillFile;
+    private OutputStream spillOutputStream;
+    private long totalSize;
+
+    private boolean closed;
+
+    StreamCache(TemporaryResources tmp) {
+<span class="fc" id="L51">        this(tmp, DEFAULT_MEMORY_THRESHOLD);</span>
+<span class="fc" id="L52">    }</span>
+
+<span class="fc" id="L54">    StreamCache(TemporaryResources tmp, int memoryThreshold) {</span>
+<span class="fc" id="L55">        this.tmp = tmp;</span>
+<span class="fc" id="L56">        this.memoryThreshold = memoryThreshold;</span>
+<span class="fc" id="L57">        this.memoryBuffer = new byte[Math.min(memoryThreshold, 8192)];</span>
+<span class="fc" id="L58">        this.memorySize = 0;</span>
+<span class="fc" id="L59">        this.totalSize = 0;</span>
+<span class="fc" id="L60">    }</span>
+
+    /**
+     * Append a single byte to the cache.
+     */
+    void append(int b) throws IOException {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (closed) {</span>
+<span class="nc" id="L67">            throw new IOException(&quot;StreamCache is closed&quot;);</span>
+        }
+
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        if (memoryBuffer != null) {</span>
+            // Still in memory mode
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">            if (memorySize &gt;= memoryThreshold) {</span>
+<span class="nc" id="L73">                spillToFile();</span>
+<span class="nc" id="L74">                spillOutputStream.write(b);</span>
+            } else {
+<span class="fc" id="L76">                ensureMemoryCapacity(memorySize + 1);</span>
+<span class="fc" id="L77">                memoryBuffer[memorySize++] = (byte) b;</span>
+            }
+        } else {
+            // Already spilled to file
+<span class="nc" id="L81">            spillOutputStream.write(b);</span>
+        }
+<span class="fc" id="L83">        totalSize++;</span>
+<span class="fc" id="L84">    }</span>
+
+    /**
+     * Append multiple bytes to the cache.
+     */
+    void append(byte[] b, int off, int len) throws IOException {
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        if (closed) {</span>
+<span class="nc" id="L91">            throw new IOException(&quot;StreamCache is closed&quot;);</span>
+        }
+
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (memoryBuffer != null) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            if (memorySize + len &gt; memoryThreshold) {</span>
+<span class="fc" id="L96">                spillToFile();</span>
+<span class="fc" id="L97">                spillOutputStream.write(b, off, len);</span>
+            } else {
+<span class="fc" id="L99">                ensureMemoryCapacity(memorySize + len);</span>
+<span class="fc" id="L100">                System.arraycopy(b, off, memoryBuffer, memorySize, len);</span>
+<span class="fc" id="L101">                memorySize += len;</span>
+            }
+        } else {
+<span class="fc" id="L104">            spillOutputStream.write(b, off, len);</span>
+        }
+<span class="fc" id="L106">        totalSize += len;</span>
+<span class="fc" id="L107">    }</span>
+
+    private void ensureMemoryCapacity(int needed) {
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if (needed &lt;= memoryBuffer.length) {</span>
+<span class="fc" id="L111">            return;</span>
+        }
+<span class="fc" id="L113">        int newSize = Math.min(memoryThreshold, Math.max(memoryBuffer.length * 2, needed));</span>
+<span class="fc" id="L114">        byte[] newBuffer = new byte[newSize];</span>
+<span class="fc" id="L115">        System.arraycopy(memoryBuffer, 0, newBuffer, 0, memorySize);</span>
+<span class="fc" id="L116">        memoryBuffer = newBuffer;</span>
+<span class="fc" id="L117">    }</span>
+
+    private String suffix;
+
+    private void spillToFile() throws IOException {
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (spillFile != null) {</span>
+<span class="nc" id="L123">            return; // Already spilled</span>
+        }
+
+<span class="fc" id="L126">        spillFile = tmp.createTempFile(suffix);</span>
+<span class="fc" id="L127">        spillOutputStream = new BufferedOutputStream(Files.newOutputStream(spillFile));</span>
+
+        // Write existing memory content to file
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (memorySize &gt; 0) {</span>
+<span class="fc" id="L131">            spillOutputStream.write(memoryBuffer, 0, memorySize);</span>
+        }
+
+        // Release memory buffer
+<span class="fc" id="L135">        memoryBuffer = null;</span>
+<span class="fc" id="L136">        memorySize = 0;</span>
+<span class="fc" id="L137">    }</span>
+
+    /**
+     * Read a single byte at the given position.
+     */
+    int readAt(long position) throws IOException {
+<span class="pc bpc" id="L143" title="2 of 4 branches missed.">        if (position &lt; 0 || position &gt;= totalSize) {</span>
+<span class="nc" id="L144">            return -1;</span>
+        }
+
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (memoryBuffer != null) {</span>
+<span class="fc" id="L148">            return memoryBuffer[(int) position] &amp; 0xFF;</span>
+        } else {
+<span class="nc" id="L150">            flushSpillStream();</span>
+<span class="nc" id="L151">            try (RandomAccessFile raf = new RandomAccessFile(spillFile.toFile(), &quot;r&quot;)) {</span>
+<span class="nc" id="L152">                raf.seek(position);</span>
+<span class="nc" id="L153">                return raf.read();</span>
+            }
+        }
+    }
+
+    /**
+     * Read multiple bytes starting at the given position.
+     */
+    int readAt(long position, byte[] b, int off, int len) throws IOException {
+<span class="pc bpc" id="L162" title="2 of 4 branches missed.">        if (position &lt; 0 || position &gt;= totalSize) {</span>
+<span class="nc" id="L163">            return -1;</span>
+        }
+
+<span class="fc" id="L166">        int available = (int) Math.min(len, totalSize - position);</span>
+
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (memoryBuffer != null) {</span>
+<span class="fc" id="L169">            System.arraycopy(memoryBuffer, (int) position, b, off, available);</span>
+<span class="fc" id="L170">            return available;</span>
+        } else {
+<span class="fc" id="L172">            flushSpillStream();</span>
+<span class="fc" id="L173">            try (RandomAccessFile raf = new RandomAccessFile(spillFile.toFile(), &quot;r&quot;)) {</span>
+<span class="fc" id="L174">                raf.seek(position);</span>
+<span class="fc" id="L175">                return raf.read(b, off, available);</span>
+            }
+        }
+    }
+
+    /**
+     * Get an InputStream that reads from the given offset.
+     */
+    InputStream getInputStreamFrom(long offset) throws IOException {
+<span class="nc" id="L184">        return new CacheInputStream(offset);</span>
+    }
+
+    private void flushSpillStream() throws IOException {
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        if (spillOutputStream != null) {</span>
+<span class="fc" id="L189">            spillOutputStream.flush();</span>
+        }
+<span class="fc" id="L191">    }</span>
+
+    /**
+     * Force all content to a file and return the path.
+     * After this call, the cache is in file-backed mode.
+     */
+    Path toFile() throws IOException {
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        if (spillFile == null) {</span>
+<span class="fc" id="L199">            spillToFile();</span>
+        }
+<span class="fc" id="L201">        flushSpillStream();</span>
+<span class="fc" id="L202">        return spillFile;</span>
+    }
+
+    /**
+     * Finish writing (drain remaining source bytes) and return the file path.
+     */
+    Path toFile(InputStream remainingSource, String suffix) throws IOException {
+<span class="fc" id="L209">        this.suffix = suffix;</span>
+        // Copy remaining bytes from source
+<span class="fc" id="L211">        byte[] buffer = new byte[8192];</span>
+        int n;
+<span class="fc bfc" id="L213" title="All 2 branches covered.">        while ((n = remainingSource.read(buffer)) != -1) {</span>
+<span class="fc" id="L214">            append(buffer, 0, n);</span>
+        }
+<span class="fc" id="L216">        return toFile();</span>
+    }
+
+    /**
+     * Number of bytes currently cached.
+     */
+    long size() {
+<span class="fc" id="L223">        return totalSize;</span>
+    }
+
+    /**
+     * Whether the cache has spilled to a file.
+     */
+    boolean isFileBacked() {
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        return spillFile != null;</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (closed) {</span>
+<span class="nc" id="L236">            return;</span>
+        }
+<span class="fc" id="L238">        closed = true;</span>
+<span class="fc" id="L239">        memoryBuffer = null;</span>
+
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        if (spillOutputStream != null) {</span>
+<span class="fc" id="L242">            spillOutputStream.close();</span>
+<span class="fc" id="L243">            spillOutputStream = null;</span>
+        }
+        // spillFile cleanup is handled by TemporaryResources
+<span class="fc" id="L246">    }</span>
+
+    /**
+     * Inner class for reading from the cache at a specific offset.
+     */
+    private class CacheInputStream extends InputStream {
+        private long position;
+
+<span class="nc" id="L254">        CacheInputStream(long startOffset) {</span>
+<span class="nc" id="L255">            this.position = startOffset;</span>
+<span class="nc" id="L256">        }</span>
+
+        @Override
+        public int read() throws IOException {
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            if (position &gt;= totalSize) {</span>
+<span class="nc" id="L261">                return -1;</span>
+            }
+<span class="nc" id="L263">            int b = readAt(position);</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">            if (b != -1) {</span>
+<span class="nc" id="L265">                position++;</span>
+            }
+<span class="nc" id="L267">            return b;</span>
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc bnc" id="L272" title="All 2 branches missed.">            if (position &gt;= totalSize) {</span>
+<span class="nc" id="L273">                return -1;</span>
+            }
+<span class="nc" id="L275">            int n = StreamCache.this.readAt(position, b, off, len);</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            if (n &gt; 0) {</span>
+<span class="nc" id="L277">                position += n;</span>
+            }
+<span class="nc" id="L279">            return n;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

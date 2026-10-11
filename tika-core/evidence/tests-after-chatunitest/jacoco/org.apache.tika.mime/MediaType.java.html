@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MediaType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.mime</a> &gt; <span class="el_source">MediaType.java</span></div><h1>MediaType.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.mime;
+
+import java.io.Serializable;
+import java.nio.charset.Charset;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Internet media type.
+ */
+public final class MediaType implements Comparable&lt;MediaType&gt;, Serializable {
+
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = -3831000556189036392L;
+
+<span class="fc" id="L42">    private static final Pattern SPECIAL = Pattern.compile(&quot;[\\(\\)&lt;&gt;@,;:\\\\\&quot;/\\[\\]\\?=]&quot;);</span>
+
+<span class="fc" id="L44">    private static final Pattern SPECIAL_OR_WHITESPACE =</span>
+<span class="fc" id="L45">            Pattern.compile(&quot;[\\(\\)&lt;&gt;@,;:\\\\\&quot;/\\[\\]\\?=\\s]&quot;);</span>
+
+    /**
+     * See http://www.ietf.org/rfc/rfc2045.txt for valid mime-type characters.
+     */
+    private static final String VALID_CHARS = &quot;([^\\c\\(\\)&lt;&gt;@,;:\\\\\&quot;/\\[\\]\\?=\\s]+)&quot;;
+
+<span class="fc" id="L52">    private static final Pattern TYPE_PATTERN =</span>
+<span class="fc" id="L53">            Pattern.compile(&quot;(?s)\\s*&quot; + VALID_CHARS + &quot;\\s*/\\s*&quot; + VALID_CHARS + &quot;\\s*($|;.*)&quot;);</span>
+
+    // TIKA-350: handle charset as first element in content-type
+<span class="fc" id="L56">    private static final Pattern CHARSET_FIRST_PATTERN = Pattern.compile(</span>
+            &quot;(?is)\\s*(charset\\s*=\\s*[^\\c;\\s]+)\\s*;\\s*&quot; + VALID_CHARS + &quot;\\s*/\\s*&quot; +
+                    VALID_CHARS + &quot;\\s*&quot;);
+
+    /**
+     * Set of basic types with normalized &quot;type/subtype&quot; names.
+     * Used to optimize type lookup and to avoid having too many
+     * {@link MediaType} instances in memory.
+     */
+<span class="fc" id="L65">    private static final Map&lt;String, MediaType&gt; SIMPLE_TYPES = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L67">    public static final MediaType OCTET_STREAM = parse(&quot;application/octet-stream&quot;);</span>
+
+<span class="fc" id="L69">    public static final MediaType EMPTY = parse(&quot;application/x-empty&quot;);</span>
+
+<span class="fc" id="L71">    public static final MediaType TEXT_PLAIN = parse(&quot;text/plain&quot;);</span>
+
+<span class="fc" id="L73">    public static final MediaType TEXT_HTML = parse(&quot;text/html&quot;);</span>
+
+<span class="fc" id="L75">    public static final MediaType APPLICATION_XML = parse(&quot;application/xml&quot;);</span>
+
+<span class="fc" id="L77">    public static final MediaType APPLICATION_ZIP = parse(&quot;application/zip&quot;);</span>
+    /**
+     * Canonical string representation of this media type.
+     */
+    private final String string;
+    /**
+     * Location of the &quot;/&quot; character separating the type and the subtype
+     * tokens in {@link #string}.
+     */
+    private final int slash;
+    /**
+     * Location of the first &quot;;&quot; character separating the type part of
+     * {@link #string} from possible parameters. Length of {@link #string}
+     * in case there are no parameters.
+     */
+    private final int semicolon;
+    /**
+     * Immutable sorted map of media type parameters.
+     */
+    private final Map&lt;String, String&gt; parameters;
+
+<span class="fc" id="L98">    public MediaType(String type, String subtype, Map&lt;String, String&gt; parameters) {</span>
+<span class="fc" id="L99">        type = type.trim().toLowerCase(Locale.ENGLISH);</span>
+<span class="fc" id="L100">        subtype = subtype.trim().toLowerCase(Locale.ENGLISH);</span>
+
+<span class="fc" id="L102">        this.slash = type.length();</span>
+<span class="fc" id="L103">        this.semicolon = slash + 1 + subtype.length();</span>
+
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (parameters.isEmpty()) {</span>
+<span class="fc" id="L106">            this.parameters = Collections.emptyMap();</span>
+<span class="fc" id="L107">            this.string = type + '/' + subtype;</span>
+        } else {
+<span class="fc" id="L109">            StringBuilder builder = new StringBuilder();</span>
+<span class="fc" id="L110">            builder.append(type);</span>
+<span class="fc" id="L111">            builder.append('/');</span>
+<span class="fc" id="L112">            builder.append(subtype);</span>
+
+<span class="fc" id="L114">            SortedMap&lt;String, String&gt; map = new TreeMap&lt;&gt;();</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            for (Map.Entry&lt;String, String&gt; entry : parameters.entrySet()) {</span>
+<span class="fc" id="L116">                String key = entry.getKey().trim().toLowerCase(Locale.ENGLISH);</span>
+<span class="fc" id="L117">                map.put(key, entry.getValue());</span>
+<span class="fc" id="L118">            }</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">            for (Map.Entry&lt;String, String&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L120">                builder.append(&quot;; &quot;);</span>
+<span class="fc" id="L121">                builder.append(entry.getKey());</span>
+<span class="fc" id="L122">                builder.append(&quot;=&quot;);</span>
+<span class="fc" id="L123">                String value = entry.getValue();</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">                if (SPECIAL_OR_WHITESPACE.matcher(value).find()) {</span>
+<span class="fc" id="L125">                    builder.append('&quot;');</span>
+<span class="fc" id="L126">                    builder.append(SPECIAL.matcher(value).replaceAll(&quot;\\\\$0&quot;));</span>
+<span class="fc" id="L127">                    builder.append('&quot;');</span>
+                } else {
+<span class="fc" id="L129">                    builder.append(value);</span>
+                }
+<span class="fc" id="L131">            }</span>
+
+<span class="fc" id="L133">            this.string = builder.toString();</span>
+<span class="fc" id="L134">            this.parameters = Collections.unmodifiableSortedMap(map);</span>
+        }
+<span class="fc" id="L136">    }</span>
+
+    public MediaType(String type, String subtype) {
+<span class="fc" id="L139">        this(type, subtype, Collections.emptyMap());</span>
+<span class="fc" id="L140">    }</span>
+
+<span class="fc" id="L142">    private MediaType(String string, int slash) {</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        assert slash != -1;</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        assert string.charAt(slash) == '/';</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        assert isSimpleName(string.substring(0, slash));</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        assert isSimpleName(string.substring(slash + 1));</span>
+<span class="fc" id="L147">        this.string = string;</span>
+<span class="fc" id="L148">        this.slash = slash;</span>
+<span class="fc" id="L149">        this.semicolon = string.length();</span>
+<span class="fc" id="L150">        this.parameters = Collections.emptyMap();</span>
+<span class="fc" id="L151">    }</span>
+
+    public MediaType(MediaType type, Map&lt;String, String&gt; parameters) {
+<span class="fc" id="L154">        this(type.getType(), type.getSubtype(), union(type.parameters, parameters));</span>
+<span class="fc" id="L155">    }</span>
+
+    /**
+     * Creates a media type by adding a parameter to a base type.
+     *
+     * @param type  base type
+     * @param name  parameter name
+     * @param value parameter value
+     * @since Apache Tika 1.2
+     */
+    public MediaType(MediaType type, String name, String value) {
+<span class="nc" id="L166">        this(type, Collections.singletonMap(name, value));</span>
+<span class="nc" id="L167">    }</span>
+
+    /**
+     * Creates a media type by adding the &quot;charset&quot; parameter to a base type.
+     *
+     * @param type    base type
+     * @param charset charset value
+     * @since Apache Tika 1.2
+     */
+    public MediaType(MediaType type, Charset charset) {
+<span class="nc" id="L177">        this(type, &quot;charset&quot;, charset.name());</span>
+<span class="nc" id="L178">    }</span>
+
+    public static MediaType application(String type) {
+<span class="fc" id="L181">        return MediaType.parse(&quot;application/&quot; + type);</span>
+    }
+
+    public static MediaType audio(String type) {
+<span class="nc" id="L185">        return MediaType.parse(&quot;audio/&quot; + type);</span>
+    }
+
+    public static MediaType image(String type) {
+<span class="fc" id="L189">        return MediaType.parse(&quot;image/&quot; + type);</span>
+    }
+
+    public static MediaType text(String type) {
+<span class="fc" id="L193">        return MediaType.parse(&quot;text/&quot; + type);</span>
+    }
+
+    public static MediaType video(String type) {
+<span class="nc" id="L197">        return MediaType.parse(&quot;video/&quot; + type);</span>
+    }
+
+    /**
+     * Convenience method that returns an unmodifiable set that contains
+     * all the given media types.
+     *
+     * @param types media types
+     * @return unmodifiable set of the given types
+     * @since Apache Tika 1.2
+     */
+    public static Set&lt;MediaType&gt; set(MediaType... types) {
+<span class="nc" id="L209">        Set&lt;MediaType&gt; set = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        for (MediaType type : types) {</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            if (type != null) {</span>
+<span class="nc" id="L212">                set.add(type);</span>
+            }
+        }
+<span class="nc" id="L215">        return Collections.unmodifiableSet(set);</span>
+    }
+
+    /**
+     * Convenience method that parses the given media type strings and
+     * returns an unmodifiable set that contains all the parsed types.
+     *
+     * @param types media type strings
+     * @return unmodifiable set of the parsed types
+     * @since Apache Tika 1.2
+     */
+    public static Set&lt;MediaType&gt; set(String... types) {
+<span class="nc" id="L227">        Set&lt;MediaType&gt; set = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        for (String type : types) {</span>
+<span class="nc" id="L229">            MediaType mt = parse(type);</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">            if (mt != null) {</span>
+<span class="nc" id="L231">                set.add(mt);</span>
+            }
+        }
+<span class="nc" id="L234">        return Collections.unmodifiableSet(set);</span>
+    }
+
+    /**
+     * Parses the given string to a media type. The string is expected
+     * to be of the form &quot;type/subtype(; parameter=...)*&quot; as defined in
+     * RFC 2045, though we also handle &quot;charset=xxx; type/subtype&quot; for
+     * broken web servers.
+     *
+     * @param string media type string to be parsed
+     * @return parsed media type, or &lt;code&gt;null&lt;/code&gt; if parsing fails
+     */
+    public static MediaType parse(String string) {
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">        if (string == null) {</span>
+<span class="nc" id="L248">            return null;</span>
+        }
+
+        // Optimization for the common cases
+<span class="fc" id="L252">        synchronized (SIMPLE_TYPES) {</span>
+<span class="fc" id="L253">            MediaType type = SIMPLE_TYPES.get(string);</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">            if (type == null) {</span>
+<span class="fc" id="L255">                int slash = string.indexOf('/');</span>
+<span class="fc bfc" id="L256" title="All 2 branches covered.">                if (slash == -1) {</span>
+<span class="fc" id="L257">                    return null;</span>
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">                } else if (SIMPLE_TYPES.size() &lt; 10000 &amp;&amp;</span>
+<span class="fc bfc" id="L259" title="All 2 branches covered.">                        isSimpleName(string.substring(0, slash)) &amp;&amp;</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">                        isSimpleName(string.substring(slash + 1))) {</span>
+<span class="fc" id="L261">                    type = new MediaType(string, slash);</span>
+<span class="fc" id="L262">                    SIMPLE_TYPES.put(string, type);</span>
+                }
+            }
+<span class="fc bfc" id="L265" title="All 2 branches covered.">            if (type != null) {</span>
+<span class="fc" id="L266">                return type;</span>
+            }
+<span class="fc" id="L268">        }</span>
+
+        Matcher matcher;
+<span class="fc" id="L271">        matcher = TYPE_PATTERN.matcher(string);</span>
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        if (matcher.matches()) {</span>
+<span class="fc" id="L273">            return new MediaType(matcher.group(1), matcher.group(2),</span>
+<span class="fc" id="L274">                    parseParameters(matcher.group(3)));</span>
+        }
+<span class="nc" id="L276">        matcher = CHARSET_FIRST_PATTERN.matcher(string);</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (matcher.matches()) {</span>
+<span class="nc" id="L278">            return new MediaType(matcher.group(2), matcher.group(3),</span>
+<span class="nc" id="L279">                    parseParameters(matcher.group(1)));</span>
+        }
+
+<span class="nc" id="L282">        return null;</span>
+    }
+
+    private static boolean isSimpleName(String name) {
+<span class="fc bfc" id="L286" title="All 2 branches covered.">        for (int i = 0; i &lt; name.length(); i++) {</span>
+<span class="fc" id="L287">            char c = name.charAt(i);</span>
+<span class="pc bpc" id="L288" title="1 of 16 branches missed.">            if (c != '-' &amp;&amp; c != '+' &amp;&amp; c != '.' &amp;&amp; c != '_' &amp;&amp; !('0' &lt;= c &amp;&amp; c &lt;= '9') &amp;&amp;</span>
+                    !('a' &lt;= c &amp;&amp; c &lt;= 'z')) {
+<span class="fc" id="L290">                return false;</span>
+            }
+        }
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">        return name.length() &gt; 0;</span>
+    }
+
+    private static Map&lt;String, String&gt; parseParameters(String string) {
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        if (string.isEmpty()) {</span>
+<span class="fc" id="L298">            return Collections.emptyMap();</span>
+        }
+
+        // Extracts k1=v1, k2=v2 from mime/type; k1=v1; k2=v2
+        // Note - this logic isn't fully RFC2045 compliant yet, as it
+        //  doesn't fully handle quoted keys or values (eg containing ; or =)
+<span class="fc" id="L304">        Map&lt;String, String&gt; parameters = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L305" title="All 2 branches covered.">        while (string.length() &gt; 0) {</span>
+<span class="fc" id="L306">            String key = string;</span>
+<span class="fc" id="L307">            String value = &quot;&quot;;</span>
+
+<span class="fc" id="L309">            int semicolon = string.indexOf(';');</span>
+<span class="fc bfc" id="L310" title="All 2 branches covered.">            if (semicolon != -1) {</span>
+<span class="fc" id="L311">                key = string.substring(0, semicolon);</span>
+<span class="fc" id="L312">                string = string.substring(semicolon + 1);</span>
+            } else {
+<span class="fc" id="L314">                string = &quot;&quot;;</span>
+            }
+
+<span class="fc" id="L317">            int equals = key.indexOf('=');</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">            if (equals != -1) {</span>
+<span class="fc" id="L319">                value = key.substring(equals + 1);</span>
+<span class="fc" id="L320">                key = key.substring(0, equals);</span>
+            }
+
+<span class="fc" id="L323">            key = key.trim();</span>
+<span class="fc bfc" id="L324" title="All 2 branches covered.">            if (key.length() &gt; 0) {</span>
+<span class="fc" id="L325">                parameters.put(key, unquote(value.trim()));</span>
+            }
+<span class="fc" id="L327">        }</span>
+<span class="fc" id="L328">        return parameters;</span>
+    }
+
+    /**
+     * Fuzzy unquoting mechanism that works also with somewhat malformed
+     * quotes.
+     *
+     * @param s string to unquote
+     * @return unquoted string
+     */
+    private static String unquote(String s) {
+<span class="fc bfc" id="L339" title="All 4 branches covered.">        while (s.startsWith(&quot;\&quot;&quot;) || s.startsWith(&quot;'&quot;)) {</span>
+<span class="fc" id="L340">            s = s.substring(1);</span>
+        }
+<span class="fc bfc" id="L342" title="All 4 branches covered.">        while (s.endsWith(&quot;\&quot;&quot;) || s.endsWith(&quot;'&quot;)) {</span>
+<span class="fc" id="L343">            s = s.substring(0, s.length() - 1);</span>
+        }
+<span class="fc" id="L345">        return s;</span>
+    }
+
+    private static Map&lt;String, String&gt; union(Map&lt;String, String&gt; a, Map&lt;String, String&gt; b) {
+<span class="pc bpc" id="L349" title="1 of 2 branches missed.">        if (a.isEmpty()) {</span>
+<span class="fc" id="L350">            return b;</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">        } else if (b.isEmpty()) {</span>
+<span class="nc" id="L352">            return a;</span>
+        } else {
+<span class="nc" id="L354">            Map&lt;String, String&gt; union = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L355">            union.putAll(a);</span>
+<span class="nc" id="L356">            union.putAll(b);</span>
+<span class="nc" id="L357">            return union;</span>
+        }
+    }
+
+    /**
+     * Returns the base form of the MediaType, excluding
+     * any parameters, such as &quot;text/plain&quot; for
+     * &quot;text/plain; charset=utf-8&quot;
+     */
+    public MediaType getBaseType() {
+<span class="fc bfc" id="L367" title="All 2 branches covered.">        if (parameters.isEmpty()) {</span>
+<span class="fc" id="L368">            return this;</span>
+        } else {
+<span class="fc" id="L370">            return MediaType.parse(string.substring(0, semicolon));</span>
+        }
+    }
+
+    /**
+     * Return the Type of the MediaType, such as
+     * &quot;text&quot; for &quot;text/plain&quot;
+     */
+    public String getType() {
+<span class="fc" id="L379">        return string.substring(0, slash);</span>
+    }
+
+    /**
+     * Return the Sub-Type of the MediaType,
+     * such as &quot;plain&quot; for &quot;text/plain&quot;
+     */
+    public String getSubtype() {
+<span class="fc" id="L387">        return string.substring(slash + 1, semicolon);</span>
+    }
+
+    /**
+     * Checks whether this media type contains parameters.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if this type has one or more parameters,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     * @since Apache Tika 0.8
+     */
+    public boolean hasParameters() {
+<span class="fc bfc" id="L398" title="All 2 branches covered.">        return !parameters.isEmpty();</span>
+    }
+
+    /**
+     * Returns an immutable sorted map of the parameters of this media type.
+     * The parameter names are guaranteed to be trimmed and in lower case.
+     *
+     * @return sorted map of parameters
+     */
+    public Map&lt;String, String&gt; getParameters() {
+<span class="fc" id="L408">        return parameters;</span>
+    }
+
+    public String toString() {
+<span class="fc" id="L412">        return string;</span>
+    }
+
+    public boolean equals(Object object) {
+<span class="pc bpc" id="L416" title="1 of 2 branches missed.">        if (object instanceof MediaType) {</span>
+<span class="fc" id="L417">            MediaType that = (MediaType) object;</span>
+<span class="fc" id="L418">            return string.equals(that.string);</span>
+        } else {
+<span class="nc" id="L420">            return false;</span>
+        }
+    }
+
+    public int hashCode() {
+<span class="fc" id="L425">        return string.hashCode();</span>
+    }
+
+    public int compareTo(MediaType that) {
+<span class="fc" id="L429">        return string.compareTo(that.string);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

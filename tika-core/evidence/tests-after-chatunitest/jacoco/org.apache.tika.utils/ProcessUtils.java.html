@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProcessUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">ProcessUtils.java</span></div><h1>ProcessUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+<span class="nc" id="L31">public class ProcessUtils {</span>
+
+<span class="fc" id="L33">    private static final Logger LOG = LoggerFactory.getLogger(ProcessUtils.class);</span>
+
+<span class="fc" id="L35">    private static final ConcurrentHashMap&lt;String, Process&gt; PROCESS_MAP = new ConcurrentHashMap&lt;&gt;();</span>
+
+    static {
+<span class="fc" id="L38">        Runtime.getRuntime().addShutdownHook(new Thread(() -&gt; {</span>
+<span class="fc" id="L39">            PROCESS_MAP.forEachValue(1, Process::destroyForcibly);</span>
+<span class="fc" id="L40">        }));</span>
+<span class="fc" id="L41">    }</span>
+
+    private static String register(Process p) {
+<span class="nc" id="L44">        String id = UUID.randomUUID().toString();</span>
+<span class="nc" id="L45">        PROCESS_MAP.put(id, p);</span>
+<span class="nc" id="L46">        return id;</span>
+    }
+
+    private static Process release(String id) {
+<span class="nc" id="L50">        return PROCESS_MAP.remove(id);</span>
+    }
+
+    /**
+     * This should correctly put double-quotes around an argument if
+     * ProcessBuilder doesn't seem to work (as it doesn't
+     * on paths with spaces on Windows)
+     *
+     * @param arg
+     * @return
+     */
+    public static String escapeCommandLine(String arg) {
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (arg == null) {</span>
+<span class="nc" id="L63">            return arg;</span>
+        }
+        //need to test for &quot; &quot; on windows, can't just add double quotes
+        //across platforms.
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if (arg.contains(&quot; &quot;) &amp;&amp; SystemUtils.IS_OS_WINDOWS &amp;&amp;</span>
+<span class="nc bnc" id="L68" title="All 4 branches missed.">                (!arg.startsWith(&quot;\&quot;&quot;) &amp;&amp; !arg.endsWith(&quot;\&quot;&quot;))) {</span>
+<span class="nc" id="L69">            arg = &quot;\&quot;&quot; + arg + &quot;\&quot;&quot;;</span>
+        }
+<span class="nc" id="L71">        return arg;</span>
+    }
+
+    public static String unescapeCommandLine(String arg) {
+<span class="nc bnc" id="L75" title="All 4 branches missed.">        if (arg.contains(&quot; &quot;) &amp;&amp; SystemUtils.IS_OS_WINDOWS &amp;&amp;</span>
+<span class="nc bnc" id="L76" title="All 4 branches missed.">                (arg.startsWith(&quot;\&quot;&quot;) &amp;&amp; arg.endsWith(&quot;\&quot;&quot;))) {</span>
+<span class="nc" id="L77">            arg = arg.substring(1, arg.length() - 1);</span>
+        }
+<span class="nc" id="L79">        return arg;</span>
+    }
+
+    /**
+     * This writes stdout and stderr to the FileProcessResult.
+     *
+     * @param pb
+     * @param timeoutMillis
+     * @param maxStdoutBuffer
+     * @param maxStdErrBuffer
+     * @return
+     * @throws IOException
+     */
+    public static FileProcessResult execute(ProcessBuilder pb,
+                                            long timeoutMillis,
+                                            int maxStdoutBuffer, int maxStdErrBuffer)
+            throws IOException {
+<span class="nc" id="L96">        Process p = null;</span>
+<span class="nc" id="L97">        String id = null;</span>
+        try {
+<span class="nc" id="L99">            p = pb.start();</span>
+<span class="nc" id="L100">            id = register(p);</span>
+<span class="nc" id="L101">            long elapsed = -1;</span>
+<span class="nc" id="L102">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L103">            StreamGobbler outGobbler = new StreamGobbler(p.getInputStream(), maxStdoutBuffer);</span>
+<span class="nc" id="L104">            StreamGobbler errGobbler = new StreamGobbler(p.getErrorStream(), maxStdErrBuffer);</span>
+
+<span class="nc" id="L106">            Thread outThread = new Thread(outGobbler);</span>
+<span class="nc" id="L107">            outThread.start();</span>
+
+<span class="nc" id="L109">            Thread errThread = new Thread(errGobbler);</span>
+<span class="nc" id="L110">            errThread.start();</span>
+<span class="nc" id="L111">            int exitValue = -1;</span>
+<span class="nc" id="L112">            boolean complete = false;</span>
+            try {
+<span class="nc" id="L114">                complete = p.waitFor(timeoutMillis, TimeUnit.MILLISECONDS);</span>
+<span class="nc" id="L115">                elapsed = System.currentTimeMillis() - start;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (complete) {</span>
+<span class="nc" id="L117">                    exitValue = p.exitValue();</span>
+<span class="nc" id="L118">                    outThread.join(1000);</span>
+<span class="nc" id="L119">                    errThread.join(1000);</span>
+                } else {
+<span class="nc" id="L121">                    p.destroyForcibly();</span>
+<span class="nc" id="L122">                    outThread.join(1000);</span>
+<span class="nc" id="L123">                    errThread.join(1000);</span>
+<span class="nc" id="L124">                    boolean completed = p.waitFor(500, TimeUnit.MILLISECONDS);</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">                    if (completed) {</span>
+                        try {
+<span class="nc" id="L127">                            exitValue = p.exitValue();</span>
+<span class="nc" id="L128">                        } catch (IllegalThreadStateException e) {</span>
+                            //not finished!
+<span class="nc" id="L130">                        }</span>
+                    }
+                }
+<span class="nc" id="L133">            } catch (InterruptedException e) {</span>
+<span class="nc" id="L134">                exitValue = -1000;</span>
+            } finally {
+<span class="nc" id="L136">                outThread.interrupt();</span>
+<span class="nc" id="L137">                errThread.interrupt();</span>
+            }
+<span class="nc" id="L139">            FileProcessResult result = new FileProcessResult();</span>
+<span class="nc" id="L140">            result.processTimeMillis = elapsed;</span>
+<span class="nc" id="L141">            result.stderrLength = errGobbler.getStreamLength();</span>
+<span class="nc" id="L142">            result.stdoutLength = outGobbler.getStreamLength();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">            result.isTimeout = ! complete;</span>
+<span class="nc" id="L144">            result.exitValue = exitValue;</span>
+<span class="nc" id="L145">            result.stdout = StringUtils.joinWith(&quot;\n&quot;, outGobbler.getLines());</span>
+<span class="nc" id="L146">            result.stderr = StringUtils.joinWith(&quot;\n&quot;, errGobbler.getLines());</span>
+<span class="nc" id="L147">            result.stdoutTruncated = outGobbler.getIsTruncated();</span>
+<span class="nc" id="L148">            result.stderrTruncated = errGobbler.getIsTruncated();</span>
+<span class="nc" id="L149">            return result;</span>
+        } finally {
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            if (p != null) {</span>
+<span class="nc" id="L152">                p.destroyForcibly();</span>
+            }
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (id != null) {</span>
+<span class="nc" id="L155">                release(id);</span>
+            }
+        }
+    }
+
+    /**
+     * This redirects stdout to stdoutRedirect path.
+     *
+     * @param pb
+     * @param timeoutMillis
+     * @param stdoutRedirect
+     * @param maxStdErrBuffer
+     * @return
+     * @throws IOException
+     */
+    public static FileProcessResult execute(ProcessBuilder pb,
+                                            long timeoutMillis,
+                                            Path stdoutRedirect, int maxStdErrBuffer) throws IOException {
+
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (!Files.isDirectory(stdoutRedirect.getParent())) {</span>
+<span class="nc" id="L175">            Files.createDirectories(stdoutRedirect.getParent());</span>
+        }
+
+<span class="nc" id="L178">        pb.redirectOutput(stdoutRedirect.toFile());</span>
+<span class="nc" id="L179">        Process p = null;</span>
+<span class="nc" id="L180">        String id = null;</span>
+        try {
+<span class="nc" id="L182">            p = pb.start();</span>
+<span class="nc" id="L183">            id = register(p);</span>
+<span class="nc" id="L184">            long elapsed = -1;</span>
+<span class="nc" id="L185">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L186">            StreamGobbler errGobbler = new StreamGobbler(p.getErrorStream(), maxStdErrBuffer);</span>
+
+<span class="nc" id="L188">            Thread errThread = new Thread(errGobbler);</span>
+<span class="nc" id="L189">            errThread.start();</span>
+<span class="nc" id="L190">            int exitValue = -1;</span>
+<span class="nc" id="L191">            boolean complete = false;</span>
+            try {
+<span class="nc" id="L193">                complete = p.waitFor(timeoutMillis, TimeUnit.MILLISECONDS);</span>
+<span class="nc" id="L194">                elapsed = System.currentTimeMillis() - start;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">                if (complete) {</span>
+<span class="nc" id="L196">                    exitValue = p.exitValue();</span>
+<span class="nc" id="L197">                    errThread.join(1000);</span>
+                } else {
+<span class="nc" id="L199">                    p.destroyForcibly();</span>
+<span class="nc" id="L200">                    errThread.join(1000);</span>
+                }
+<span class="nc" id="L202">            } catch (InterruptedException e) {</span>
+<span class="nc" id="L203">                exitValue = -1000;</span>
+<span class="nc" id="L204">            }</span>
+<span class="nc" id="L205">            FileProcessResult result = new FileProcessResult();</span>
+<span class="nc" id="L206">            result.processTimeMillis = elapsed;</span>
+<span class="nc" id="L207">            result.stderrLength = errGobbler.getStreamLength();</span>
+<span class="nc" id="L208">            result.stdoutLength = Files.size(stdoutRedirect);</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            result.isTimeout = !complete;</span>
+<span class="nc" id="L210">            result.exitValue = exitValue;</span>
+<span class="nc" id="L211">            result.stdout = &quot;&quot;;</span>
+<span class="nc" id="L212">            result.stderr = StringUtils.joinWith(&quot;\n&quot;, errGobbler.getLines());</span>
+<span class="nc" id="L213">            result.stdoutTruncated = false;</span>
+<span class="nc" id="L214">            result.stderrTruncated = errGobbler.getIsTruncated();</span>
+<span class="nc" id="L215">            return result;</span>
+        } finally {
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            if (p != null) {</span>
+<span class="nc" id="L218">                p.destroyForcibly();</span>
+            }
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            if (id != null) {</span>
+<span class="nc" id="L221">                release(id);</span>
+            }
+        }
+
+    }
+
+    /**
+     * Checks to see if the command can be run. Typically used with
+     * something like &quot;myapp --version&quot; to check to see if &quot;myapp&quot;
+     * is installed and on the path.
+     *
+     * @param checkCmd   The check command to run
+     * @param errorValue What is considered an error value? Default is 127 (command not found).
+     * @return true if the command ran successfully (exit code not in errorValue list)
+     */
+    public static boolean checkCommand(String checkCmd, int... errorValue) {
+<span class="nc" id="L237">        return checkCommand(new String[]{checkCmd}, errorValue);</span>
+    }
+
+    /**
+     * Checks to see if the command can be run. Typically used with
+     * something like {@code new String[]{&quot;myapp&quot;, &quot;--version&quot;}} to check to see if &quot;myapp&quot;
+     * is installed and on the path.
+     *
+     * @param checkCmd   The check command to run
+     * @param errorValue What is considered an error value? Default is 127 (command not found).
+     * @return true if the command ran successfully (exit code not in errorValue list)
+     */
+    public static boolean checkCommand(String[] checkCmd, int... errorValue) {
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">        if (errorValue.length == 0) {</span>
+<span class="fc" id="L251">            errorValue = new int[]{127};</span>
+        }
+
+<span class="fc" id="L254">        Process process = null;</span>
+        try {
+<span class="nc" id="L256">            process = Runtime.getRuntime().exec(checkCmd);</span>
+<span class="nc" id="L257">            StreamGobbler outGobbler = new StreamGobbler(process.getInputStream(), 0);</span>
+<span class="nc" id="L258">            StreamGobbler errGobbler = new StreamGobbler(process.getErrorStream(), 0);</span>
+<span class="nc" id="L259">            Thread outThread = new Thread(outGobbler);</span>
+<span class="nc" id="L260">            Thread errThread = new Thread(errGobbler);</span>
+<span class="nc" id="L261">            outThread.start();</span>
+<span class="nc" id="L262">            errThread.start();</span>
+<span class="nc" id="L263">            boolean finished = process.waitFor(60000, TimeUnit.MILLISECONDS);</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">            if (!finished) {</span>
+<span class="nc" id="L265">                throw new TimeoutException();</span>
+            }
+<span class="nc" id="L267">            outThread.join(1000);</span>
+<span class="nc" id="L268">            errThread.join(1000);</span>
+<span class="nc" id="L269">            int result = process.exitValue();</span>
+<span class="nc" id="L270">            LOG.debug(&quot;exit value for {}: {}&quot;, checkCmd[0], result);</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">            for (int err : errorValue) {</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">                if (result == err) {</span>
+<span class="nc" id="L273">                    return false;</span>
+                }
+            }
+<span class="nc" id="L276">            return true;</span>
+<span class="fc" id="L277">        } catch (IOException | InterruptedException | TimeoutException e) {</span>
+<span class="fc" id="L278">            LOG.debug(&quot;exception trying to run &quot; + checkCmd[0], e);</span>
+<span class="fc" id="L279">            return false;</span>
+<span class="nc" id="L280">        } catch (SecurityException se) {</span>
+<span class="nc" id="L281">            throw se;</span>
+<span class="nc" id="L282">        } catch (Error err) {</span>
+<span class="nc bnc" id="L283" title="All 4 branches missed.">            if (err.getMessage() != null &amp;&amp; (err.getMessage().contains(&quot;posix_spawn&quot;) ||</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">                    err.getMessage().contains(&quot;UNIXProcess&quot;))) {</span>
+<span class="nc" id="L285">                LOG.debug(&quot;(TIKA-1526): exception trying to run: &quot; + checkCmd[0], err);</span>
+<span class="nc" id="L286">                return false;</span>
+            }
+<span class="nc" id="L288">            throw err;</span>
+        } finally {
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">            if (process != null) {</span>
+<span class="nc" id="L291">                process.destroyForcibly();</span>
+            }
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

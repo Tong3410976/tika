@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LookaheadInputStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">LookaheadInputStream.java</span></div><h1>LookaheadInputStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+/**
+ * Stream wrapper that make it easy to read up to n bytes ahead from
+ * a stream that supports the mark feature. This class insulates the
+ * underlying stream from things like possible mark(), reset() and close()
+ * calls by external components that might otherwise invalidate the marked
+ * state of a stream.
+ * &lt;p&gt;
+ * The recommended usage pattern of this class is:
+ * &lt;pre&gt;
+ *     try (InputStream lookahead = new LookaheadInputStream(stream, n)) {
+ *         processStream(lookahead);
+ *     }
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * This usage pattern guarantees that only up to n bytes from the original
+ * stream can ever be read, and that the stream will have been marked and
+ * then reset to its original state once the above code block exits. No
+ * code in the fictional processStream() method can affect the the state of
+ * the original stream.
+ *
+ * @since Apache Tika 0.10
+ */
+public class LookaheadInputStream extends InputStream {
+
+    private final byte[] buffer;
+    private InputStream stream;
+<span class="fc" id="L48">    private int buffered = 0;</span>
+
+<span class="fc" id="L50">    private int position = 0;</span>
+
+<span class="fc" id="L52">    private int mark = 0;</span>
+
+    /**
+     * Creates a lookahead wrapper for the given input stream.
+     * The given input stream should support the mark feature,
+     * as otherwise the state of that stream will be undefined
+     * after the lookahead wrapper has been closed. As a special
+     * case a &lt;code&gt;null&lt;/code&gt; stream is treated as an empty stream.
+     *
+     * @param stream input stream, can be &lt;code&gt;null&lt;/code&gt;
+     * @param n      maximum number of bytes to look ahead
+     */
+<span class="fc" id="L64">    public LookaheadInputStream(InputStream stream, int n) {</span>
+<span class="fc" id="L65">        this.stream = stream;</span>
+<span class="fc" id="L66">        this.buffer = new byte[n];</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (stream != null) {</span>
+<span class="fc" id="L68">            stream.mark(n);</span>
+        }
+<span class="fc" id="L70">    }</span>
+
+    @Override
+    public void close() throws IOException {
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        if (stream != null) {</span>
+<span class="fc" id="L75">            stream.reset();</span>
+<span class="fc" id="L76">            stream = null;</span>
+        }
+<span class="fc" id="L78">    }</span>
+
+    private void fill() throws IOException {
+<span class="fc bfc" id="L81" title="All 6 branches covered.">        if (available() == 0 &amp;&amp; buffered &lt; buffer.length &amp;&amp; stream != null) {</span>
+<span class="fc" id="L82">            int n = stream.read(buffer, buffered, buffer.length - buffered);</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">            if (n != -1) {</span>
+<span class="fc" id="L84">                buffered += n;</span>
+            } else {
+<span class="fc" id="L86">                close();</span>
+            }
+        }
+<span class="fc" id="L89">    }</span>
+
+    @Override
+    public int read() throws IOException {
+<span class="fc" id="L93">        fill();</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (buffered &gt; position) {</span>
+<span class="fc" id="L95">            return 0xff &amp; buffer[position++];</span>
+        } else {
+<span class="fc" id="L97">            return -1;</span>
+        }
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L103">        fill();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (buffered &gt; position) {</span>
+<span class="nc" id="L105">            len = Math.min(len, buffered - position);</span>
+<span class="nc" id="L106">            System.arraycopy(buffer, position, b, off, len);</span>
+<span class="nc" id="L107">            position += len;</span>
+<span class="nc" id="L108">            return len;</span>
+        } else {
+<span class="nc" id="L110">            return -1;</span>
+        }
+    }
+
+    @Override
+    public long skip(long n) throws IOException {
+<span class="fc" id="L116">        fill();</span>
+<span class="fc" id="L117">        n = Math.min(n, available());</span>
+<span class="fc" id="L118">        position += n;</span>
+<span class="fc" id="L119">        return n;</span>
+    }
+
+    @Override
+    public int available() {
+<span class="fc" id="L124">        return buffered - position;</span>
+    }
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L129">        return true;</span>
+    }
+
+    @Override
+    public synchronized void mark(int readlimit) {
+<span class="fc" id="L134">        mark = position;</span>
+<span class="fc" id="L135">    }</span>
+
+    @Override
+    public synchronized void reset() {
+<span class="fc" id="L139">        position = mark;</span>
+<span class="fc" id="L140">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

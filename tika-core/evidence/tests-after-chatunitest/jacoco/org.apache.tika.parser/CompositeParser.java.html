@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">CompositeParser.java</span></div><h1>CompositeParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.exception.WriteLimitReachedException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.sax.TaggedContentHandler;
+import org.apache.tika.utils.ExceptionUtils;
+import org.apache.tika.utils.ParserUtils;
+
+/**
+ * Composite parser that delegates parsing tasks to a component parser
+ * based on the declared content type of the incoming document. A fallback
+ * parser is defined for cases where a parser for the given content type is
+ * not available.
+ */
+public class CompositeParser implements Parser {
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 2192845797749627824L;
+
+    /**
+     * Media type registry.
+     */
+    private MediaTypeRegistry registry;
+
+    /**
+     * List of component parsers.
+     */
+    private List&lt;Parser&gt; parsers;
+
+    /**
+     * The fallback parser, used when no better parser is available.
+     */
+<span class="fc" id="L69">    private Parser fallback = new EmptyParser();</span>
+
+    public CompositeParser(MediaTypeRegistry registry, List&lt;Parser&gt; parsers,
+<span class="fc" id="L72">                           Collection&lt;Class&lt;? extends Parser&gt;&gt; excludeParsers) {</span>
+<span class="pc bpc" id="L73" title="3 of 4 branches missed.">        if (excludeParsers == null || excludeParsers.isEmpty()) {</span>
+<span class="fc" id="L74">            this.parsers = parsers;</span>
+        } else {
+<span class="nc" id="L76">            this.parsers = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">            for (Parser p : parsers) {</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                if (!isExcluded(excludeParsers, p.getClass())) {</span>
+<span class="nc" id="L79">                    this.parsers.add(p);</span>
+                }
+<span class="nc" id="L81">            }</span>
+        }
+<span class="fc" id="L83">        this.registry = registry;</span>
+<span class="fc" id="L84">    }</span>
+
+    public CompositeParser(MediaTypeRegistry registry, List&lt;Parser&gt; parsers) {
+<span class="fc" id="L87">        this(registry, parsers, null);</span>
+<span class="fc" id="L88">    }</span>
+
+    public CompositeParser(MediaTypeRegistry registry, Parser... parsers) {
+<span class="fc" id="L91">        this(registry, Arrays.asList(parsers));</span>
+<span class="fc" id="L92">    }</span>
+
+    public CompositeParser() {
+<span class="nc" id="L95">        this(new MediaTypeRegistry());</span>
+<span class="nc" id="L96">    }</span>
+
+    public CompositeParser(CompositeParser compositeParser) {
+<span class="nc" id="L99">        this(compositeParser.registry, compositeParser);</span>
+<span class="nc" id="L100">    }</span>
+
+    public Map&lt;MediaType, Parser&gt; getParsers(ParseContext context) {
+<span class="fc" id="L103">        Map&lt;MediaType, Parser&gt; map = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for (Parser parser : parsers) {</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            for (MediaType type : parser.getSupportedTypes(context)) {</span>
+<span class="fc" id="L106">                map.put(registry.normalize(type), parser);</span>
+<span class="fc" id="L107">            }</span>
+<span class="fc" id="L108">        }</span>
+<span class="fc" id="L109">        return map;</span>
+    }
+
+    private boolean isExcluded(Collection&lt;Class&lt;? extends Parser&gt;&gt; excludeParsers,
+                               Class&lt;? extends Parser&gt; p) {
+<span class="nc bnc" id="L114" title="All 4 branches missed.">        return excludeParsers.contains(p) || assignableFrom(excludeParsers, p);</span>
+    }
+
+    private boolean assignableFrom(Collection&lt;Class&lt;? extends Parser&gt;&gt; excludeParsers,
+                                   Class&lt;? extends Parser&gt; p) {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (Class&lt;? extends Parser&gt; e : excludeParsers) {</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if (e.isAssignableFrom(p)) {</span>
+<span class="nc" id="L121">                return true;</span>
+            }
+<span class="nc" id="L123">        }</span>
+<span class="nc" id="L124">        return false;</span>
+    }
+
+    /**
+     * Utility method that goes through all the component parsers and finds
+     * all media types for which more than one parser declares support. This
+     * is useful in tracking down conflicting parser definitions.
+     *
+     * @param context parsing context
+     * @return media types that are supported by at least two component parsers
+     * @see &lt;a href=&quot;https://issues.apache.org/jira/browse/TIKA-660&quot;&gt;TIKA-660&lt;/a&gt;
+     * @since Apache Tika 0.10
+     */
+    public Map&lt;MediaType, List&lt;Parser&gt;&gt; findDuplicateParsers(ParseContext context) {
+<span class="fc" id="L138">        Map&lt;MediaType, Parser&gt; types = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L139">        Map&lt;MediaType, List&lt;Parser&gt;&gt; duplicates = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        for (Parser parser : parsers) {</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            for (MediaType type : parser.getSupportedTypes(context)) {</span>
+<span class="fc" id="L142">                MediaType canonicalType = registry.normalize(type);</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">                if (types.containsKey(canonicalType)) {</span>
+<span class="fc" id="L144">                    List&lt;Parser&gt; list = duplicates.get(canonicalType);</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">                    if (list == null) {</span>
+<span class="fc" id="L146">                        list = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L147">                        list.add(types.get(canonicalType));</span>
+<span class="fc" id="L148">                        duplicates.put(canonicalType, list);</span>
+                    }
+<span class="fc" id="L150">                    list.add(parser);</span>
+<span class="fc" id="L151">                } else {</span>
+<span class="fc" id="L152">                    types.put(canonicalType, parser);</span>
+                }
+<span class="fc" id="L154">            }</span>
+<span class="fc" id="L155">        }</span>
+<span class="fc" id="L156">        return duplicates;</span>
+    }
+
+    /**
+     * Returns the media type registry used to infer type relationships.
+     *
+     * @return media type registry
+     * @since Apache Tika 0.8
+     */
+    public MediaTypeRegistry getMediaTypeRegistry() {
+<span class="fc" id="L166">        return registry;</span>
+    }
+
+    /**
+     * Sets the media type registry used to infer type relationships.
+     *
+     * @param registry media type registry
+     * @since Apache Tika 0.8
+     */
+    public void setMediaTypeRegistry(MediaTypeRegistry registry) {
+<span class="nc" id="L176">        this.registry = registry;</span>
+<span class="nc" id="L177">    }</span>
+
+    /**
+     * Returns all parsers registered with the Composite Parser,
+     * including ones which may not currently be active.
+     * This won't include the Fallback Parser, if defined
+     */
+    public List&lt;Parser&gt; getAllComponentParsers() {
+<span class="nc" id="L185">        return Collections.unmodifiableList(parsers);</span>
+    }
+
+    /**
+     * Returns the component parsers.
+     *
+     * @return component parsers, keyed by media type
+     */
+    public Map&lt;MediaType, Parser&gt; getParsers() {
+<span class="nc" id="L194">        return getParsers(new ParseContext());</span>
+    }
+
+    /**
+     * Sets the component parsers.
+     *
+     * @param parsers component parsers, keyed by media type
+     */
+    public void setParsers(Map&lt;MediaType, Parser&gt; parsers) {
+<span class="nc" id="L203">        this.parsers = new ArrayList&lt;&gt;(parsers.size());</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        for (Map.Entry&lt;MediaType, Parser&gt; entry : parsers.entrySet()) {</span>
+<span class="nc" id="L205">            this.parsers.add(ParserDecorator</span>
+<span class="nc" id="L206">                    .withTypes(entry.getValue(), Collections.singleton(entry.getKey())));</span>
+<span class="nc" id="L207">        }</span>
+<span class="nc" id="L208">    }</span>
+
+    /**
+     * Returns the fallback parser.
+     *
+     * @return fallback parser
+     */
+    public Parser getFallback() {
+<span class="nc" id="L216">        return fallback;</span>
+    }
+
+    /**
+     * Sets the fallback parser.
+     *
+     * @param fallback fallback parser
+     */
+    public void setFallback(Parser fallback) {
+<span class="nc" id="L225">        this.fallback = fallback;</span>
+<span class="nc" id="L226">    }</span>
+
+    /**
+     * Returns the parser that best matches the given metadata. By default
+     * looks for a parser that matches the content type metadata property,
+     * and uses the fallback parser if a better match is not found. The
+     * type hierarchy information included in the configured media type
+     * registry is used when looking for a matching parser instance.
+     * &lt;p&gt;
+     * Subclasses can override this method to provide more accurate
+     * parser resolution.
+     *
+     * @param metadata document metadata
+     * @return matching parser
+     */
+    protected Parser getParser(Metadata metadata) {
+<span class="nc" id="L242">        return getParser(metadata, new ParseContext());</span>
+    }
+
+    protected Parser getParser(Metadata metadata, ParseContext context) {
+<span class="fc" id="L246">        Map&lt;MediaType, Parser&gt; map = getParsers(context);</span>
+        //check for parser override first
+<span class="fc" id="L248">        String contentTypeString = metadata.get(TikaCoreProperties.CONTENT_TYPE_PARSER_OVERRIDE);</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">        if (contentTypeString == null) {</span>
+<span class="fc" id="L250">            contentTypeString = metadata.get(Metadata.CONTENT_TYPE);</span>
+        }
+<span class="fc" id="L252">        MediaType type = MediaType.parse(contentTypeString);</span>
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">        if (type != null) {</span>
+            // We always work on the normalised, canonical form
+<span class="fc" id="L255">            type = registry.normalize(type);</span>
+        }
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">        while (type != null) {</span>
+            // Try finding a parser for the type
+<span class="fc" id="L259">            Parser parser = map.get(type);</span>
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">            if (parser != null) {</span>
+<span class="fc" id="L261">                return parser;</span>
+            }
+
+            // Failing that, try for the parent of the type
+<span class="nc" id="L265">            type = registry.getSupertype(type);</span>
+<span class="nc" id="L266">        }</span>
+<span class="nc" id="L267">        return fallback;</span>
+    }
+
+    public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="fc" id="L271">        return getParsers(context).keySet();</span>
+    }
+
+    /**
+     * Delegates the call to the matching component parser.
+     * &lt;p&gt;
+     * Potential {@link RuntimeException}s, {@link IOException}s and
+     * {@link SAXException}s unrelated to the given input stream and content
+     * handler are automatically wrapped into {@link TikaException}s to better
+     * honor the {@link Parser} contract.
+     */
+    public void parse(TikaInputStream tis, ContentHandler handler, Metadata metadata,
+                      ParseContext context) throws IOException, SAXException, TikaException {
+<span class="fc" id="L284">        Parser parser = getParser(metadata, context);</span>
+<span class="fc" id="L285">        ParseRecord parserRecord = context.get(ParseRecord.class);</span>
+<span class="fc bfc" id="L286" title="All 2 branches covered.">        if (parserRecord == null) {</span>
+<span class="fc" id="L287">            parserRecord = ParseRecord.newInstance(context);</span>
+<span class="fc" id="L288">            context.set(ParseRecord.class, parserRecord);</span>
+        }
+        try {
+            TaggedContentHandler taggedHandler =
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">                    handler != null ? new TaggedContentHandler(handler) : null;</span>
+<span class="fc" id="L293">            String parserClassname = ParserUtils.getParserClassname(parser);</span>
+<span class="fc" id="L294">            parserRecord.addParserClass(parserClassname);</span>
+<span class="fc" id="L295">            ParserUtils.recordParserDetails(parserClassname, metadata);</span>
+<span class="fc" id="L296">            parserRecord.beforeParse();</span>
+            try {
+<span class="fc" id="L298">                parser.parse(tis, taggedHandler, metadata, context);</span>
+<span class="nc" id="L299">            } catch (SecurityException e) {</span>
+                //rethrow security exceptions
+<span class="nc" id="L301">                throw e;</span>
+<span class="nc" id="L302">            } catch (IOException e) {</span>
+<span class="nc" id="L303">                tis.throwIfCauseOf(e);</span>
+<span class="nc" id="L304">                throw new TikaException(&quot;TIKA-198: Illegal IOException from &quot; + parser, e);</span>
+<span class="fc" id="L305">            } catch (SAXException e) {</span>
+<span class="nc" id="L306">                WriteLimitReachedException.throwIfWriteLimitReached(e);</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">                if (taggedHandler != null) {</span>
+<span class="nc" id="L308">                    taggedHandler.throwIfCauseOf(e);</span>
+                }
+<span class="nc" id="L310">                throw new TikaException(&quot;TIKA-237: Illegal SAXException from &quot; + parser, e);</span>
+<span class="nc" id="L311">            } catch (RuntimeException e) {</span>
+<span class="nc" id="L312">                throw new TikaException(&quot;Unexpected RuntimeException from &quot; + parser, e);</span>
+<span class="fc" id="L313">            }</span>
+        } finally {
+<span class="fc" id="L315">            parserRecord.afterParse();</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">            if (parserRecord.getDepth() == 0) {</span>
+<span class="fc" id="L317">                metadata.set(TikaCoreProperties.TIKA_PARSED_BY_FULL_SET, parserRecord.getParsers());</span>
+<span class="fc" id="L318">                recordEmbeddedMetadata(metadata, context);</span>
+            }
+        }
+<span class="fc" id="L321">    }</span>
+
+    private void recordEmbeddedMetadata(Metadata metadata, ParseContext context) {
+<span class="fc" id="L324">        ParseRecord record = context.get(ParseRecord.class);</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">        if (record == null) {</span>
+            //this should never happen
+<span class="nc" id="L327">            return;</span>
+        }
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">        for (Exception e : record.getExceptions()) {</span>
+<span class="nc" id="L330">            metadata.add(TikaCoreProperties.EMBEDDED_EXCEPTION, ExceptionUtils.getStackTrace(e));</span>
+<span class="nc" id="L331">        }</span>
+<span class="pc bpc" id="L332" title="1 of 2 branches missed.">        for (String msg : record.getWarnings()) {</span>
+<span class="nc" id="L333">            metadata.add(TikaCoreProperties.EMBEDDED_WARNING, msg);</span>
+<span class="nc" id="L334">        }</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">        if (record.isWriteLimitReached()) {</span>
+<span class="nc" id="L336">            metadata.set(TikaCoreProperties.WRITE_LIMIT_REACHED, true);</span>
+        }
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">        if (record.isEmbeddedCountLimitReached()) {</span>
+<span class="nc" id="L339">            metadata.set(TikaCoreProperties.EMBEDDED_RESOURCE_LIMIT_REACHED, true);</span>
+        }
+<span class="pc bpc" id="L341" title="1 of 2 branches missed.">        if (record.isEmbeddedDepthLimitReached()) {</span>
+<span class="nc" id="L342">            metadata.set(TikaCoreProperties.EMBEDDED_DEPTH_LIMIT_REACHED, true);</span>
+        }
+
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">        for (Metadata m : record.getMetadataList()) {</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            for (String n : m.names()) {</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                for (String v : m.getValues(n)) {</span>
+<span class="nc" id="L348">                    metadata.reconstruct(n, v, true);</span>
+                }
+            }
+<span class="nc" id="L351">        }</span>
+<span class="fc" id="L352">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

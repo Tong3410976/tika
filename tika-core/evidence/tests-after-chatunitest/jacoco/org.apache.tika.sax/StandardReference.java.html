@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StandardReference.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">StandardReference.java</span></div><h1>StandardReference.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+/**
+ * Class that represents a standard reference.
+ */
+public class StandardReference {
+    private String mainOrganization;
+    private String separator;
+    private String secondOrganization;
+    private String identifier;
+    private double score;
+
+    private StandardReference(String mainOrganizationAcronym, String separator,
+                              String secondOrganizationAcronym, String identifier, double score) {
+<span class="nc" id="L31">        super();</span>
+<span class="nc" id="L32">        this.mainOrganization = mainOrganizationAcronym;</span>
+<span class="nc" id="L33">        this.separator = separator;</span>
+<span class="nc" id="L34">        this.secondOrganization = secondOrganizationAcronym;</span>
+<span class="nc" id="L35">        this.identifier = identifier;</span>
+<span class="nc" id="L36">        this.score = score;</span>
+<span class="nc" id="L37">    }</span>
+
+    public String getMainOrganizationAcronym() {
+<span class="nc" id="L40">        return mainOrganization;</span>
+    }
+
+    public void setMainOrganizationAcronym(String mainOrganizationAcronym) {
+<span class="nc" id="L44">        this.mainOrganization = mainOrganizationAcronym;</span>
+<span class="nc" id="L45">    }</span>
+
+    public String getSeparator() {
+<span class="nc" id="L48">        return separator;</span>
+    }
+
+    public void setSeparator(String separator) {
+<span class="nc" id="L52">        this.separator = separator;</span>
+<span class="nc" id="L53">    }</span>
+
+    public String getSecondOrganizationAcronym() {
+<span class="nc" id="L56">        return secondOrganization;</span>
+    }
+
+    public void setSecondOrganizationAcronym(String secondOrganizationAcronym) {
+<span class="nc" id="L60">        this.secondOrganization = secondOrganizationAcronym;</span>
+<span class="nc" id="L61">    }</span>
+
+    public String getIdentifier() {
+<span class="nc" id="L64">        return identifier;</span>
+    }
+
+    public void setIdentifier(String identifier) {
+<span class="nc" id="L68">        this.identifier = identifier;</span>
+<span class="nc" id="L69">    }</span>
+
+    public double getScore() {
+<span class="nc" id="L72">        return score;</span>
+    }
+
+    public void setScore(double score) {
+<span class="nc" id="L76">        this.score = score;</span>
+<span class="nc" id="L77">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L81">        String standardReference = mainOrganization;</span>
+
+<span class="nc bnc" id="L83" title="All 4 branches missed.">        if (separator != null &amp;&amp; !separator.isEmpty()) {</span>
+<span class="nc" id="L84">            standardReference += separator + secondOrganization;</span>
+        }
+
+<span class="nc" id="L87">        standardReference += &quot; &quot; + identifier;</span>
+
+<span class="nc" id="L89">        return standardReference;</span>
+    }
+
+    public static class StandardReferenceBuilder {
+        private final String mainOrganization;
+        private final String identifier;
+        private String separator;
+        private String secondOrganization;
+        private double score;
+
+<span class="nc" id="L99">        public StandardReferenceBuilder(String mainOrganization, String identifier) {</span>
+<span class="nc" id="L100">            this.mainOrganization = mainOrganization;</span>
+<span class="nc" id="L101">            this.separator = null;</span>
+<span class="nc" id="L102">            this.secondOrganization = null;</span>
+<span class="nc" id="L103">            this.identifier = identifier;</span>
+<span class="nc" id="L104">            this.score = 0;</span>
+<span class="nc" id="L105">        }</span>
+
+        public StandardReferenceBuilder setSecondOrganization(String separator,
+                                                              String secondOrganization) {
+<span class="nc" id="L109">            this.separator = separator;</span>
+<span class="nc" id="L110">            this.secondOrganization = secondOrganization;</span>
+<span class="nc" id="L111">            return this;</span>
+        }
+
+        public StandardReferenceBuilder setScore(double score) {
+<span class="nc" id="L115">            this.score = score;</span>
+<span class="nc" id="L116">            return this;</span>
+        }
+
+        public StandardReference build() {
+<span class="nc" id="L120">            return new StandardReference(mainOrganization, separator, secondOrganization,</span>
+                    identifier, score);
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

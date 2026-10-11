@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.filter</a> &gt; <span class="el_source">MetadataFilter.java</span></div><h1>MetadataFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.filter;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.List;
+
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.ParseContext;
+
+<span class="fc" id="L28">public abstract class MetadataFilter implements Serializable, Closeable {</span>
+
+    /**
+     * Filters the metadata list in place using per-request context.
+     * The list and the metadata objects within it may be modified.
+     * Callers must pass a mutable list and should make a defensive
+     * copy before calling if the original data must be preserved.
+     *
+     * @param metadataList the list to filter (must be mutable)
+     * @param parseContext per-request context (e.g. skip flags, runtime config)
+     * @throws TikaException if filtering fails
+     */
+    public final void filter(List&lt;Metadata&gt; metadataList, ParseContext parseContext)
+            throws TikaException {
+<span class="fc" id="L42">        doFilter(metadataList, parseContext);</span>
+<span class="fc" id="L43">    }</span>
+
+    /**
+     * Applies the filter in place. A filter that needs to write a reserved Tika-native
+     * ({@code tk:}) key by name (rather than via its {@link org.apache.tika.metadata.Property})
+     * should call {@link Metadata#addTrusted} / {@link Metadata#setTrusted} explicitly at that
+     * write.
+     *
+     * @param metadataList the list to filter (must be mutable)
+     * @param parseContext per-request context
+     * @throws TikaException if filtering fails
+     */
+    protected abstract void doFilter(List&lt;Metadata&gt; metadataList, ParseContext parseContext)
+            throws TikaException;
+
+    /**
+     * Convenience overload for callers that have no per-request context.
+     * Delegates to {@link #filter(List, ParseContext)} with an empty context.
+     */
+    public void filter(List&lt;Metadata&gt; metadataList) throws TikaException {
+<span class="fc" id="L63">        filter(metadataList, new ParseContext());</span>
+<span class="fc" id="L64">    }</span>
+
+    /**
+     * Releases any resources held by this filter (e.g. HTTP connection pools,
+     * thread pools). The default implementation is a no-op; filters that hold
+     * long-lived resources should override this.
+     * &lt;p&gt;
+     * Callers that control the filter lifecycle (e.g. {@code PipesServer},
+     * try-with-resources blocks) should call this when the filter is no longer
+     * needed.
+     */
+    @Override
+    public void close() throws IOException {
+<span class="nc" id="L77">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

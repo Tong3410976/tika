@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractExternalProcessParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">AbstractExternalProcessParser.java</span></div><h1>AbstractExternalProcessParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Abstract base class for parsers that call external processes.  This
+ * adds one more layer of 'hope' that processes won't be orphaned if
+ * the jvm has to be restarted.  This does not guarantee that the
+ * processes won't be orphaned in case of, e.g. kill -9, but this
+ * increases the chances that under normal circumstances or if the jvm
+ * itself exits, that external processes won't be orphaned.
+ *
+ * @since Apache Tika 1.27
+ */
+<span class="nc" id="L32">public abstract class AbstractExternalProcessParser implements Parser {</span>
+
+    /**
+     * Serial version UID.
+     */
+    private static final long serialVersionUID = 7186985395903074255L;
+
+<span class="nc" id="L39">    private static final ConcurrentHashMap&lt;String, Process&gt; PROCESS_MAP = new ConcurrentHashMap&lt;&gt;();</span>
+
+    static {
+<span class="nc" id="L42">        Runtime.getRuntime().addShutdownHook(new Thread(() -&gt; {</span>
+<span class="nc" id="L43">            PROCESS_MAP.forEachValue(1, Process::destroyForcibly);</span>
+<span class="nc" id="L44">        }));</span>
+<span class="nc" id="L45">    }</span>
+
+    protected String register(Process p) {
+<span class="nc" id="L48">        String id = UUID.randomUUID().toString();</span>
+<span class="nc" id="L49">        PROCESS_MAP.put(id, p);</span>
+<span class="nc" id="L50">        return id;</span>
+    }
+
+    protected Process release(String id) {
+<span class="nc" id="L54">        return PROCESS_MAP.remove(id);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

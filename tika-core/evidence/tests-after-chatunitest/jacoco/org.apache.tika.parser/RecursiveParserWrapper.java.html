@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RecursiveParserWrapper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">RecursiveParserWrapper.java</span></div><h1>RecursiveParserWrapper.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.io.IOException;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.exception.CorruptedFileException;
+import org.apache.tika.exception.EncryptedDocumentException;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.exception.WriteLimitReachedException;
+import org.apache.tika.exception.ZeroByteFileException;
+import org.apache.tika.extractor.EmbeddedDocumentUtil;
+import org.apache.tika.extractor.ParentContentHandler;
+import org.apache.tika.io.FilenameUtils;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.sax.AbstractRecursiveParserWrapperHandler;
+import org.apache.tika.sax.ContentHandlerFactory;
+import org.apache.tika.sax.RecursiveParserWrapperHandler;
+import org.apache.tika.sax.SecureContentHandler;
+import org.apache.tika.sax.WriteLimiter;
+import org.apache.tika.utils.ExceptionUtils;
+import org.apache.tika.utils.ParserUtils;
+
+/**
+ * This is a helper class that wraps a parser in a recursive handler.
+ * It takes care of setting the embedded parser in the ParseContext
+ * and handling the embedded path calculations.
+ * &lt;p&gt;
+ * After parsing a document, call getMetadata() to retrieve a list of
+ * Metadata objects, one for each embedded resource.  The first item
+ * in the list will contain the Metadata for the outer container file.
+ * &lt;p&gt;
+ * Content can also be extracted and stored in the {@link TikaCoreProperties#TIKA_CONTENT} field
+ * of a Metadata object.  Select the type of content to be stored
+ * at initialization.
+ * &lt;p&gt;
+ * If a WriteLimitReachedException is encountered, the wrapper will stop
+ * processing the current resource, and it will not process
+ * any of the child resources for the given resource.  However, it will try to
+ * parse as much as it can.  If a WLRE is reached in the parent document,
+ * no child resources will be parsed.
+ * &lt;p&gt;
+ * The implementation is based on Jukka's RecursiveMetadataParser
+ * and Nick's additions. See:
+ * &lt;a href=&quot;http://wiki.apache.org/tika/RecursiveMetadata#Jukka.27s_RecursiveMetadata_Parser&quot;&gt;RecursiveMetadataParser&lt;/a&gt;.
+ * &lt;p&gt;
+ * Note that this wrapper holds all data in memory and is not appropriate
+ * for files with content too large to be held in memory.
+ * &lt;p&gt;
+ * The unit tests for this class are in the tika-parsers module.
+ * &lt;/p&gt;
+ */
+public class RecursiveParserWrapper extends ParserDecorator {
+
+    /**
+     * Generated serial version
+     */
+    private static final long serialVersionUID = 9086536568120690938L;
+
+
+    private final boolean catchEmbeddedExceptions;
+
+<span class="fc" id="L86">    private final boolean inlineContent = false;</span>
+    /**
+     * Initialize the wrapper with {@link #catchEmbeddedExceptions} set
+     * to &lt;code&gt;true&lt;/code&gt; as default.
+     *
+     * @param wrappedParser parser to use for the container documents and the embedded documents
+     */
+    public RecursiveParserWrapper(Parser wrappedParser) {
+<span class="fc" id="L94">        this(wrappedParser, true);</span>
+<span class="fc" id="L95">    }</span>
+
+    /**
+     * @param wrappedParser           parser to wrap
+     * @param catchEmbeddedExceptions whether or not to catch+record embedded exceptions.
+     *                                If set to &lt;code&gt;false&lt;/code&gt;, embedded exceptions will be
+     *                                thrown and the rest of the file will not be parsed. The
+     *                                following will not be ignored:
+     *                                {@link CorruptedFileException}, {@link RuntimeException}
+     */
+    public RecursiveParserWrapper(Parser wrappedParser, boolean catchEmbeddedExceptions) {
+<span class="fc" id="L106">        super(wrappedParser);</span>
+<span class="fc" id="L107">        this.catchEmbeddedExceptions = catchEmbeddedExceptions;</span>
+<span class="fc" id="L108">    }</span>
+
+
+    @Override
+    public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="nc" id="L113">        return getWrappedParser().getSupportedTypes(context);</span>
+    }
+
+
+    /**
+     * @param stream
+     * @param recursiveParserWrapperHandler -- handler must implement
+     * {@link RecursiveParserWrapperHandler}
+     * @param metadata
+     * @param context
+     * @throws IOException
+     * @throws SAXException
+     * @throws TikaException
+     * @throws IllegalStateException if the handler is not a {@link RecursiveParserWrapperHandler}
+     */
+    @Override
+    public void parse(TikaInputStream tis, ContentHandler recursiveParserWrapperHandler,
+                      Metadata metadata, ParseContext context)
+            throws IOException, SAXException, TikaException {
+        //this tracks the state of the parent parser, per call to #parse
+        ParserState parserState;
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        if (recursiveParserWrapperHandler instanceof AbstractRecursiveParserWrapperHandler) {</span>
+<span class="fc" id="L135">            parserState = new ParserState(</span>
+                    (AbstractRecursiveParserWrapperHandler) recursiveParserWrapperHandler);
+        } else {
+<span class="nc" id="L138">            throw new IllegalStateException(</span>
+                    &quot;ContentHandler must implement RecursiveParserWrapperHandler&quot;);
+        }
+<span class="fc" id="L141">        EmbeddedParserDecorator decorator =</span>
+<span class="fc" id="L142">                new EmbeddedParserDecorator(getWrappedParser(), &quot;/&quot;, &quot;/&quot;, parserState);</span>
+<span class="fc" id="L143">        context.set(Parser.class, decorator);</span>
+<span class="fc" id="L144">        ContentHandler localHandler =</span>
+<span class="fc" id="L145">                parserState.recursiveParserWrapperHandler.createHandler();</span>
+<span class="fc" id="L146">        long started = System.currentTimeMillis();</span>
+<span class="fc" id="L147">        parserState.recursiveParserWrapperHandler.startDocument();</span>
+<span class="fc" id="L148">        int writeLimit = -1;</span>
+<span class="fc" id="L149">        boolean throwOnWriteLimitReached = true;</span>
+
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (recursiveParserWrapperHandler instanceof AbstractRecursiveParserWrapperHandler) {</span>
+<span class="fc" id="L152">            ContentHandlerFactory factory =</span>
+<span class="fc" id="L153">                    ((AbstractRecursiveParserWrapperHandler)recursiveParserWrapperHandler).getContentHandlerFactory();</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">            if (factory instanceof WriteLimiter) {</span>
+<span class="fc" id="L155">                writeLimit = ((WriteLimiter)factory).getWriteLimit();</span>
+<span class="fc" id="L156">                throwOnWriteLimitReached = ((WriteLimiter)factory).isThrowOnWriteLimitReached();</span>
+            }
+        }
+        try {
+<span class="fc" id="L160">            RecursivelySecureContentHandler secureContentHandler =</span>
+                    new RecursivelySecureContentHandler(localHandler, tis, new SecureHandlerCounter(writeLimit),
+                            throwOnWriteLimitReached, context);
+<span class="fc" id="L163">            context.set(RecursivelySecureContentHandler.class, secureContentHandler);</span>
+<span class="fc" id="L164">            getWrappedParser().parse(tis, secureContentHandler, metadata, context);</span>
+<span class="nc" id="L165">        } catch (Throwable e) {</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">            if (e instanceof EncryptedDocumentException) {</span>
+<span class="nc" id="L167">                metadata.set(TikaCoreProperties.IS_ENCRYPTED, &quot;true&quot;);</span>
+            }
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            if (WriteLimitReachedException.isWriteLimitReached(e)) {</span>
+<span class="nc" id="L170">                metadata.set(TikaCoreProperties.WRITE_LIMIT_REACHED, &quot;true&quot;);</span>
+            } else {
+<span class="nc" id="L172">                String stackTrace = ExceptionUtils.getFilteredStackTrace(e);</span>
+<span class="nc" id="L173">                metadata.add(TikaCoreProperties.CONTAINER_EXCEPTION, stackTrace);</span>
+<span class="nc" id="L174">                throw e;</span>
+            }
+        } finally {
+<span class="fc" id="L177">            long elapsedMillis = System.currentTimeMillis() - started;</span>
+<span class="fc" id="L178">            metadata.set(TikaCoreProperties.PARSE_TIME_MILLIS, Long.toString(elapsedMillis));</span>
+<span class="fc" id="L179">            parserState.recursiveParserWrapperHandler.endDocument(localHandler, metadata);</span>
+<span class="fc" id="L180">            parserState.recursiveParserWrapperHandler.endDocument();</span>
+<span class="fc" id="L181">            context.set(RecursivelySecureContentHandler.class, null);</span>
+        }
+<span class="fc" id="L183">    }</span>
+
+    public static String getResourceName(Metadata metadata, AtomicInteger counter) {
+<span class="nc" id="L186">        String objectName = &quot;&quot;;</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY) != null) {</span>
+<span class="nc" id="L188">            objectName = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        } else if (metadata.get(TikaCoreProperties.INTERNAL_PATH) != null) {</span>
+<span class="nc" id="L190">            objectName = FilenameUtils.getName(metadata.get(TikaCoreProperties.INTERNAL_PATH));</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        } else if (metadata.get(TikaCoreProperties.EMBEDDED_RELATIONSHIP_ID) != null) {</span>
+<span class="nc" id="L192">            objectName = metadata.get(TikaCoreProperties.EMBEDDED_RELATIONSHIP_ID);</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        } else if (metadata.get(TikaCoreProperties.VERSION_NUMBER) != null) {</span>
+<span class="nc" id="L194">            objectName = &quot;version-number-&quot; + metadata.get(TikaCoreProperties.VERSION_NUMBER);</span>
+        } else {
+<span class="nc" id="L196">            objectName = EmbeddedDocumentUtil.generateResourceName(</span>
+                    EmbeddedDocumentUtil.EmbeddedResourcePrefix.EMBEDDED,
+<span class="nc" id="L198">                    counter.incrementAndGet(),</span>
+<span class="nc" id="L199">                    metadata.get(Metadata.CONTENT_TYPE));</span>
+<span class="nc" id="L200">            metadata.set(TikaCoreProperties.RESOURCE_NAME_EXTENSION_INFERRED, true);</span>
+        }
+        //make sure that there isn't any path info in the objectName
+        //some parsers can return paths, not just file names
+<span class="nc" id="L204">        objectName = FilenameUtils.getName(objectName);</span>
+<span class="nc" id="L205">        return objectName;</span>
+    }
+
+
+    private class EmbeddedParserDecorator extends StatefulParser {
+
+        private static final long serialVersionUID = 207648200464263337L;
+        private final ParserState parserState;
+<span class="fc" id="L213">        private String location = null;</span>
+
+<span class="fc" id="L215">        private String embeddedIdPath = null;</span>
+
+
+        private EmbeddedParserDecorator(Parser parser, String location,
+<span class="fc" id="L219">                                        String embeddedIdPath, ParserState parseState) {</span>
+<span class="fc" id="L220">            super(parser);</span>
+<span class="fc" id="L221">            this.location = location;</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            if (!this.location.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L223">                this.location += &quot;/&quot;;</span>
+            }
+<span class="fc" id="L225">            this.embeddedIdPath = embeddedIdPath;</span>
+<span class="fc" id="L226">            this.parserState = parseState;</span>
+<span class="fc" id="L227">        }</span>
+
+        @Override
+        public void parse(TikaInputStream tis, ContentHandler ignore, Metadata metadata,
+                          ParseContext context) throws IOException, SAXException, TikaException {
+
+            // Work out what this thing is
+<span class="nc" id="L234">            String objectName = getResourceName(metadata, parserState.unknownCount);</span>
+<span class="nc" id="L235">            String objectLocation = this.location + objectName;</span>
+
+<span class="nc" id="L237">            metadata.add(TikaCoreProperties.EMBEDDED_RESOURCE_PATH, objectLocation);</span>
+
+            String idPath =
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                    this.embeddedIdPath.equals(&quot;/&quot;) ?</span>
+<span class="nc" id="L241">                            this.embeddedIdPath + ++parserState.embeddedCount :</span>
+<span class="nc" id="L242">                            this.embeddedIdPath + &quot;/&quot; + ++parserState.embeddedCount;</span>
+<span class="nc" id="L243">            metadata.add(TikaCoreProperties.EMBEDDED_ID_PATH, idPath);</span>
+<span class="nc" id="L244">            metadata.set(TikaCoreProperties.EMBEDDED_ID, parserState.embeddedCount);</span>
+            //get a fresh handler
+<span class="nc" id="L246">            ContentHandler localHandler =</span>
+<span class="nc" id="L247">                    parserState.recursiveParserWrapperHandler.createHandler();</span>
+<span class="nc" id="L248">            parserState.recursiveParserWrapperHandler.startEmbeddedDocument(localHandler, metadata);</span>
+
+<span class="nc" id="L250">            Parser preContextParser = context.get(Parser.class);</span>
+<span class="nc" id="L251">            context.set(Parser.class,</span>
+<span class="nc" id="L252">                    new EmbeddedParserDecorator(getWrappedParser(), objectLocation,</span>
+                            idPath, parserState));
+<span class="nc" id="L254">            long started = System.currentTimeMillis();</span>
+            //store the handler that was used before this parse
+            //so that you can return it back to its state at the end of this parse
+<span class="nc" id="L257">            RecursivelySecureContentHandler preParseHandler = context.get(RecursivelySecureContentHandler.class);</span>
+
+<span class="nc" id="L259">            ParentContentHandler preParseParentHandler = context.get(ParentContentHandler.class);</span>
+<span class="nc" id="L260">            context.set(ParentContentHandler.class, new ParentContentHandler(preParseHandler));</span>
+<span class="nc" id="L261">            ContentHandler secureContentHandler =</span>
+                    new RecursivelySecureContentHandler(localHandler, tis, preParseHandler.handlerCounter,
+                    preParseHandler.throwOnWriteLimitReached, context);
+
+            try {
+<span class="nc" id="L266">                tis.setCloseShield();</span>
+<span class="nc" id="L267">                super.parse(tis, secureContentHandler, metadata, context);</span>
+<span class="nc" id="L268">            } catch (SAXException e) {</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">                if (WriteLimitReachedException.isWriteLimitReached(e)) {</span>
+<span class="nc" id="L270">                    metadata.add(TikaCoreProperties.WRITE_LIMIT_REACHED, &quot;true&quot;);</span>
+<span class="nc" id="L271">                    throw e;</span>
+                } else {
+<span class="nc bnc" id="L273" title="All 2 branches missed.">                    if (catchEmbeddedExceptions) {</span>
+<span class="nc" id="L274">                        ParserUtils.recordParserFailure(this, e, metadata);</span>
+                    } else {
+<span class="nc" id="L276">                        throw e;</span>
+                    }
+                }
+<span class="nc" id="L279">            } catch (CorruptedFileException e) {</span>
+<span class="nc" id="L280">                throw e;</span>
+<span class="nc" id="L281">            } catch (TikaException e) {</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">                if (e instanceof EncryptedDocumentException) {</span>
+<span class="nc" id="L283">                    metadata.set(TikaCoreProperties.IS_ENCRYPTED, true);</span>
+                }
+<span class="nc bnc" id="L285" title="All 4 branches missed.">                if (context.get(ZeroByteFileException.IgnoreZeroByteFileException.class) != null &amp;&amp;</span>
+                        e instanceof ZeroByteFileException) {
+                    //do nothing
+<span class="nc bnc" id="L288" title="All 2 branches missed.">                } else if (catchEmbeddedExceptions) {</span>
+<span class="nc" id="L289">                    ParserUtils.recordParserFailure(this, e, metadata);</span>
+                } else {
+<span class="nc" id="L291">                    throw e;</span>
+                }
+            } finally {
+<span class="nc" id="L294">                tis.removeCloseShield();</span>
+<span class="nc" id="L295">                context.set(Parser.class, preContextParser);</span>
+<span class="nc" id="L296">                context.set(RecursivelySecureContentHandler.class, preParseHandler);</span>
+<span class="nc" id="L297">                context.set(ParentContentHandler.class, preParseParentHandler);</span>
+<span class="nc" id="L298">                long elapsedMillis = System.currentTimeMillis() - started;</span>
+<span class="nc" id="L299">                metadata.set(TikaCoreProperties.PARSE_TIME_MILLIS, Long.toString(elapsedMillis));</span>
+<span class="nc" id="L300">                parserState.recursiveParserWrapperHandler</span>
+<span class="nc" id="L301">                        .endEmbeddedDocument(localHandler, metadata);</span>
+            }
+<span class="nc" id="L303">        }</span>
+    }
+
+    /**
+     * This tracks the state of the parse of a single document.
+     * In future versions, this will allow the RecursiveParserWrapper to be thread safe.
+     */
+    private static class ParserState {
+        private final AbstractRecursiveParserWrapperHandler recursiveParserWrapperHandler;
+<span class="fc" id="L312">        private AtomicInteger unknownCount = new AtomicInteger(0);</span>
+<span class="fc" id="L313">        private int embeddedCount = 0;//this is effectively 1-indexed</span>
+<span class="fc" id="L314">        private ParserState(AbstractRecursiveParserWrapperHandler handler) {</span>
+<span class="fc" id="L315">            this.recursiveParserWrapperHandler = handler;</span>
+<span class="fc" id="L316">        }</span>
+    }
+
+    static class SecureHandlerCounter {
+        private final int totalWriteLimit;
+<span class="fc" id="L321">        private boolean writeLimitReached = false;</span>
+        //total chars written to all handlers
+<span class="fc" id="L323">        private int totalChars = 0;</span>
+
+<span class="fc" id="L325">        private SecureHandlerCounter(int totalWriteLimit) {</span>
+<span class="fc" id="L326">            this.totalWriteLimit = totalWriteLimit;</span>
+<span class="fc" id="L327">        }</span>
+        /**
+         * Given the requested length, how many characters are actually available
+         * @param length
+         * @return
+         */
+        int getAvailable(int length) {
+<span class="nc" id="L334">            return Math.min(totalWriteLimit - totalChars, length);</span>
+        }
+        void addChars(int numChars) {
+<span class="nc" id="L337">            totalChars += numChars;</span>
+<span class="nc" id="L338">        }</span>
+
+    }
+
+    //
+    static class RecursivelySecureContentHandler extends SecureContentHandler {
+<span class="fc" id="L344">        private static AtomicInteger COUNTER = new AtomicInteger();</span>
+        private final ContentHandler handler;
+        private final SecureHandlerCounter handlerCounter;
+
+        private final boolean throwOnWriteLimitReached;
+
+        private final ParseContext parseContext;
+
+<span class="fc" id="L352">        private final int id = COUNTER.getAndIncrement();</span>
+
+        public RecursivelySecureContentHandler(ContentHandler handler, TikaInputStream stream,
+                                               SecureHandlerCounter handlerCounter,
+                                               boolean throwOnWriteLimitReached, ParseContext parseContext) {
+<span class="fc" id="L357">            super(handler, stream);</span>
+<span class="fc" id="L358">            this.handler = handler;</span>
+<span class="fc" id="L359">            this.handlerCounter = handlerCounter;</span>
+<span class="fc" id="L360">            this.throwOnWriteLimitReached = throwOnWriteLimitReached;</span>
+<span class="fc" id="L361">            this.parseContext = parseContext;</span>
+<span class="fc" id="L362">        }</span>
+
+        /**
+         * Bypass the SecureContentHandler...
+         * &lt;p&gt;
+         * This handler only looks at zip bomb via zip expansion.
+         * Users should be protected within entries against nested
+         * nested xml entities.  We don't want to carry
+         * those stats _across_ entries.
+         *
+         * @param uri
+         * @param localName
+         * @param name
+         * @param atts
+         * @throws SAXException
+         */
+        @Override
+        public void startElement(String uri, String localName, String name, Attributes atts)
+                throws SAXException {
+<span class="fc" id="L381">            this.handler.startElement(uri, localName, name, atts);</span>
+<span class="fc" id="L382">        }</span>
+
+        @Override
+        public void endElement(String uri, String localName, String name) throws SAXException {
+<span class="fc" id="L386">            this.handler.endElement(uri, localName, name);</span>
+<span class="fc" id="L387">        }</span>
+
+        @Override
+        public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">            if (handlerCounter.writeLimitReached) {</span>
+<span class="nc" id="L392">                return;</span>
+            }
+
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">            if (handlerCounter.totalWriteLimit &lt; 0) {</span>
+<span class="fc" id="L396">                super.characters(ch, start, length);</span>
+<span class="fc" id="L397">                return;</span>
+            }
+<span class="nc" id="L399">            int availableLength = handlerCounter.getAvailable(length);</span>
+<span class="nc" id="L400">            super.characters(ch, start, availableLength);</span>
+<span class="nc" id="L401">            handlerCounter.addChars(availableLength);</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">            if (availableLength &lt; length) {</span>
+<span class="nc" id="L403">                handleWriteLimitReached();</span>
+            }
+<span class="nc" id="L405">        }</span>
+
+        @Override
+        public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+<span class="pc bpc" id="L409" title="1 of 2 branches missed.">            if (handlerCounter.writeLimitReached) {</span>
+<span class="nc" id="L410">                return;</span>
+            }
+
+<span class="pc bpc" id="L413" title="1 of 2 branches missed.">            if (handlerCounter.totalWriteLimit &lt; 0) {</span>
+<span class="fc" id="L414">                super.ignorableWhitespace(ch, start, length);</span>
+<span class="fc" id="L415">                return;</span>
+            }
+<span class="nc" id="L417">            int availableLength = handlerCounter.getAvailable(length);</span>
+<span class="nc" id="L418">            super.ignorableWhitespace(ch, start, availableLength);</span>
+<span class="nc" id="L419">            handlerCounter.addChars(availableLength);</span>
+<span class="nc bnc" id="L420" title="All 2 branches missed.">            if (availableLength &lt; length) {</span>
+<span class="nc" id="L421">                handleWriteLimitReached();</span>
+            }
+<span class="nc" id="L423">        }</span>
+
+        private void handleWriteLimitReached() throws WriteLimitReachedException {
+<span class="nc" id="L426">            handlerCounter.writeLimitReached = true;</span>
+
+<span class="nc bnc" id="L428" title="All 2 branches missed.">            if (throwOnWriteLimitReached) {</span>
+<span class="nc" id="L429">                throw new WriteLimitReachedException(handlerCounter.totalWriteLimit);</span>
+            } else {
+<span class="nc" id="L431">                ParseRecord parseRecord = parseContext.get(ParseRecord.class);</span>
+<span class="nc bnc" id="L432" title="All 2 branches missed.">                if (parseRecord != null) {</span>
+<span class="nc" id="L433">                    parseRecord.setWriteLimitReached(true);</span>
+                }
+            }
+<span class="nc" id="L436">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParseRecord.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">ParseRecord.java</span></div><h1>ParseRecord.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.tika.config.EmbeddedLimits;
+import org.apache.tika.metadata.Metadata;
+
+/**
+ * Use this class to store exceptions, warnings and other information
+ * during the parse.  This information is added to the parent's metadata
+ * after the parse by the {@link CompositeParser}.
+ * &lt;p&gt;
+ * This class also tracks embedded document processing limits (depth and count)
+ * which can be configured via {@link #setMaxEmbeddedDepth(int)} and
+ * {@link #setMaxEmbeddedCount(int)}.
+ */
+<span class="fc" id="L36">public class ParseRecord {</span>
+
+    //hard limits so that specially crafted files
+    //don't cause an OOM
+<span class="fc" id="L40">    private static int MAX_PARSERS = 100;</span>
+
+    private static final int MAX_EXCEPTIONS = 100;
+
+    private static final int MAX_WARNINGS = 100;
+
+    private static final int MAX_METADATA_LIST_SIZE = 100;
+
+<span class="fc" id="L48">    private int depth = 0;</span>
+<span class="fc" id="L49">    private final Set&lt;String&gt; parsers = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="fc" id="L51">    private final List&lt;Exception&gt; exceptions = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L53">    private final List&lt;String&gt; warnings = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L55">    private final List&lt;Metadata&gt; metadataList = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L57">    private boolean writeLimitReached = false;</span>
+
+    // Embedded document tracking
+<span class="fc" id="L60">    private int embeddedCount = 0;</span>
+<span class="fc" id="L61">    private int maxEmbeddedDepth = -1;</span>
+<span class="fc" id="L62">    private int maxEmbeddedCount = -1;</span>
+<span class="fc" id="L63">    private boolean throwOnMaxDepth = false;</span>
+<span class="fc" id="L64">    private boolean throwOnMaxCount = false;</span>
+<span class="fc" id="L65">    private boolean embeddedDepthLimitReached = false;</span>
+<span class="fc" id="L66">    private boolean embeddedCountLimitReached = false;</span>
+
+    /**
+     * Creates a new ParseRecord configured from EmbeddedLimits in the ParseContext.
+     * &lt;p&gt;
+     * If EmbeddedLimits is present in the context, the ParseRecord will be configured
+     * with those limits. Otherwise, default unlimited values are used.
+     *
+     * @param context the ParseContext (may be null)
+     * @return a new ParseRecord configured from the context
+     */
+    public static ParseRecord newInstance(ParseContext context) {
+<span class="fc" id="L78">        ParseRecord record = new ParseRecord();</span>
+<span class="fc" id="L79">        EmbeddedLimits limits = EmbeddedLimits.get(context);</span>
+<span class="fc" id="L80">        record.maxEmbeddedDepth = limits.getMaxDepth();</span>
+<span class="fc" id="L81">        record.maxEmbeddedCount = limits.getMaxCount();</span>
+<span class="fc" id="L82">        record.throwOnMaxDepth = limits.isThrowOnMaxDepth();</span>
+<span class="fc" id="L83">        record.throwOnMaxCount = limits.isThrowOnMaxCount();</span>
+<span class="fc" id="L84">        return record;</span>
+    }
+
+    void beforeParse() {
+<span class="fc" id="L88">        depth++;</span>
+<span class="fc" id="L89">    }</span>
+
+    void afterParse() {
+<span class="fc" id="L92">        depth--;</span>
+<span class="fc" id="L93">    }</span>
+
+    public int getDepth() {
+<span class="fc" id="L96">        return depth;</span>
+    }
+
+    public String[] getParsers() {
+<span class="fc" id="L100">        return parsers.toArray(new String[0]);</span>
+    }
+
+    void addParserClass(String parserClass) {
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (parsers.size() &lt; MAX_PARSERS) {</span>
+<span class="fc" id="L105">            parsers.add(parserClass);</span>
+        }
+<span class="fc" id="L107">    }</span>
+
+    public void addException(Exception e) {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (exceptions.size() &lt; MAX_EXCEPTIONS) {</span>
+<span class="nc" id="L111">            exceptions.add(e);</span>
+        }
+<span class="nc" id="L113">    }</span>
+
+    public void addWarning(String msg) {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (warnings.size() &lt; MAX_WARNINGS) {</span>
+<span class="nc" id="L117">            warnings.add(msg);</span>
+        }
+<span class="nc" id="L119">    }</span>
+
+    public void addMetadata(Metadata metadata) {
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        if (metadataList.size() &lt; MAX_METADATA_LIST_SIZE) {</span>
+<span class="nc" id="L123">            metadataList.add(metadata);</span>
+        }
+<span class="nc" id="L125">    }</span>
+
+    public void setWriteLimitReached(boolean writeLimitReached) {
+<span class="nc" id="L128">        this.writeLimitReached = writeLimitReached;</span>
+<span class="nc" id="L129">    }</span>
+
+    public List&lt;Exception&gt; getExceptions() {
+<span class="fc" id="L132">        return exceptions;</span>
+    }
+
+    public List&lt;String&gt; getWarnings() {
+<span class="fc" id="L136">        return warnings;</span>
+    }
+
+
+    public boolean isWriteLimitReached() {
+<span class="fc" id="L141">        return writeLimitReached;</span>
+    }
+
+    public List&lt;Metadata&gt; getMetadataList() {
+<span class="fc" id="L145">        return metadataList;</span>
+    }
+
+    /**
+     * Returns whether throwing is configured when max depth is reached.
+     *
+     * @return true if an exception should be thrown on max depth
+     */
+    public boolean isThrowOnMaxDepth() {
+<span class="nc" id="L154">        return throwOnMaxDepth;</span>
+    }
+
+    /**
+     * Returns whether throwing is configured when max count is reached.
+     *
+     * @return true if an exception should be thrown on max count
+     */
+    public boolean isThrowOnMaxCount() {
+<span class="nc" id="L163">        return throwOnMaxCount;</span>
+    }
+
+    /**
+     * Sets the flag indicating the embedded depth limit was reached.
+     *
+     * @param embeddedDepthLimitReached true if depth limit was reached
+     */
+    public void setEmbeddedDepthLimitReached(boolean embeddedDepthLimitReached) {
+<span class="nc" id="L172">        this.embeddedDepthLimitReached = embeddedDepthLimitReached;</span>
+<span class="nc" id="L173">    }</span>
+
+    /**
+     * Sets the flag indicating the embedded count limit was reached.
+     *
+     * @param embeddedCountLimitReached true if count limit was reached
+     */
+    public void setEmbeddedCountLimitReached(boolean embeddedCountLimitReached) {
+<span class="nc" id="L181">        this.embeddedCountLimitReached = embeddedCountLimitReached;</span>
+<span class="nc" id="L182">    }</span>
+
+    /**
+     * Increments the embedded document count. Should be called when an embedded
+     * document is about to be parsed.
+     */
+    public void incrementEmbeddedCount() {
+<span class="nc" id="L189">        embeddedCount++;</span>
+<span class="nc" id="L190">    }</span>
+
+    /**
+     * Gets the current count of embedded documents processed.
+     *
+     * @return the embedded document count
+     */
+    public int getEmbeddedCount() {
+<span class="nc" id="L198">        return embeddedCount;</span>
+    }
+
+    /**
+     * Sets the maximum depth for parsing embedded documents.
+     * A value of -1 means unlimited (the default).
+     * A value of 0 means no embedded documents will be parsed.
+     * A value of 1 means only first-level embedded documents will be parsed, etc.
+     *
+     * @param maxEmbeddedDepth the maximum embedded depth, or -1 for unlimited
+     */
+    public void setMaxEmbeddedDepth(int maxEmbeddedDepth) {
+<span class="nc" id="L210">        this.maxEmbeddedDepth = maxEmbeddedDepth;</span>
+<span class="nc" id="L211">    }</span>
+
+    /**
+     * Gets the maximum depth for parsing embedded documents.
+     *
+     * @return the maximum embedded depth, or -1 if unlimited
+     */
+    public int getMaxEmbeddedDepth() {
+<span class="nc" id="L219">        return maxEmbeddedDepth;</span>
+    }
+
+    /**
+     * Sets the maximum number of embedded documents to parse.
+     * A value of -1 means unlimited (the default).
+     *
+     * @param maxEmbeddedCount the maximum embedded count, or -1 for unlimited
+     */
+    public void setMaxEmbeddedCount(int maxEmbeddedCount) {
+<span class="nc" id="L229">        this.maxEmbeddedCount = maxEmbeddedCount;</span>
+<span class="nc" id="L230">    }</span>
+
+    /**
+     * Gets the maximum number of embedded documents to parse.
+     *
+     * @return the maximum embedded count, or -1 if unlimited
+     */
+    public int getMaxEmbeddedCount() {
+<span class="nc" id="L238">        return maxEmbeddedCount;</span>
+    }
+
+    /**
+     * Returns whether the embedded depth limit was reached during parsing.
+     *
+     * @return true if the depth limit was reached
+     */
+    public boolean isEmbeddedDepthLimitReached() {
+<span class="fc" id="L247">        return embeddedDepthLimitReached;</span>
+    }
+
+    /**
+     * Returns whether the embedded count limit was reached during parsing.
+     *
+     * @return true if the count limit was reached
+     */
+    public boolean isEmbeddedCountLimitReached() {
+<span class="fc" id="L256">        return embeddedCountLimitReached;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

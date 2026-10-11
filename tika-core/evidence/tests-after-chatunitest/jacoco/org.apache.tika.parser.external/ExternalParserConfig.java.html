@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExternalParserConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser.external</a> &gt; <span class="el_source">ExternalParserConfig.java</span></div><h1>ExternalParserConfig.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser.external;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.tika.parser.Parser;
+
+/**
+ * Configuration for {@link ExternalParser}.
+ * &lt;p&gt;
+ * This config is immutable after construction. ExternalParser does NOT
+ * support runtime configuration changes via ParseContext for security reasons.
+ */
+public class ExternalParserConfig implements Serializable {
+
+    private static final long serialVersionUID = 2L;
+
+<span class="fc" id="L35">    private List&lt;String&gt; supportedTypes = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L36">    private List&lt;String&gt; commandLine = new ArrayList&lt;&gt;();</span>
+    private Parser stdoutHandler;
+    private Parser stderrHandler;
+    private Parser outputFileHandler;
+    private String contentSource;
+    private List&lt;String&gt; checkCommandLine;
+    private List&lt;Integer&gt; checkErrorCodes;
+<span class="fc" id="L43">    private boolean returnStdout = false;</span>
+<span class="fc" id="L44">    private boolean returnStderr = false;</span>
+<span class="fc" id="L45">    private long timeoutMs = ExternalParser.DEFAULT_TIMEOUT_MS;</span>
+<span class="fc" id="L46">    private int maxStdErr = 10000;</span>
+<span class="fc" id="L47">    private int maxStdOut = 10000;</span>
+
+<span class="fc" id="L49">    public ExternalParserConfig() {</span>
+<span class="fc" id="L50">    }</span>
+
+    public List&lt;String&gt; getSupportedTypes() {
+<span class="fc" id="L53">        return supportedTypes;</span>
+    }
+
+    public void setSupportedTypes(List&lt;String&gt; supportedTypes) {
+<span class="nc" id="L57">        this.supportedTypes = supportedTypes;</span>
+<span class="nc" id="L58">    }</span>
+
+    public List&lt;String&gt; getCommandLine() {
+<span class="fc" id="L61">        return commandLine;</span>
+    }
+
+    public void setCommandLine(List&lt;String&gt; commandLine) {
+<span class="nc" id="L65">        this.commandLine = commandLine;</span>
+<span class="nc" id="L66">    }</span>
+
+    public Parser getStdoutHandler() {
+<span class="fc" id="L69">        return stdoutHandler;</span>
+    }
+
+    public void setStdoutHandler(Parser stdoutHandler) {
+<span class="nc" id="L73">        this.stdoutHandler = stdoutHandler;</span>
+<span class="nc" id="L74">    }</span>
+
+    public Parser getStderrHandler() {
+<span class="fc" id="L77">        return stderrHandler;</span>
+    }
+
+    public void setStderrHandler(Parser stderrHandler) {
+<span class="nc" id="L81">        this.stderrHandler = stderrHandler;</span>
+<span class="nc" id="L82">    }</span>
+
+    public Parser getOutputFileHandler() {
+<span class="fc" id="L85">        return outputFileHandler;</span>
+    }
+
+    public void setOutputFileHandler(Parser outputFileHandler) {
+<span class="nc" id="L89">        this.outputFileHandler = outputFileHandler;</span>
+<span class="nc" id="L90">    }</span>
+
+    /**
+     * Which stream provides the XHTML content output.
+     * &lt;p&gt;
+     * Valid values: {@code &quot;stdout&quot;}, {@code &quot;stderr&quot;}, {@code &quot;outputFile&quot;}, {@code &quot;none&quot;}.
+     * &lt;p&gt;
+     * If {@code null}, defaults to {@code &quot;stdout&quot;} when no {@code ${OUTPUT_FILE}} token
+     * is in the command, or {@code &quot;outputFile&quot;} when it is.
+     */
+    public String getContentSource() {
+<span class="nc" id="L101">        return contentSource;</span>
+    }
+
+    public void setContentSource(String contentSource) {
+<span class="nc" id="L105">        this.contentSource = contentSource;</span>
+<span class="nc" id="L106">    }</span>
+
+    public List&lt;String&gt; getCheckCommandLine() {
+<span class="fc" id="L109">        return checkCommandLine;</span>
+    }
+
+    public void setCheckCommandLine(List&lt;String&gt; checkCommandLine) {
+<span class="nc" id="L113">        this.checkCommandLine = checkCommandLine;</span>
+<span class="nc" id="L114">    }</span>
+
+    public List&lt;Integer&gt; getCheckErrorCodes() {
+<span class="nc" id="L117">        return checkErrorCodes;</span>
+    }
+
+    public void setCheckErrorCodes(List&lt;Integer&gt; checkErrorCodes) {
+<span class="nc" id="L121">        this.checkErrorCodes = checkErrorCodes;</span>
+<span class="nc" id="L122">    }</span>
+
+    public boolean isReturnStdout() {
+<span class="nc" id="L125">        return returnStdout;</span>
+    }
+
+    public void setReturnStdout(boolean returnStdout) {
+<span class="nc" id="L129">        this.returnStdout = returnStdout;</span>
+<span class="nc" id="L130">    }</span>
+
+    public boolean isReturnStderr() {
+<span class="nc" id="L133">        return returnStderr;</span>
+    }
+
+    public void setReturnStderr(boolean returnStderr) {
+<span class="nc" id="L137">        this.returnStderr = returnStderr;</span>
+<span class="nc" id="L138">    }</span>
+
+    public long getTimeoutMs() {
+<span class="nc" id="L141">        return timeoutMs;</span>
+    }
+
+    public void setTimeoutMs(long timeoutMs) {
+<span class="nc" id="L145">        this.timeoutMs = timeoutMs;</span>
+<span class="nc" id="L146">    }</span>
+
+    public int getMaxStdErr() {
+<span class="nc" id="L149">        return maxStdErr;</span>
+    }
+
+    public void setMaxStdErr(int maxStdErr) {
+<span class="nc" id="L153">        this.maxStdErr = maxStdErr;</span>
+<span class="nc" id="L154">    }</span>
+
+    public int getMaxStdOut() {
+<span class="nc" id="L157">        return maxStdOut;</span>
+    }
+
+    public void setMaxStdOut(int maxStdOut) {
+<span class="nc" id="L161">        this.maxStdOut = maxStdOut;</span>
+<span class="nc" id="L162">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

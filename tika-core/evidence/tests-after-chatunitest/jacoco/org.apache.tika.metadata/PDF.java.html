@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PDF.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">PDF.java</span></div><h1>PDF.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * PDF properties collection.
+ *
+ * @since Apache Tika 1.14
+ */
+public interface PDF {
+
+    String PDF_PREFIX = &quot;pdf&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+    String PDFA_PREFIX = &quot;pdfa&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+    String PDFAID_PREFIX = &quot;pdfaid&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+
+
+    /**
+     * Number of %%EOF as extracted by the StartXRefScanner. See
+     * that class for limitations.
+     *
+     * This includes the final %%EOF, which may or may not be at the literal
+     * end of the file.  This does not include an %%EOF
+     * if the startxref=0, as would happen in a dummy %%EOF in a linearized PDF.
+     */
+<span class="nc" id="L39">    Property EOF_OFFSETS = Property.externalRealSeq(PDF_PREFIX + &quot;eof-offsets&quot;);</span>
+
+    /** Trapped flag from the XMP {@code pdf:} schema; docinfo counterpart {@link #DOC_INFO_TRAPPED}. */
+<span class="nc" id="L42">    Property TRAPPED = Property.internalText(PDF_PREFIX + &quot;Trapped&quot;);</span>
+
+    /**
+     * Prefix to be used for properties that record what was stored
+     * in the docinfo section (as opposed to XMP)
+     */
+    String PDF_DOC_INFO_PREFIX =
+            PDF_PREFIX + &quot;docinfo&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+
+    String PDF_DOC_INFO_CUSTOM_PREFIX =
+            PDF_DOC_INFO_PREFIX + &quot;custom&quot; + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER;
+
+<span class="nc" id="L54">    PassthroughPrefix DOC_INFO_CUSTOM =</span>
+<span class="nc" id="L55">            PassthroughPrefix.file(PDF_DOC_INFO_CUSTOM_PREFIX, &quot;PDF Info-dict custom keys&quot;);</span>
+
+<span class="nc" id="L57">    Property DOC_INFO_CREATED = Property.internalDate(PDF_DOC_INFO_PREFIX + &quot;created&quot;);</span>
+
+<span class="nc" id="L59">    Property DOC_INFO_CREATOR = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;creator&quot;);</span>
+
+<span class="nc" id="L61">    Property DOC_INFO_CREATOR_TOOL = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;creator-tool&quot;);</span>
+
+<span class="nc" id="L63">    Property DOC_INFO_MODIFICATION_DATE = Property.internalDate(PDF_DOC_INFO_PREFIX + &quot;modified&quot;);</span>
+
+<span class="nc" id="L65">    Property DOC_INFO_KEY_WORDS = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;keywords&quot;);</span>
+
+<span class="nc" id="L67">    Property DOC_INFO_PRODUCER = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;producer&quot;);</span>
+
+<span class="nc" id="L69">    Property DOC_INFO_SUBJECT = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;subject&quot;);</span>
+
+<span class="nc" id="L71">    Property DOC_INFO_TITLE = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;title&quot;);</span>
+
+<span class="nc" id="L73">    Property DOC_INFO_TRAPPED = Property.internalText(PDF_DOC_INFO_PREFIX + &quot;trapped&quot;);</span>
+
+<span class="nc" id="L75">    Property PDF_VERSION = Property.internalRational(PDF_PREFIX + &quot;pdf-version&quot;);</span>
+<span class="nc" id="L76">    Property PDFA_VERSION = Property.internalRational(PDFA_PREFIX + &quot;pdf-version&quot;);</span>
+
+<span class="nc" id="L78">    Property PDF_EXTENSION_VERSION = Property.internalRational(PDF_PREFIX + &quot;pdf-extension-version&quot;);</span>
+
+<span class="nc" id="L80">    Property PDFAID_CONFORMANCE = Property.internalText(PDFAID_PREFIX + &quot;conformance&quot;);</span>
+
+<span class="nc" id="L82">    Property PDFAID_PART = Property.internalInteger(PDFAID_PREFIX + &quot;part&quot;);</span>
+
+<span class="nc" id="L84">    Property PDFUAID_PART = Property.internalInteger(&quot;pdfuaid:part&quot;);</span>
+
+<span class="nc" id="L86">    Property PDFVT_VERSION = Property.internalText(&quot;pdfvt:version&quot;);</span>
+
+<span class="nc" id="L88">    Property PDFVT_MODIFIED = Property.internalDate(&quot;pdfvt:modified&quot;);</span>
+<span class="nc" id="L89">    Property PDFXID_VERSION = Property.internalText(&quot;pdfxid:version&quot;);</span>
+
+<span class="nc" id="L91">    Property PDFX_VERSION = Property.internalText(&quot;pdfx:version&quot;);</span>
+
+<span class="nc" id="L93">    Property PDFX_CONFORMANCE = Property.internalText(&quot;pdfx:conformance&quot;);</span>
+<span class="nc" id="L94">    Property ILLUSTRATOR_TYPE = Property.internalText(&quot;pdf:illustrator:type&quot;);</span>
+
+<span class="nc" id="L96">    Property IS_ENCRYPTED = Property.internalBoolean(PDF_PREFIX + &quot;encrypted&quot;);</span>
+
+<span class="nc" id="L98">    Property PRODUCER = Property.internalText(PDF_PREFIX + &quot;producer&quot;);</span>
+
+    /**
+     * This specifies where an action or destination would be found/triggered
+     * in the document: on document open, before close, etc.
+     *
+     * This is included in the embedded document (js only for now?), not the container PDF.
+     */
+<span class="nc" id="L106">    Property ACTION_TRIGGER = Property.internalText(PDF_PREFIX + &quot;action-trigger&quot;);</span>
+
+    /**
+     * This is a list of all action or destination triggers contained
+     * within a given PDF.
+     */
+<span class="nc" id="L112">    Property ACTION_TRIGGERS = Property.internalTextBag(PDF_PREFIX + &quot;action-triggers&quot;);</span>
+
+<span class="nc" id="L114">    Property ACTION_TYPES = Property.internalTextBag(PDF_PREFIX + &quot;action-types&quot;);</span>
+
+<span class="nc" id="L116">    Property CHARACTERS_PER_PAGE = Property.internalIntegerSequence(PDF_PREFIX + &quot;chars-per-page&quot;);</span>
+
+<span class="nc" id="L118">    Property UNMAPPED_UNICODE_CHARS_PER_PAGE =</span>
+<span class="nc" id="L119">            Property.internalIntegerSequence(PDF_PREFIX + &quot;unmapped-unicode-chars-per-page&quot;);</span>
+
+<span class="nc" id="L121">    Property TOTAL_UNMAPPED_UNICODE_CHARS =</span>
+<span class="nc" id="L122">            Property.internalInteger(PDF_PREFIX + &quot;total-unmapped-unicode-chars&quot;);</span>
+
+<span class="nc" id="L124">    Property OVERALL_PERCENTAGE_UNMAPPED_UNICODE_CHARS =</span>
+<span class="nc" id="L125">            Property.internalReal(PDF_PREFIX + &quot;overall-percentage-unmapped-unicode-chars&quot;);</span>
+
+    /**
+     * Contains at least one damaged font for at least one character
+     */
+<span class="nc" id="L130">    Property CONTAINS_DAMAGED_FONT =</span>
+<span class="nc" id="L131">            Property.internalBoolean(PDF_PREFIX + &quot;contains-damaged-font&quot;);</span>
+
+    /**
+     * Contains at least one font that is not embedded
+     */
+<span class="nc" id="L136">    Property CONTAINS_NON_EMBEDDED_FONT =</span>
+<span class="nc" id="L137">            Property.internalBoolean(PDF_PREFIX + &quot;contains-non-embedded-font&quot;);</span>
+
+    /**
+     * Has XFA
+     */
+<span class="nc" id="L142">    Property HAS_XFA = Property.internalBoolean(PDF_PREFIX + &quot;has-xfa&quot;);</span>
+
+    /**
+     * Has XMP, whether or not it is valid
+     */
+<span class="nc" id="L147">    Property HAS_XMP = Property.internalBoolean(PDF_PREFIX + &quot;has-xmp&quot;);</span>
+
+    /**
+     * If xmp is extracted by, e.g. the XMLProfiler, where did it come from?
+     * The document's document catalog or a specific page...or?
+     */
+<span class="nc" id="L153">    Property XMP_LOCATION = Property.internalText(PDF_PREFIX + &quot;xmp-location&quot;);</span>
+
+    /**
+     * Has &gt; 0 AcroForm fields
+     */
+<span class="nc" id="L158">    Property HAS_ACROFORM_FIELDS = Property.internalBoolean(PDF_PREFIX + &quot;has-acro-form-fields&quot;);</span>
+
+    /**
+     * Has at least one AcroForm signature field (/FT /Sig), whether or not it has been signed.
+     * For documents that have been actually signed, see {@link TikaCoreProperties#HAS_SIGNATURE}.
+     */
+<span class="nc" id="L164">    Property HAS_SIGNATURE_FIELDS = Property.internalBoolean(PDF_PREFIX + &quot;has-signature-fields&quot;);</span>
+
+<span class="nc" id="L166">    Property HAS_MARKED_CONTENT = Property.internalBoolean(PDF_PREFIX + &quot;has-marked-content&quot;);</span>
+
+    /**
+     * Has a collection element in the root.  If true, this is likely a PDF Portfolio.
+     */
+<span class="nc" id="L171">    Property HAS_COLLECTION = Property.internalBoolean(PDF_PREFIX + &quot;has-collection&quot;);</span>
+
+<span class="nc" id="L173">    Property EMBEDDED_FILE_DESCRIPTION = Property.externalText(PDF_PREFIX +</span>
+            &quot;embedded-file-description&quot;);
+
+    /**
+     * If the file came from an annotation and there was a type
+     */
+<span class="nc" id="L179">    Property EMBEDDED_FILE_ANNOTATION_TYPE = Property.internalText(PDF_PREFIX +</span>
+            &quot;embedded-file-annotation-type&quot;);
+
+    /**
+     *     literal string from the PDEmbeddedFile#getSubtype(), should be what the PDF
+     *     alleges is the embedded file's mime type
+     */
+<span class="nc" id="L186">    Property EMBEDDED_FILE_SUBTYPE = Property.internalText(PDF_PREFIX +</span>
+            &quot;embedded-file-subtype&quot;);
+    /**
+     * If the PDF has an annotation of type 3D
+     */
+<span class="nc" id="L191">    Property HAS_3D = Property.internalBoolean(PDF_PREFIX + &quot;has-3d&quot;);</span>
+
+<span class="nc" id="L193">    Property ANNOTATION_TYPES = Property.internalTextBag(PDF_PREFIX + &quot;annotation-types&quot;);</span>
+
+<span class="nc" id="L195">    Property ANNOTATION_SUBTYPES = Property.internalTextBag(PDF_PREFIX + &quot;annotation-subtypes&quot;);</span>
+
+    /**
+     * Number of 3D annotations a PDF contains.  This makes {@link PDF#HAS_3D} redundant.
+     */
+<span class="nc" id="L200">    Property NUM_3D_ANNOTATIONS = Property.internalInteger(PDF_PREFIX + &quot;num-3d-annotations&quot;);</span>
+
+<span class="nc" id="L202">    Property ASSOCIATED_FILE_RELATIONSHIP = Property.internalText(PDF_PREFIX +</span>
+            &quot;associated-file-relationship&quot;);
+    /**
+     * This is a zero-based number for incremental updates within a PDF -- 0 is the first
+     * update, 1 is the second, etc.  The final version of the PDF (e.g. the last update)
+     * does not have an incremental update number.
+     *
+     * This value is populated with the parse incremental updates feature is selected
+     * in the PDFParser.
+     */
+<span class="nc" id="L212">    Property INCREMENTAL_UPDATE_NUMBER =</span>
+<span class="nc" id="L213">            Property.composite(Property.internalInteger(PDF_PREFIX + &quot;incremental-update-number&quot;),</span>
+                new Property[]{ TikaCoreProperties.VERSION_NUMBER });
+
+    /**
+     * Incremental updates as extracted by the StartXRefScanner.  See
+     * that class for limitations.
+     */
+<span class="nc" id="L220">    Property PDF_INCREMENTAL_UPDATE_COUNT =</span>
+<span class="nc" id="L221">            Property.composite( Property.externalInteger(PDF_PREFIX + &quot;incremental-update-count&quot;),</span>
+                    new Property[]{ TikaCoreProperties.VERSION_COUNT });
+
+    /**
+     * This counts the number of pages that would have been OCR'd or were OCR'd depending
+     * on the OCR settings. If NO_OCR is selected, this will
+     */
+<span class="nc" id="L228">    Property OCR_PAGE_COUNT = Property.externalInteger(PDF_PREFIX + &quot;ocr-page-count&quot;);</span>
+
+    /**
+     * When javascript is stored in the names tree, there's a name associated with that script.
+     * This is that name. When javascript is stored in an action, there is no name, and this
+     * metadata will not be populated.
+     */
+<span class="nc" id="L235">    Property JS_NAME = Property.internalText(PDF_PREFIX + &quot;js-name&quot;);</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

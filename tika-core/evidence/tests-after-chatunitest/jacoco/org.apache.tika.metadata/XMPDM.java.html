@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XMPDM.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">XMPDM.java</span></div><h1>XMPDM.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+import java.util.Date;
+
+/**
+ * XMP Dynamic Media schema. This is a collection of
+ * {@link Property property definition} constants for the dynamic media
+ * properties defined in the XMP standard.
+ *
+ * @see &lt;a href=&quot;http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/xmp/pdfs/cc-201306/XMPSpecificationPart2.pdf&quot;
+ * &gt;XMP Specification, Part 2: Standard Schemas&lt;/a&gt;
+ * @since Apache Tika 0.7
+ */
+public interface XMPDM {
+
+    /**
+     * &quot;The absolute path to the file's peak audio file. If empty, no peak
+     * file exists.&quot;
+     */
+<span class="nc" id="L36">    Property ABS_PEAK_AUDIO_FILE_PATH = Property.internalURI(&quot;xmpDM:absPeakAudioFilePath&quot;);</span>
+
+    /**
+     * &quot;The name of the album.&quot;
+     */
+<span class="nc" id="L41">    Property ALBUM = Property.externalText(&quot;xmpDM:album&quot;);</span>
+
+    /**
+     * &quot;An alternative tape name, set via the project window or timecode
+     * dialog in Premiere. If an alternative name has been set and has not
+     * been reverted, that name is displayed.&quot;
+     */
+<span class="nc" id="L48">    Property ALT_TAPE_NAME = Property.externalText(&quot;xmpDM:altTapeName&quot;);</span>
+
+//    /**
+//     * &quot;A timecode set by the user. When specified, it is used instead
+//     * of the startTimecode.&quot;
+//     */
+//    Property ALT_TIMECODE = &quot;xmpDM:altTimecode&quot;;
+
+    /**
+     * &quot;The name of the artist or artists.&quot;
+     */
+<span class="nc" id="L59">    Property ARTIST = Property.externalText(&quot;xmpDM:artist&quot;);</span>
+
+    /**
+     * &quot;The name of the album artist or group for compilation albums.&quot;
+     */
+<span class="nc" id="L64">    Property ALBUM_ARTIST = Property.externalText(&quot;xmpDM:albumArtist&quot;);</span>
+
+    /**
+     * &quot;The date and time when the audio was last modified.&quot;
+     */
+<span class="nc" id="L69">    Property AUDIO_MOD_DATE = Property.internalDate(&quot;xmpDM:audioModDate&quot;);</span>
+
+    /**
+     * &quot;The audio sample rate. Can be any value, but commonly 32000, 41100,
+     * or 48000.&quot;
+     */
+<span class="nc" id="L75">    Property AUDIO_SAMPLE_RATE = Property.internalInteger(&quot;xmpDM:audioSampleRate&quot;);</span>
+
+    /**
+     * &quot;The audio sample type.&quot;
+     */
+<span class="nc" id="L80">    Property AUDIO_SAMPLE_TYPE =</span>
+<span class="nc" id="L81">            Property.internalClosedChoise(&quot;xmpDM:audioSampleType&quot;, &quot;8Int&quot;, &quot;16Int&quot;, &quot;32Int&quot;,</span>
+                    &quot;32Float&quot;);
+
+    /**
+     * &quot;The audio channel type.&quot;
+     */
+<span class="nc" id="L87">    Property AUDIO_CHANNEL_TYPE =</span>
+<span class="nc" id="L88">            Property.internalClosedChoise(&quot;xmpDM:audioChannelType&quot;, &quot;Mono&quot;, &quot;Stereo&quot;, &quot;5.1&quot;, &quot;7.1&quot;);</span>
+    /**
+     * &quot;The audio compression used. For example, MP3.&quot;
+     */
+<span class="nc" id="L92">    Property AUDIO_COMPRESSOR = Property.internalText(&quot;xmpDM:audioCompressor&quot;);</span>
+    /**
+     * &quot;An album created by various artists.&quot;
+     */
+<span class="nc" id="L96">    Property COMPILATION = Property.externalInteger(&quot;xmpDM:compilation&quot;);</span>
+
+//    /**
+//     * &quot;Additional parameters for Beat Splice stretch mode.&quot;
+//     */
+//    Property BEAT_SPLICE_PARAMS = &quot;xmpDM:beatSpliceParams&quot;;
+    /**
+     * &quot;The composer's name.&quot;
+     */
+<span class="nc" id="L105">    Property COMPOSER = Property.externalText(&quot;xmpDM:composer&quot;);</span>
+    /**
+     * &quot;The copyright information.&quot;
+     */
+<span class="nc" id="L109">    Property COPYRIGHT = Property.externalText(&quot;xmpDM:copyright&quot;);</span>
+
+//    /**
+//     * &quot;An unordered list of all media used to create this media.&quot;
+//     */
+//    Property CONTRIBUTED_MEDIA = &quot;xmpDM:contributedMedia&quot;;
+    /**
+     * &quot;The disc number for part of an album set.&quot;
+     */
+<span class="nc" id="L118">    Property DISC_NUMBER = Property.externalInteger(&quot;xmpDM:discNumber&quot;);</span>
+    /**
+     * &quot;The duration of the media file.&quot;
+     * Value is in Seconds, unless xmpDM:scale is also set.
+     */
+<span class="nc" id="L123">    Property DURATION = Property.externalReal(&quot;xmpDM:duration&quot;);</span>
+    /**
+     * &quot;The engineer's name.&quot;
+     */
+<span class="nc" id="L127">    Property ENGINEER = Property.externalText(&quot;xmpDM:engineer&quot;);</span>
+    /**
+     * &quot;The file data rate in megabytes per second. For example:
+     * '36/10' = 3.6 MB/sec&quot;
+     */
+<span class="nc" id="L132">    Property FILE_DATA_RATE = Property.internalRational(&quot;xmpDM:fileDataRate&quot;);</span>
+    /**
+     * &quot;The name of the genre.&quot;
+     */
+<span class="nc" id="L136">    Property GENRE = Property.externalText(&quot;xmpDM:genre&quot;);</span>
+    /**
+     * &quot;The musical instrument.&quot;
+     */
+<span class="nc" id="L140">    Property INSTRUMENT = Property.externalText(&quot;xmpDM:instrument&quot;);</span>
+    /**
+     * &quot;The audio's musical key.&quot;
+     */
+<span class="nc" id="L144">    Property KEY =</span>
+<span class="nc" id="L145">            Property.internalClosedChoise(&quot;xmpDM:key&quot;, &quot;C&quot;, &quot;C#&quot;, &quot;D&quot;, &quot;D#&quot;, &quot;E&quot;, &quot;F&quot;, &quot;F#&quot;, &quot;G&quot;,</span>
+                    &quot;G#&quot;, &quot;A&quot;, &quot;A#&quot;, &quot;B&quot;);
+
+//    /**
+//     * &quot;The duration of lead time for queuing music.&quot;
+//     */
+//    Property INTRO_TIME = &quot;xmpDM:introTime&quot;;
+    /**
+     * &quot;User's log comments.&quot;
+     */
+<span class="nc" id="L155">    Property LOG_COMMENT = Property.externalText(&quot;xmpDM:logComment&quot;);</span>
+    /**
+     * &quot;When true, the clip can be looped seamlessly.&quot;
+     */
+<span class="nc" id="L159">    Property LOOP = Property.internalBoolean(&quot;xmpDM:loop&quot;);</span>
+    /**
+     * &quot;The number of beats.&quot;
+     */
+<span class="nc" id="L163">    Property NUMBER_OF_BEATS = Property.internalReal(&quot;xmpDM:numberOfBeats&quot;);</span>
+    /**
+     * &quot;The date and time when the metadata was last modified.&quot;
+     */
+<span class="nc" id="L167">    Property METADATA_MOD_DATE = Property.internalDate(&quot;xmpDM:metadataModDate&quot;);</span>
+
+//    /**
+//     * An ordered list of markers. See also {@link #TRACKS xmpDM:Tracks}.
+//     */
+//    Property MARKERS = &quot;xmpDM:markers&quot;;
+    /**
+     * &quot;The sampling phase of film to be converted to video (pull-down).&quot;
+     */
+<span class="nc" id="L176">    Property PULL_DOWN =</span>
+<span class="nc" id="L177">            Property.internalClosedChoise(&quot;xmpDM:pullDown&quot;, &quot;WSSWW&quot;, &quot;SSWWW&quot;, &quot;SWWWS&quot;, &quot;WWWSS&quot;,</span>
+                    &quot;WWSSW&quot;, &quot;WSSWW_24p&quot;, &quot;SSWWW_24p&quot;, &quot;SWWWS_24p&quot;, &quot;WWWSS_24p&quot;, &quot;WWSSW_24p&quot;);
+
+//    /**
+//     * &quot;The time at which to fade out.&quot;
+//     */
+//    Property OUT_CUE = &quot;xmpDM:outCue&quot;;
+
+//    /**
+//     * &quot;A reference to the project that created this file.&quot;
+//     */
+//    Property PROJECT_REF = &quot;xmpDM:projectRef&quot;;
+    /**
+     * &quot;The relative path to the file's peak audio file. If empty, no peak
+     * file exists.&quot;
+     */
+<span class="nc" id="L193">    Property RELATIVE_PEAK_AUDIO_FILE_PATH =</span>
+<span class="nc" id="L194">            Property.internalURI(&quot;xmpDM:relativePeakAudioFilePath&quot;);</span>
+    /**
+     * &quot;The date the title was released.&quot;
+     */
+<span class="nc" id="L198">    Property RELEASE_DATE = Property.externalDate(&quot;xmpDM:releaseDate&quot;);</span>
+
+//    /**
+//     * &quot;The start time of the media inside the audio project.&quot;
+//     */
+//    Property RELATIVE_TIMESTAMP = &quot;xmpDM:relativeTimestamp&quot;;
+    /**
+     * &quot;The musical scale used in the music. 'Neither' is most often used
+     * for instruments with no associated scale, such as drums.&quot;
+     */
+<span class="nc" id="L208">    Property SCALE_TYPE =</span>
+<span class="nc" id="L209">            Property.internalClosedChoise(&quot;xmpDM:scaleType&quot;, &quot;Major&quot;, &quot;Minor&quot;, &quot;Both&quot;, &quot;Neither&quot;);</span>
+
+//    /**
+//     * &quot;Additional parameters for Resample stretch mode.&quot;
+//     */
+//    Property RESAMPLE_PARAMS = &quot;xmpDM:resampleParams&quot;;
+    /**
+     * &quot;The name of the scene.&quot;
+     */
+<span class="nc" id="L218">    Property SCENE = Property.externalText(&quot;xmpDM:scene&quot;);</span>
+    /**
+     * &quot;The date and time when the video was shot.&quot;
+     */
+<span class="nc" id="L222">    Property SHOT_DATE = Property.externalDate(&quot;xmpDM:shotDate&quot;);</span>
+    /**
+     * &quot;The name of the location where the video was shot. For example:
+     * 'Oktoberfest, Munich, Germany'. For more accurate  positioning,
+     * use the EXIF GPS values.&quot;
+     */
+<span class="nc" id="L228">    Property SHOT_LOCATION = Property.externalText(&quot;xmpDM:shotLocation&quot;);</span>
+    /**
+     * &quot;The name of the shot or take.&quot;
+     */
+<span class="nc" id="L232">    Property SHOT_NAME = Property.externalText(&quot;xmpDM:shotName&quot;);</span>
+    /**
+     * &quot;A description of the speaker angles from center front in degrees.
+     * For example: 'Left = -30, Right = 30, Center = 0, LFE = 45,
+     * Left Surround = -110, Right Surround = 110'&quot;
+     */
+<span class="nc" id="L238">    Property SPEAKER_PLACEMENT = Property.externalText(&quot;xmpDM:speakerPlacement&quot;);</span>
+    /**
+     * &quot;The audio stretch mode.&quot;
+     */
+<span class="nc" id="L242">    Property STRETCH_MODE =</span>
+<span class="nc" id="L243">            Property.internalClosedChoise(&quot;xmpDM:stretchMode&quot;, &quot;Fixed length&quot;, &quot;Time-Scale&quot;,</span>
+                    &quot;Resample&quot;, &quot;Beat Splice&quot;, &quot;Hybrid&quot;);
+
+//    /**
+//     * &quot;The timecode of the first frame of video in the file, as obtained
+//     * from the device control.&quot;
+//     */
+//    Property START_TIMECODE = &quot;xmpDM:startTimecode&quot;;
+    /**
+     * &quot;The name of the tape from which the clip was captured, as set during
+     * the capture process.&quot;
+     */
+<span class="nc" id="L255">    Property TAPE_NAME = Property.externalText(&quot;xmpDM:tapeName&quot;);</span>
+    /**
+     * &quot;The audio's tempo.&quot;
+     */
+<span class="nc" id="L259">    Property TEMPO = Property.internalReal(&quot;xmpDM:tempo&quot;);</span>
+    /**
+     * &quot;The time signature of the music.&quot;
+     */
+<span class="nc" id="L263">    Property TIME_SIGNATURE =</span>
+<span class="nc" id="L264">            Property.internalClosedChoise(&quot;xmpDM:timeSignature&quot;, &quot;2/4&quot;, &quot;3/4&quot;, &quot;4/4&quot;, &quot;5/4&quot;, &quot;7/4&quot;,</span>
+                    &quot;6/8&quot;, &quot;9/8&quot;, &quot;12/8&quot;, &quot;other&quot;);
+
+//    /**
+//     * &quot;Additional parameters for Time-Scale stretch mode.&quot;
+//     */
+//    Property TIME_SCALE_PARAMS = &quot;xmpDM:timeScaleParams&quot;;
+    /**
+     * &quot;A numeric value indicating the order of the audio file within its
+     * original recording.&quot;
+     */
+<span class="nc" id="L275">    Property TRACK_NUMBER = Property.externalInteger(&quot;xmpDM:trackNumber&quot;);</span>
+    /**
+     * &quot;The alpha mode.&quot;
+     */
+<span class="nc" id="L279">    Property VIDEO_ALPHA_MODE =</span>
+<span class="nc" id="L280">            Property.externalClosedChoise(&quot;xmpDM:videoAlphaMode&quot;, &quot;straight&quot;, &quot;pre-multiplied&quot;);</span>
+
+//    /**
+//     * &quot;An unordered list of tracks. A track is a named set of markers,
+//     * which can specify a frame rate for all markers in the set.
+//     * See also {@link #MARKERS xmpDM:markers}.&quot;
+//     */
+//    Property TRACKS = &quot;xmpDM:Tracks&quot;;
+    /**
+     * &quot;When true, unity is clear, when false, it is opaque.&quot;
+     */
+<span class="nc" id="L291">    Property VIDEO_ALPHA_UNITY_IS_TRANSPARENT =</span>
+<span class="nc" id="L292">            Property.internalBoolean(&quot;xmpDM:videoAlphaUnityIsTransparent&quot;);</span>
+
+//    /**
+//     * &quot;A color in CMYK or RGB to be used as the pre-multiple color when
+//     * alpha mode is pre-multiplied.&quot;
+//     */
+//    Property VIDEO_ALPHA_PREMULTIPLE_COLOR = &quot;xmpDM:videoAlphaPremultipleColor&quot;;
+    /**
+     * &quot;The color space.&quot;
+     */
+<span class="nc" id="L302">    Property VIDEO_COLOR_SPACE =</span>
+<span class="nc" id="L303">            Property.internalClosedChoise(&quot;xmpDM:videoColorSpace&quot;, &quot;sRGB&quot;, &quot;CCIR-601&quot;, &quot;CCIR-709&quot;);</span>
+    /**
+     * &quot;Video compression used. For example, jpeg.&quot;
+     */
+<span class="nc" id="L307">    Property VIDEO_COMPRESSOR = Property.internalText(&quot;xmpDM:videoCompressor&quot;);</span>
+    /**
+     * &quot;The field order for video.&quot;
+     */
+<span class="nc" id="L311">    Property VIDEO_FIELD_ORDER =</span>
+<span class="nc" id="L312">            Property.internalClosedChoise(&quot;xmpDM:videoFieldOrder&quot;, &quot;Upper&quot;, &quot;Lower&quot;, &quot;Progressive&quot;);</span>
+    /**
+     * &quot;The video frame rate.&quot;
+     */
+<span class="nc" id="L316">    Property VIDEO_FRAME_RATE =</span>
+<span class="nc" id="L317">            Property.internalOpenChoise(&quot;xmpDM:videoFrameRate&quot;, &quot;24&quot;, &quot;NTSC&quot;, &quot;PAL&quot;);</span>
+    /**
+     * &quot;The date and time when the video was last modified.&quot;
+     */
+<span class="nc" id="L321">    Property VIDEO_MOD_DATE = Property.internalDate(&quot;xmpDM:videoModDate&quot;);</span>
+
+//    /**
+//     * &quot;The frame size. For example: w:720, h: 480, unit:pixels&quot;
+//     */
+//    Property VIDEO_FRAME_SIZE = &quot;xmpDM:videoFrameSize&quot;;
+    /**
+     * &quot;The size in bits of each color component of a pixel. Standard
+     * Windows 32-bit pixels have 8 bits per component.&quot;
+     */
+<span class="nc" id="L331">    Property VIDEO_PIXEL_DEPTH =</span>
+<span class="nc" id="L332">            Property.internalClosedChoise(&quot;xmpDM:videoPixelDepth&quot;, &quot;8Int&quot;, &quot;16Int&quot;, &quot;32Int&quot;,</span>
+                    &quot;32Float&quot;);
+    /**
+     * &quot;The aspect ratio, expressed as wd/ht. For example: '648/720' = 0.9&quot;
+     */
+<span class="nc" id="L337">    Property VIDEO_PIXEL_ASPECT_RATIO = Property.internalRational(&quot;xmpDM:videoPixelAspectRatio&quot;);</span>
+
+    /**
+     * Converter for {@link XMPDM#AUDIO_CHANNEL_TYPE}
+     *
+     * @deprecated Experimental method, will change shortly
+     */
+    @Deprecated
+<span class="nc" id="L345">    class ChannelTypePropertyConverter {</span>
+<span class="nc" id="L346">        private static final Property property = AUDIO_CHANNEL_TYPE;</span>
+
+        /**
+         * How a standalone converter might work
+         */
+        public static String convert(Object value) {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">            if (value instanceof String) {</span>
+                // Assume already done
+<span class="nc" id="L354">                return (String) value;</span>
+            }
+<span class="nc bnc" id="L356" title="All 2 branches missed.">            if (value instanceof Integer) {</span>
+<span class="nc" id="L357">                int channelCount = (Integer) value;</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">                if (channelCount == 1) {</span>
+<span class="nc" id="L359">                    return &quot;Mono&quot;;</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">                } else if (channelCount == 2) {</span>
+<span class="nc" id="L361">                    return &quot;Stereo&quot;;</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">                } else if (channelCount == 5) {</span>
+<span class="nc" id="L363">                    return &quot;5.1&quot;;</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">                } else if (channelCount == 7) {</span>
+<span class="nc" id="L365">                    return &quot;7.1&quot;;</span>
+                }
+            }
+<span class="nc" id="L368">            return null;</span>
+        }
+
+        /**
+         * How convert+set might work
+         */
+        public static void convertAndSet(Metadata metadata, Object value) {
+<span class="nc bnc" id="L375" title="All 4 branches missed.">            if (value instanceof Integer || value instanceof Long) {</span>
+<span class="nc" id="L376">                metadata.set(property, convert(value));</span>
+            }
+<span class="nc bnc" id="L378" title="All 2 branches missed.">            if (value instanceof Date) {</span>
+                // Won't happen in this case, just an example of already
+                //  converted to a type metadata.set(property) handles
+<span class="nc" id="L381">                metadata.set(property, (Date) value);</span>
+            }
+<span class="nc bnc" id="L383" title="All 2 branches missed.">            if (value instanceof String) {</span>
+                // Already converted, or so we hope!
+<span class="nc" id="L385">                metadata.set(property, (String) value);</span>
+            }
+<span class="nc" id="L387">        }</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

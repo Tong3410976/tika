@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DateNormalizingMetadataFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata.filter</a> &gt; <span class="el_source">DateNormalizingMetadataFilter.java</span></div><h1>DateNormalizingMetadataFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata.filter;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ConfigDeserializer;
+import org.apache.tika.config.JsonConfig;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+
+/**
+ * Some dates in some file formats do not have a timezone.
+ * Tika correctly stores these without a timezone, e.g. 'yyyy-MM-dd'T'HH:mm:ss'
+ * This can be a problem if end points expect a 'Z' timezone.
+ * This filter makes the assumption that dates without timezones are UTC
+ * and always modifies the date to: &quot;yyyy-MM-dd'T'HH:mm:ss'Z'&quot;
+ *
+ * Users can specify an alternate defaultTimeZone with
+ * {@link DateNormalizingMetadataFilter#setDefaultTimeZone(String)} to apply
+ * if the file format does not specify a timezone.
+ *
+ */
+@TikaComponent
+public class DateNormalizingMetadataFilter extends MetadataFilterBase {
+
+    /**
+     * Configuration class for JSON deserialization.
+     */
+<span class="nc" id="L53">    public static class Config {</span>
+<span class="nc" id="L54">        public String defaultTimeZone = &quot;UTC&quot;;</span>
+    }
+
+<span class="nc" id="L57">    private static TimeZone UTC = TimeZone.getTimeZone(&quot;UTC&quot;);</span>
+
+<span class="nc" id="L59">    private static final Logger LOGGER = LoggerFactory.getLogger(DateNormalizingMetadataFilter.class);</span>
+
+<span class="nc" id="L61">    private TimeZone defaultTimeZone = UTC;</span>
+
+<span class="nc" id="L63">    public DateNormalizingMetadataFilter() {</span>
+<span class="nc" id="L64">    }</span>
+
+    /**
+     * Constructor with explicit Config object.
+     *
+     * @param config the configuration
+     */
+<span class="nc" id="L71">    public DateNormalizingMetadataFilter(Config config) {</span>
+<span class="nc" id="L72">        this.defaultTimeZone = TimeZone.getTimeZone(ZoneId.of(config.defaultTimeZone));</span>
+<span class="nc" id="L73">    }</span>
+
+    /**
+     * Constructor for JSON configuration.
+     * Requires Jackson on the classpath.
+     *
+     * @param jsonConfig JSON configuration
+     */
+    public DateNormalizingMetadataFilter(JsonConfig jsonConfig) {
+<span class="nc" id="L82">        this(ConfigDeserializer.buildConfig(jsonConfig, Config.class));</span>
+<span class="nc" id="L83">    }</span>
+
+    protected void filter(Metadata metadata) {
+<span class="nc" id="L86">        SimpleDateFormat dateFormatter = null;</span>
+<span class="nc" id="L87">        SimpleDateFormat utcFormatter = null;</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        for (String n : metadata.names()) {</span>
+
+<span class="nc" id="L90">            Property property = Property.get(n);</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">            if (property != null) {</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">                if (property.getValueType().equals(Property.ValueType.DATE)) {</span>
+<span class="nc" id="L93">                    String dateString = metadata.get(property);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                    if (dateString.endsWith(&quot;Z&quot;)) {</span>
+<span class="nc" id="L95">                        continue;</span>
+                    }
+<span class="nc bnc" id="L97" title="All 2 branches missed.">                    if (dateFormatter == null) {</span>
+<span class="nc" id="L98">                        dateFormatter = new SimpleDateFormat(&quot;yyyy-MM-dd'T'HH:mm:ss&quot;, Locale.US);</span>
+<span class="nc" id="L99">                        dateFormatter.setTimeZone(defaultTimeZone);</span>
+<span class="nc" id="L100">                        utcFormatter = new SimpleDateFormat(&quot;yyyy-MM-dd'T'HH:mm:ss'Z'&quot;, Locale.US);</span>
+<span class="nc" id="L101">                        utcFormatter.setTimeZone(UTC);</span>
+                    }
+<span class="nc" id="L103">                    Date d = null;</span>
+                    try {
+<span class="nc" id="L105">                        d = dateFormatter.parse(dateString);</span>
+<span class="nc" id="L106">                        metadata.set(property, utcFormatter.format(d));</span>
+<span class="nc" id="L107">                    } catch (ParseException e) {</span>
+<span class="nc" id="L108">                        LOGGER.warn(&quot;Couldn't convert date to default time zone: &gt;&quot;</span>
+                                + dateString + &quot;&lt;&quot;);
+<span class="nc" id="L110">                    }</span>
+                }
+            }
+        }
+<span class="nc" id="L114">    }</span>
+
+    public void setDefaultTimeZone(String timeZoneId) {
+<span class="nc" id="L117">        this.defaultTimeZone = TimeZone.getTimeZone(ZoneId.of(timeZoneId));</span>
+<span class="nc" id="L118">    }</span>
+
+    public String getDefaultTimeZone() {
+<span class="nc" id="L121">        return this.defaultTimeZone.toZoneId().toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

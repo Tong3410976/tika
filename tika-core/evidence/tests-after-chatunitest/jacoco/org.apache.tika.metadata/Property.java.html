@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Property.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">Property.java</span></div><h1>Property.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * XMP property definition. Each instance of this class defines a single
+ * metadata property like &quot;dc:format&quot;. In addition to the property name,
+ * the {@link ValueType value type} and category (internal or external)
+ * of the property are included in the property definition. The available
+ * choice values are also stored for open and closed choice value types.
+ *
+ * @since Apache Tika 0.7
+ */
+public final class Property implements Comparable&lt;Property&gt; {
+
+<span class="fc" id="L39">    private static final Map&lt;String, Property&gt; PROPERTIES = new ConcurrentHashMap&lt;&gt;();</span>
+    private final String name;
+    private final boolean internal;
+    private final PropertyType propertyType;
+    private final ValueType valueType;
+    private final Property primaryProperty;
+    private final Property[] secondaryExtractProperties;
+    /**
+     * The available choices for the open and closed choice value types.
+     */
+    private final Set&lt;String&gt; choices;
+
+    private Property(String name, boolean internal, PropertyType propertyType, ValueType valueType,
+                     String[] choices, Property primaryProperty,
+<span class="fc" id="L53">                     Property[] secondaryExtractProperties) {</span>
+<span class="fc" id="L54">        this.name = name;</span>
+<span class="fc" id="L55">        this.internal = internal;</span>
+<span class="fc" id="L56">        this.propertyType = propertyType;</span>
+<span class="fc" id="L57">        this.valueType = valueType;</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (choices != null) {</span>
+<span class="fc" id="L59">            this.choices = Collections</span>
+<span class="fc" id="L60">                    .unmodifiableSet(new HashSet&lt;&gt;(Arrays.asList(choices.clone())));</span>
+        } else {
+<span class="fc" id="L62">            this.choices = null;</span>
+        }
+
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (primaryProperty != null) {</span>
+<span class="fc" id="L66">            this.primaryProperty = primaryProperty;</span>
+<span class="fc" id="L67">            this.secondaryExtractProperties = secondaryExtractProperties;</span>
+        } else {
+<span class="fc" id="L69">            this.primaryProperty = this;</span>
+<span class="fc" id="L70">            this.secondaryExtractProperties = null;</span>
+
+            // Only store primary properties for lookup, not composites
+<span class="fc" id="L73">            synchronized (PROPERTIES) {</span>
+<span class="fc" id="L74">                PROPERTIES.put(name, this);</span>
+<span class="fc" id="L75">            }</span>
+        }
+<span class="fc" id="L77">    }</span>
+
+    private Property(String name, boolean internal, PropertyType propertyType, ValueType valueType,
+                     String[] choices) {
+<span class="fc" id="L81">        this(name, internal, propertyType, valueType, choices, null, null);</span>
+<span class="fc" id="L82">    }</span>
+
+    private Property(String name, boolean internal, ValueType valueType, String[] choices) {
+<span class="fc" id="L85">        this(name, internal, PropertyType.SIMPLE, valueType, choices);</span>
+<span class="fc" id="L86">    }</span>
+
+    private Property(String name, boolean internal, ValueType valueType) {
+<span class="fc" id="L89">        this(name, internal, PropertyType.SIMPLE, valueType, null);</span>
+<span class="fc" id="L90">    }</span>
+
+    private Property(String name, boolean internal, PropertyType propertyType,
+                     ValueType valueType) {
+<span class="fc" id="L94">        this(name, internal, propertyType, valueType, null);</span>
+<span class="fc" id="L95">    }</span>
+
+    /**
+     * Get the type of a property
+     *
+     * @param key name of the property
+     * @return the type of the property
+     */
+    public static PropertyType getPropertyType(String key) {
+<span class="nc" id="L104">        PropertyType type = null;</span>
+<span class="nc" id="L105">        Property prop = PROPERTIES.get(key);</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (prop != null) {</span>
+<span class="nc" id="L107">            type = prop.getPropertyType();</span>
+        }
+<span class="nc" id="L109">        return type;</span>
+    }
+
+    /**
+     * Retrieve the property object that corresponds to the given key
+     *
+     * @param key the property key or name
+     * @return the Property object
+     */
+    public static Property get(String key) {
+<span class="fc" id="L119">        return PROPERTIES.get(key);</span>
+    }
+
+    public static SortedSet&lt;Property&gt; getProperties(String prefix) {
+<span class="nc" id="L123">        SortedSet&lt;Property&gt; set = new TreeSet&lt;&gt;();</span>
+<span class="nc" id="L124">        String p = prefix + &quot;:&quot;;</span>
+<span class="nc" id="L125">        synchronized (PROPERTIES) {</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            for (Map.Entry&lt;String, Property&gt; entry : PROPERTIES.entrySet()) {</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">                if (entry.getKey().startsWith(p)) {</span>
+<span class="nc" id="L128">                    set.add(entry.getValue());</span>
+                }
+<span class="nc" id="L130">            }</span>
+<span class="nc" id="L131">        }</span>
+<span class="nc" id="L132">        return set;</span>
+    }
+
+    public static Property internalBoolean(String name) {
+<span class="fc" id="L136">        return new Property(name, true, ValueType.BOOLEAN);</span>
+    }
+
+    public static Property internalClosedChoise(String name, String... choices) {
+<span class="fc" id="L140">        return new Property(name, true, ValueType.CLOSED_CHOICE, choices);</span>
+    }
+
+    public static Property internalDate(String name) {
+<span class="fc" id="L144">        return new Property(name, true, ValueType.DATE);</span>
+    }
+
+    public static Property internalDateBag(String name) {
+<span class="fc" id="L148">        return new Property(name, true, PropertyType.BAG, ValueType.DATE);</span>
+    }
+
+    public static Property internalInteger(String name) {
+<span class="fc" id="L152">        return new Property(name, true, ValueType.INTEGER);</span>
+    }
+
+    public static Property internalIntegerSequence(String name) {
+<span class="fc" id="L156">        return new Property(name, true, PropertyType.SEQ, ValueType.INTEGER);</span>
+    }
+
+    public static Property internalRational(String name) {
+<span class="fc" id="L160">        return new Property(name, true, ValueType.RATIONAL);</span>
+    }
+
+    public static Property internalOpenChoise(String name, String... choices) {
+<span class="nc" id="L164">        return new Property(name, true, ValueType.OPEN_CHOICE, choices);</span>
+    }
+
+    public static Property internalReal(String name) {
+<span class="fc" id="L168">        return new Property(name, true, ValueType.REAL);</span>
+    }
+
+    public static Property internalText(String name) {
+<span class="fc" id="L172">        return new Property(name, true, ValueType.TEXT);</span>
+    }
+
+    public static Property internalTextBag(String name) {
+<span class="fc" id="L176">        return new Property(name, true, PropertyType.BAG, ValueType.TEXT);</span>
+    }
+
+    public static Property internalURI(String name) {
+<span class="nc" id="L180">        return new Property(name, true, ValueType.URI);</span>
+    }
+
+    public static Property externalClosedChoise(String name, String... choices) {
+<span class="fc" id="L184">        return new Property(name, false, ValueType.CLOSED_CHOICE, choices);</span>
+    }
+
+    public static Property externalOpenChoise(String name, String... choices) {
+<span class="nc" id="L188">        return new Property(name, false, ValueType.OPEN_CHOICE, choices);</span>
+    }
+
+    public static Property externalDate(String name) {
+<span class="fc" id="L192">        return new Property(name, false, ValueType.DATE);</span>
+    }
+
+    public static Property externalReal(String name) {
+<span class="nc" id="L196">        return new Property(name, false, ValueType.REAL);</span>
+    }
+
+    public static Property externalRealSeq(String name) {
+<span class="fc" id="L200">        return new Property(name, false, PropertyType.SEQ, ValueType.REAL);</span>
+    }
+
+    public static Property externalInteger(String name) {
+<span class="fc" id="L204">        return new Property(name, false, ValueType.INTEGER);</span>
+    }
+
+    public static Property externalBoolean(String name) {
+<span class="fc" id="L208">        return new Property(name, false, ValueType.BOOLEAN);</span>
+    }
+
+    public static Property externalBooleanSeq(String name) {
+<span class="nc" id="L212">        return new Property(name, false, PropertyType.SEQ, ValueType.BOOLEAN);</span>
+    }
+
+    public static Property externalText(String name) {
+<span class="fc" id="L216">        return new Property(name, false, ValueType.TEXT);</span>
+    }
+
+    public static Property externalTextBag(String name) {
+<span class="fc" id="L220">        return new Property(name, false, PropertyType.BAG, ValueType.TEXT);</span>
+    }
+
+    /**
+     * Constructs a new composite property from the given primary and array of secondary properties.
+     * &lt;p&gt;
+     * Note that name of the composite property is taken from its primary property,
+     * and primary and secondary properties must not be composite properties themselves.
+     *
+     * @param primaryProperty
+     * @param secondaryExtractProperties
+     * @return the composite property
+     */
+    public static Property composite(Property primaryProperty,
+                                     Property[] secondaryExtractProperties) {
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (primaryProperty == null) {</span>
+<span class="nc" id="L236">            throw new NullPointerException(&quot;primaryProperty must not be null&quot;);</span>
+        }
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if (primaryProperty.getPropertyType() == PropertyType.COMPOSITE) {</span>
+<span class="nc" id="L239">            throw new PropertyTypeException(primaryProperty.getPropertyType());</span>
+        }
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">        if (secondaryExtractProperties != null) {</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">            for (Property secondaryExtractProperty : secondaryExtractProperties) {</span>
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">                if (secondaryExtractProperty.getPropertyType() == PropertyType.COMPOSITE) {</span>
+<span class="nc" id="L244">                    throw new PropertyTypeException(secondaryExtractProperty.getPropertyType());</span>
+                }
+            }
+        }
+<span class="fc" id="L248">        String[] choices = null;</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">        if (primaryProperty.getChoices() != null) {</span>
+<span class="nc" id="L250">            choices = primaryProperty.getChoices().toArray(new String[0]);</span>
+        }
+<span class="fc" id="L252">        return new Property(primaryProperty.getName(), primaryProperty.isInternal(),</span>
+                PropertyType.COMPOSITE, ValueType.PROPERTY, choices, primaryProperty,
+                secondaryExtractProperties);
+    }
+
+    public String getName() {
+<span class="fc" id="L258">        return name;</span>
+    }
+
+    public boolean isInternal() {
+<span class="fc" id="L262">        return internal;</span>
+    }
+
+    public boolean isExternal() {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        return !internal;</span>
+    }
+
+    /**
+     * Is the PropertyType one which accepts multiple values?
+     */
+    public boolean isMultiValuePermitted() {
+<span class="pc bpc" id="L273" title="1 of 6 branches missed.">        if (propertyType == PropertyType.BAG || propertyType == PropertyType.SEQ ||</span>
+                propertyType == PropertyType.ALT) {
+<span class="fc" id="L275">            return true;</span>
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">        } else if (propertyType == PropertyType.COMPOSITE) {</span>
+            // Base it on the primary property's behaviour
+<span class="nc" id="L278">            return primaryProperty.isMultiValuePermitted();</span>
+        }
+<span class="fc" id="L280">        return false;</span>
+    }
+
+    public PropertyType getPropertyType() {
+<span class="fc" id="L284">        return propertyType;</span>
+    }
+
+    public ValueType getValueType() {
+<span class="fc" id="L288">        return valueType;</span>
+    }
+
+    /**
+     * Returns the (immutable) set of choices for the values of this property.
+     * Only defined for {@link ValueType#OPEN_CHOICE open} and
+     * {@link ValueType#CLOSED_CHOICE closed choice} value types.
+     *
+     * @return available choices, or &lt;code&gt;null&lt;/code&gt;
+     */
+    public Set&lt;String&gt; getChoices() {
+<span class="fc" id="L299">        return choices;</span>
+    }
+
+    /**
+     * Gets the primary property for a composite property
+     *
+     * @return the primary property
+     */
+    public Property getPrimaryProperty() {
+<span class="fc" id="L308">        return primaryProperty;</span>
+    }
+
+    /**
+     * Gets the secondary properties for a composite property
+     *
+     * @return the secondary properties
+     */
+    public Property[] getSecondaryExtractProperties() {
+<span class="fc" id="L317">        return secondaryExtractProperties;</span>
+    }
+
+    public int compareTo(Property o) {
+<span class="nc" id="L321">        return name.compareTo(o.name);</span>
+    }
+
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L325" title="All 4 branches missed.">        return o instanceof Property &amp;&amp; name.equals(((Property) o).name);</span>
+    }
+
+    //----------------------------------------------------------&lt; Comparable &gt;
+
+    public int hashCode() {
+<span class="nc" id="L331">        return name.hashCode();</span>
+    }
+
+    //--------------------------------------------------------------&lt; Object &gt;
+
+<span class="fc" id="L336">    public enum PropertyType {</span>
+        /**
+         * A single value
+         */
+<span class="fc" id="L340">        SIMPLE, STRUCTURE,</span>
+        /**
+         * An un-ordered array
+         */
+<span class="fc" id="L344">        BAG,</span>
+        /**
+         * An ordered array
+         */
+<span class="fc" id="L348">        SEQ,</span>
+        /**
+         * An ordered array with some sort of criteria
+         */
+<span class="fc" id="L352">        ALT,</span>
+        /**
+         * Multiple child properties
+         */
+<span class="fc" id="L356">        COMPOSITE</span>
+    }
+
+<span class="fc" id="L359">    public enum ValueType {</span>
+<span class="fc" id="L360">        BOOLEAN, OPEN_CHOICE, CLOSED_CHOICE, DATE, INTEGER, LOCALE, MIME_TYPE, PROPER_NAME,</span>
+<span class="fc" id="L361">        RATIONAL, REAL, TEXT, URI, URL, XPATH, PROPERTY</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

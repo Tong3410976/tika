@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DigestHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.digest</a> &gt; <span class="el_source">DigestHelper.java</span></div><h1>DigestHelper.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.digest;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import org.apache.tika.extractor.DefaultEmbeddedStreamTranslator;
+import org.apache.tika.extractor.EmbeddedStreamTranslator;
+import org.apache.tika.io.TemporaryResources;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Utility class for computing digests on streams.
+ * &lt;p&gt;
+ * The DigesterFactory is retrieved from ParseContext. Configure it via
+ * the &quot;parse-context&quot; section in tika-config.json:
+ * &lt;pre&gt;
+ * &quot;parse-context&quot;: {
+ *   &quot;commons-digester-factory&quot;: {
+ *     &quot;digests&quot;: [{ &quot;algorithm&quot;: &quot;SHA256&quot; }],
+ *     &quot;skipContainerDocumentDigest&quot;: true
+ *   }
+ * }
+ * &lt;/pre&gt;
+ */
+<span class="nc" id="L46">public class DigestHelper {</span>
+
+<span class="fc" id="L48">    private static final EmbeddedStreamTranslator EMBEDDED_STREAM_TRANSLATOR =</span>
+            new DefaultEmbeddedStreamTranslator();
+
+    /**
+     * Computes digests on the stream if a DigesterFactory is configured in ParseContext.
+     * &lt;p&gt;
+     * This is called directly from AutoDetectParser.parse() before type detection.
+     *
+     * @param tis      the TikaInputStream to digest
+     * @param metadata metadata to read depth from and write digests to
+     * @param context  parse context (should contain DigesterFactory, may contain SkipContainerDocumentDigest marker)
+     * @throws IOException if an I/O error occurs
+     */
+    public static void maybeDigest(TikaInputStream tis,
+                                   Metadata metadata,
+                                   ParseContext context) throws IOException {
+<span class="fc" id="L64">        DigesterFactory digesterFactory = context.get(DigesterFactory.class);</span>
+
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (digesterFactory == null) {</span>
+<span class="fc" id="L67">            return;</span>
+        }
+
+        // Get skip setting from factory or ParseContext marker
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        boolean skipContainer = digesterFactory.isSkipContainerDocumentDigest()</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">                || SkipContainerDocumentDigest.shouldSkip(context);</span>
+
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (skipContainer) {</span>
+<span class="nc" id="L75">            Integer depth = metadata.getInt(TikaCoreProperties.EMBEDDED_DEPTH);</span>
+<span class="nc bnc" id="L76" title="All 4 branches missed.">            if (depth == null || depth == 0) {</span>
+<span class="nc" id="L77">                return;</span>
+            }
+        }
+
+<span class="nc" id="L81">        Digester digester = digesterFactory.build();</span>
+
+        // Handle embedded stream translation if needed (e.g., for OLE2 objects in TikaInputStream's
+        // open container). The translator consumes `tis` to produce the translated bytes that get
+        // digested, so we enableRewind() before and rewind() after — otherwise the caller (typically
+        // AutoDetectParser) would see an exhausted stream and fail its zero-byte probe (TIKA-XXXX).
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (EMBEDDED_STREAM_TRANSLATOR.shouldTranslate(tis, metadata)) {</span>
+<span class="nc" id="L88">            tis.enableRewind();</span>
+<span class="nc" id="L89">            try (TemporaryResources tmp = new TemporaryResources()) {</span>
+<span class="nc" id="L90">                Path tmpBytes = tmp.createTempFile();</span>
+<span class="nc" id="L91">                try (OutputStream os = Files.newOutputStream(tmpBytes)) {</span>
+<span class="nc" id="L92">                    EMBEDDED_STREAM_TRANSLATOR.translate(tis, metadata, os);</span>
+                }
+<span class="nc" id="L94">                try (TikaInputStream translated = TikaInputStream.get(tmpBytes)) {</span>
+<span class="nc" id="L95">                    digester.digest(translated, metadata, context);</span>
+                }
+            } finally {
+<span class="nc" id="L98">                tis.rewind();</span>
+<span class="nc" id="L99">            }</span>
+        } else {
+<span class="nc" id="L101">            digester.digest(tis, metadata, context);</span>
+        }
+<span class="nc" id="L103">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

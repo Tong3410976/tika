@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ToMarkdownContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">ToMarkdownContentHandler.java</span></div><h1>ToMarkdownContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.List;
+import java.util.Locale;
+
+import org.commonmark.Extension;
+import org.commonmark.ext.gfm.strikethrough.Strikethrough;
+import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
+import org.commonmark.ext.gfm.tables.TableBlock;
+import org.commonmark.ext.gfm.tables.TableBody;
+import org.commonmark.ext.gfm.tables.TableCell;
+import org.commonmark.ext.gfm.tables.TableHead;
+import org.commonmark.ext.gfm.tables.TableRow;
+import org.commonmark.ext.gfm.tables.TablesExtension;
+import org.commonmark.node.BlockQuote;
+import org.commonmark.node.BulletList;
+import org.commonmark.node.Code;
+import org.commonmark.node.Document;
+import org.commonmark.node.Emphasis;
+import org.commonmark.node.FencedCodeBlock;
+import org.commonmark.node.HardLineBreak;
+import org.commonmark.node.Heading;
+import org.commonmark.node.Image;
+import org.commonmark.node.Link;
+import org.commonmark.node.ListBlock;
+import org.commonmark.node.ListItem;
+import org.commonmark.node.Node;
+import org.commonmark.node.OrderedList;
+import org.commonmark.node.Paragraph;
+import org.commonmark.node.StrongEmphasis;
+import org.commonmark.node.Text;
+import org.commonmark.node.ThematicBreak;
+import org.commonmark.renderer.markdown.MarkdownRenderer;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+/**
+ * SAX event handler that writes content as Markdown.
+ * Supports headings, paragraphs, bold, italic, strikethrough, links, images,
+ * lists (ordered and unordered, including nested), tables (GFM pipe tables),
+ * code blocks, inline code, blockquotes, horizontal rules, and definition
+ * lists.
+ * &lt;p&gt;
+ * The handler builds a &lt;a href=&quot;https://github.com/commonmark/commonmark-java&quot;&gt;
+ * commonmark-java&lt;/a&gt; document model from the SAX event stream and renders it
+ * with commonmark's {@code MarkdownRenderer}. Document text is added to the
+ * model as raw literals, so escaping of Markdown metacharacters — including
+ * characters that would otherwise break out of a link, image, or table cell —
+ * is performed in one place by the renderer rather than at each emit site.
+ * &lt;p&gt;
+ * The handler tolerates malformed input (unbalanced or misnested tags): block
+ * elements are always attached at a structurally valid point so a well-formed
+ * document model is rendered regardless of the event stream.
+ * &lt;p&gt;
+ * Content within &amp;lt;script&amp;gt; and &amp;lt;style&amp;gt; tags is ignored.
+ *
+ * @since Apache Tika 3.2
+ */
+public class ToMarkdownContentHandler extends DefaultHandler {
+
+<span class="fc" id="L87">    private static final List&lt;Extension&gt; EXTENSIONS = Arrays.asList(</span>
+<span class="fc" id="L88">            TablesExtension.create(), StrikethroughExtension.create());</span>
+
+    private final Writer writer;
+<span class="fc" id="L91">    private final MarkdownRenderer renderer =</span>
+<span class="fc" id="L92">            MarkdownRenderer.builder().extensions(EXTENSIONS).build();</span>
+
+<span class="fc" id="L94">    private final Document document = new Document();</span>
+<span class="fc" id="L95">    private final Deque&lt;Node&gt; stack = new ArrayDeque&lt;&gt;();</span>
+
+    // An implicit Paragraph opened to hold inline content that appeared in a
+    // block container (e.g. text directly under &lt;body&gt;/&lt;li&gt;/&lt;blockquote&gt;).
+    private Paragraph implicitParagraph;
+
+    // Buffer for inline &lt;code&gt; literal (commonmark Code holds a literal, not children).
+    private Code inlineCode;
+    private StringBuilder inlineCodeText;
+
+    // Buffer for &lt;pre&gt; fenced code block literal.
+    private FencedCodeBlock codeBlock;
+    private StringBuilder codeBlockText;
+
+    // Table state (outermost table only).
+    private int tableDepth;
+    private TableBlock tableBlock;
+    private TableBody tableBody;
+    private int rowIndex;
+    private boolean inHeaderRow;
+
+    // &lt;script&gt;/&lt;style&gt; content is dropped.
+    private int suppressDepth;
+
+    // True once endDocument has rendered the full document to the writer.
+    private boolean finished;
+
+<span class="fc" id="L122">    public ToMarkdownContentHandler(Writer writer) {</span>
+<span class="fc" id="L123">        this.writer = writer;</span>
+<span class="fc" id="L124">        this.stack.push(document);</span>
+<span class="fc" id="L125">    }</span>
+
+    public ToMarkdownContentHandler(OutputStream stream, String encoding)
+            throws UnsupportedEncodingException {
+<span class="fc" id="L129">        this(new OutputStreamWriter(stream, encoding));</span>
+<span class="fc" id="L130">    }</span>
+
+    public ToMarkdownContentHandler() {
+<span class="fc" id="L133">        this(new StringWriter());</span>
+<span class="fc" id="L134">    }</span>
+
+    @Override
+    public void startElement(String uri, String localName, String qName, Attributes atts)
+            throws SAXException {
+<span class="fc" id="L139">        String name = localName(localName, qName);</span>
+
+<span class="fc bfc" id="L141" title="All 4 branches covered.">        if (name.equals(&quot;script&quot;) || name.equals(&quot;style&quot;)) {</span>
+<span class="fc" id="L142">            suppressDepth++;</span>
+<span class="fc" id="L143">            return;</span>
+        }
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        if (suppressDepth &gt; 0) {</span>
+<span class="fc" id="L146">            return;</span>
+        }
+
+<span class="pc bpc" id="L149" title="1 of 23 branches missed.">        switch (name) {</span>
+            // --- block-level ---
+            case &quot;h1&quot;:
+            case &quot;h2&quot;:
+            case &quot;h3&quot;:
+            case &quot;h4&quot;:
+            case &quot;h5&quot;:
+            case &quot;h6&quot;:
+<span class="fc" id="L157">                Heading heading = new Heading();</span>
+<span class="fc" id="L158">                heading.setLevel(name.charAt(1) - '0');</span>
+<span class="fc" id="L159">                openBlock(heading);</span>
+<span class="fc" id="L160">                break;</span>
+            case &quot;p&quot;:
+<span class="fc" id="L162">                openBlock(new Paragraph());</span>
+<span class="fc" id="L163">                break;</span>
+            case &quot;blockquote&quot;:
+<span class="fc" id="L165">                openBlock(new BlockQuote());</span>
+<span class="fc" id="L166">                break;</span>
+            case &quot;ul&quot;:
+<span class="fc" id="L168">                openBlock(newBulletList());</span>
+<span class="fc" id="L169">                break;</span>
+            case &quot;ol&quot;:
+<span class="fc" id="L171">                OrderedList ol = new OrderedList();</span>
+<span class="fc" id="L172">                ol.setMarkerStartNumber(1);</span>
+<span class="fc" id="L173">                ol.setMarkerDelimiter(&quot;.&quot;);</span>
+<span class="fc" id="L174">                ol.setTight(true);</span>
+<span class="fc" id="L175">                openBlock(ol);</span>
+<span class="fc" id="L176">                break;</span>
+            case &quot;li&quot;:
+<span class="fc" id="L178">                openListItem();</span>
+<span class="fc" id="L179">                break;</span>
+            case &quot;pre&quot;:
+<span class="fc" id="L181">                popToBlockHost();</span>
+<span class="fc" id="L182">                codeBlock = new FencedCodeBlock();</span>
+<span class="fc" id="L183">                codeBlock.setFenceCharacter(&quot;`&quot;);</span>
+<span class="fc" id="L184">                codeBlock.setOpeningFenceLength(3);</span>
+<span class="fc" id="L185">                codeBlock.setLiteral(&quot;&quot;);</span>
+<span class="fc" id="L186">                stack.peek().appendChild(codeBlock);</span>
+<span class="fc" id="L187">                codeBlockText = new StringBuilder();</span>
+<span class="fc" id="L188">                break;</span>
+            case &quot;hr&quot;:
+<span class="fc" id="L190">                ThematicBreak hr = new ThematicBreak();</span>
+<span class="fc" id="L191">                hr.setLiteral(&quot;---&quot;);</span>
+<span class="fc" id="L192">                addBlockLeaf(hr);</span>
+<span class="fc" id="L193">                break;</span>
+            case &quot;div&quot;:
+                // Block boundary: close any open paragraph so adjacent divs separate.
+<span class="fc" id="L196">                popToBlockHost();</span>
+<span class="fc" id="L197">                break;</span>
+            case &quot;table&quot;:
+<span class="fc" id="L199">                startTable();</span>
+<span class="fc" id="L200">                break;</span>
+            case &quot;tr&quot;:
+<span class="fc" id="L202">                startRow();</span>
+<span class="fc" id="L203">                break;</span>
+            case &quot;th&quot;:
+<span class="fc" id="L205">                startCell(true);</span>
+<span class="fc" id="L206">                break;</span>
+            case &quot;td&quot;:
+<span class="fc" id="L208">                startCell(false);</span>
+<span class="fc" id="L209">                break;</span>
+            case &quot;dt&quot;:
+<span class="fc" id="L211">                Paragraph term = new Paragraph();</span>
+<span class="fc" id="L212">                openBlock(term);</span>
+<span class="fc" id="L213">                StrongEmphasis bold = new StrongEmphasis();</span>
+<span class="fc" id="L214">                term.appendChild(bold);</span>
+<span class="fc" id="L215">                stack.push(bold);</span>
+<span class="fc" id="L216">                break;</span>
+            case &quot;dd&quot;:
+<span class="fc" id="L218">                Paragraph def = new Paragraph();</span>
+<span class="fc" id="L219">                openBlock(def);</span>
+<span class="fc" id="L220">                def.appendChild(new Text(&quot;: &quot;));</span>
+<span class="fc" id="L221">                break;</span>
+
+            // --- inline-level ---
+            case &quot;b&quot;:
+            case &quot;strong&quot;:
+<span class="fc" id="L226">                openInline(new StrongEmphasis());</span>
+<span class="fc" id="L227">                break;</span>
+            case &quot;i&quot;:
+            case &quot;em&quot;:
+<span class="fc" id="L230">                openInline(new Emphasis());</span>
+<span class="fc" id="L231">                break;</span>
+            case &quot;s&quot;:
+            case &quot;strike&quot;:
+            case &quot;del&quot;:
+<span class="nc" id="L235">                openInline(new Strikethrough(&quot;~~&quot;));</span>
+<span class="nc" id="L236">                break;</span>
+            case &quot;a&quot;:
+<span class="fc" id="L238">                String href = atts.getValue(&quot;href&quot;);</span>
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">                openInline(new Link(href != null ? href : &quot;&quot;, null));</span>
+<span class="fc" id="L240">                break;</span>
+            case &quot;code&quot;:
+<span class="fc bfc" id="L242" title="All 2 branches covered.">                if (codeBlockText == null) {</span>
+<span class="fc" id="L243">                    ensureInlineContainer();</span>
+<span class="fc" id="L244">                    inlineCode = new Code(&quot;&quot;);</span>
+<span class="fc" id="L245">                    stack.peek().appendChild(inlineCode);</span>
+<span class="fc" id="L246">                    inlineCodeText = new StringBuilder();</span>
+                }
+                break;
+            case &quot;br&quot;:
+<span class="fc" id="L250">                ensureInlineContainer();</span>
+<span class="fc" id="L251">                stack.peek().appendChild(new HardLineBreak());</span>
+<span class="fc" id="L252">                break;</span>
+            case &quot;img&quot;:
+<span class="fc" id="L254">                ensureInlineContainer();</span>
+<span class="fc" id="L255">                Image img = new Image(value(atts, &quot;src&quot;), null);</span>
+<span class="fc" id="L256">                String alt = atts.getValue(&quot;alt&quot;);</span>
+<span class="pc bpc" id="L257" title="1 of 4 branches missed.">                if (alt != null &amp;&amp; !alt.isEmpty()) {</span>
+<span class="fc" id="L258">                    img.appendChild(new Text(alt));</span>
+                }
+<span class="fc" id="L260">                stack.peek().appendChild(img);</span>
+<span class="fc" id="L261">                break;</span>
+
+            default:
+                // html, head, body, title, meta, div, span, dl, thead, tbody...
+                // structurally transparent; their inline children flow to the
+                // nearest real container.
+                break;
+        }
+<span class="fc" id="L269">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String qName) throws SAXException {
+<span class="fc" id="L273">        String name = localName(localName, qName);</span>
+
+<span class="fc bfc" id="L275" title="All 4 branches covered.">        if (name.equals(&quot;script&quot;) || name.equals(&quot;style&quot;)) {</span>
+<span class="fc" id="L276">            suppressDepth = Math.max(0, suppressDepth - 1);</span>
+<span class="fc" id="L277">            return;</span>
+        }
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        if (suppressDepth &gt; 0) {</span>
+<span class="fc" id="L280">            return;</span>
+        }
+
+<span class="fc bfc" id="L283" title="All 10 branches covered.">        switch (name) {</span>
+            case &quot;h1&quot;:
+            case &quot;h2&quot;:
+            case &quot;h3&quot;:
+            case &quot;h4&quot;:
+            case &quot;h5&quot;:
+            case &quot;h6&quot;:
+            case &quot;p&quot;:
+            case &quot;blockquote&quot;:
+            case &quot;ul&quot;:
+            case &quot;ol&quot;:
+            case &quot;li&quot;:
+            case &quot;b&quot;:
+            case &quot;strong&quot;:
+            case &quot;i&quot;:
+            case &quot;em&quot;:
+            case &quot;s&quot;:
+            case &quot;strike&quot;:
+            case &quot;del&quot;:
+            case &quot;a&quot;:
+<span class="fc" id="L303">                closeImplicitParagraph();</span>
+<span class="fc" id="L304">                pop();</span>
+<span class="fc" id="L305">                break;</span>
+            case &quot;dt&quot;:
+<span class="fc" id="L307">                pop(); // StrongEmphasis</span>
+<span class="fc" id="L308">                pop(); // Paragraph</span>
+<span class="fc" id="L309">                break;</span>
+            case &quot;dd&quot;:
+<span class="fc" id="L311">                pop();</span>
+<span class="fc" id="L312">                break;</span>
+            case &quot;pre&quot;:
+<span class="fc bfc" id="L314" title="All 2 branches covered.">                if (codeBlock != null) {</span>
+<span class="fc" id="L315">                    codeBlock.setLiteral(withTrailingNewline(codeBlockText.toString()));</span>
+<span class="fc" id="L316">                    codeBlock = null;</span>
+<span class="fc" id="L317">                    codeBlockText = null;</span>
+                }
+                break;
+            case &quot;code&quot;:
+<span class="fc bfc" id="L321" title="All 2 branches covered.">                if (inlineCode != null) {</span>
+<span class="fc" id="L322">                    inlineCode.setLiteral(inlineCodeText.toString());</span>
+<span class="fc" id="L323">                    inlineCode = null;</span>
+<span class="fc" id="L324">                    inlineCodeText = null;</span>
+                }
+                break;
+            case &quot;div&quot;:
+<span class="fc" id="L328">                closeImplicitParagraph();</span>
+<span class="fc" id="L329">                break;</span>
+            case &quot;table&quot;:
+<span class="fc" id="L331">                endTable();</span>
+<span class="fc" id="L332">                break;</span>
+            case &quot;tr&quot;:
+<span class="fc bfc" id="L334" title="All 2 branches covered.">                if (tableDepth == 1) {</span>
+<span class="fc" id="L335">                    pop();</span>
+<span class="fc" id="L336">                    rowIndex++;</span>
+                }
+                break;
+            case &quot;th&quot;:
+            case &quot;td&quot;:
+<span class="fc bfc" id="L341" title="All 2 branches covered.">                if (tableDepth == 1) {</span>
+<span class="fc" id="L342">                    pop();</span>
+                }
+                break;
+            default:
+                break;
+        }
+<span class="fc" id="L348">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="fc bfc" id="L352" title="All 2 branches covered.">        if (suppressDepth &gt; 0) {</span>
+<span class="fc" id="L353">            return;</span>
+        }
+<span class="fc bfc" id="L355" title="All 2 branches covered.">        if (codeBlockText != null) {</span>
+<span class="fc" id="L356">            codeBlockText.append(ch, start, length);</span>
+<span class="fc" id="L357">            return;</span>
+        }
+<span class="fc bfc" id="L359" title="All 2 branches covered.">        if (inlineCodeText != null) {</span>
+<span class="fc" id="L360">            inlineCodeText.append(ch, start, length);</span>
+<span class="fc" id="L361">            return;</span>
+        }
+
+<span class="fc" id="L364">        String text = new String(ch, start, length);</span>
+<span class="fc bfc" id="L365" title="All 2 branches covered.">        if (text.trim().isEmpty()) {</span>
+            // Inter-element whitespace: drop between blocks, collapse within inline runs.
+<span class="fc bfc" id="L367" title="All 2 branches covered.">            if (!isBlockContainer(stack.peek())) {</span>
+<span class="fc" id="L368">                stack.peek().appendChild(new Text(&quot; &quot;));</span>
+            }
+<span class="fc" id="L370">            return;</span>
+        }
+
+<span class="fc bfc" id="L373" title="All 2 branches covered.">        if (isStructuralOnly(stack.peek())) {</span>
+            // Stray text inside a list/table wrapper — not a valid inline position; drop.
+<span class="fc" id="L375">            return;</span>
+        }
+<span class="fc" id="L377">        ensureInlineContainer();</span>
+        // Newlines inside prose would otherwise survive as literal line breaks.
+<span class="fc" id="L379">        stack.peek().appendChild(new Text(collapseLineBreaks(text)));</span>
+<span class="fc" id="L380">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+<span class="fc" id="L384">        characters(ch, start, length);</span>
+<span class="fc" id="L385">    }</span>
+
+    @Override
+    public void endDocument() throws SAXException {
+        try {
+<span class="fc" id="L390">            renderToWriter();</span>
+<span class="nc" id="L391">        } catch (IOException e) {</span>
+<span class="nc" id="L392">            throw new SAXException(&quot;Error writing markdown&quot;, e);</span>
+<span class="fc" id="L393">        }</span>
+<span class="fc" id="L394">    }</span>
+
+    /**
+     * Renders the document model accumulated so far to the underlying writer and
+     * flushes it, if it has not already been written.
+     * &lt;p&gt;
+     * This handler buffers the whole document and only writes it to the writer in
+     * {@link #endDocument()}, which a parser does not call when it aborts
+     * mid-document (a parse exception, or a write-limit abort with
+     * {@code throwOnWriteLimitReached=true}). Unlike the streaming text/HTML/XML
+     * handlers, that would leave an {@code OutputStream}/{@code Writer} consumer
+     * with an empty result. A parse driver that owns the writer can call this in a
+     * {@code finally} so partial Markdown is still emitted on failure. Idempotent:
+     * a no-op once the content has been written (including after a successful
+     * {@code endDocument()}).
+     *
+     * @throws IOException if writing to or flushing the underlying writer fails
+     */
+    public void writePartialContentIfUnfinished() throws IOException {
+<span class="fc" id="L413">        renderToWriter();</span>
+<span class="fc" id="L414">    }</span>
+
+    private void renderToWriter() throws IOException {
+<span class="fc bfc" id="L417" title="All 2 branches covered.">        if (finished) {</span>
+<span class="fc" id="L418">            return;</span>
+        }
+<span class="fc" id="L420">        renderer.render(document, writer);</span>
+<span class="fc" id="L421">        writer.flush();</span>
+<span class="fc" id="L422">        finished = true;</span>
+<span class="fc" id="L423">    }</span>
+
+    @Override
+    public String toString() {
+<span class="fc bfc" id="L427" title="All 2 branches covered.">        if (finished) {</span>
+<span class="fc" id="L428">            return writer.toString();</span>
+        }
+        // Parsing did not complete (e.g. the parser threw mid-document). Render the
+        // content accumulated so far so partial content is not lost on failure — the
+        // streaming writer this replaced exposed partial content the same way.
+<span class="fc" id="L433">        return renderer.render(document);</span>
+    }
+
+    // --- tree construction helpers ---
+
+    /**
+     * Append a block-level node at a structurally valid point and descend into
+     * it. commonmark requires a block's parent to be a block, so any inline (or
+     * other non-hosting) nodes left open are closed first.
+     */
+    private void openBlock(Node block) {
+<span class="fc" id="L444">        popToBlockHost();</span>
+<span class="fc" id="L445">        stack.peek().appendChild(block);</span>
+<span class="fc" id="L446">        stack.push(block);</span>
+<span class="fc" id="L447">    }</span>
+
+    /** Append a block-level leaf (hr, code block, table) without descending. */
+    private void addBlockLeaf(Node block) {
+<span class="fc" id="L451">        popToBlockHost();</span>
+<span class="fc" id="L452">        stack.peek().appendChild(block);</span>
+<span class="fc" id="L453">    }</span>
+
+    /**
+     * A list item is only valid inside a list. If the current point isn't a
+     * list (a stray {@code &lt;li&gt;} or misnested markup), recover by opening an
+     * implicit bullet list so the model stays renderable.
+     */
+    private void openListItem() {
+<span class="fc bfc" id="L461" title="All 2 branches covered.">        if (!(stack.peek() instanceof ListBlock)) {</span>
+<span class="fc" id="L462">            popToBlockHost();</span>
+<span class="fc" id="L463">            BulletList implicit = newBulletList();</span>
+<span class="fc" id="L464">            stack.peek().appendChild(implicit);</span>
+<span class="fc" id="L465">            stack.push(implicit);</span>
+        }
+<span class="fc" id="L467">        ListItem li = new ListItem();</span>
+<span class="fc" id="L468">        stack.peek().appendChild(li);</span>
+<span class="fc" id="L469">        stack.push(li);</span>
+<span class="fc" id="L470">    }</span>
+
+    private void openInline(Node node) {
+<span class="fc" id="L473">        ensureInlineContainer();</span>
+<span class="fc" id="L474">        stack.peek().appendChild(node);</span>
+<span class="fc" id="L475">        stack.push(node);</span>
+<span class="fc" id="L476">    }</span>
+
+    private void pop() {
+<span class="fc bfc" id="L479" title="All 2 branches covered.">        if (stack.size() &gt; 1) {</span>
+<span class="fc" id="L480">            Node popped = stack.pop();</span>
+<span class="fc bfc" id="L481" title="All 2 branches covered.">            if (popped == implicitParagraph) {</span>
+<span class="fc" id="L482">                implicitParagraph = null;</span>
+            }
+        }
+<span class="fc" id="L485">    }</span>
+
+    /** Pop open nodes until the top can host block children (Document/blockquote/list item). */
+    private void popToBlockHost() {
+<span class="fc bfc" id="L489" title="All 4 branches covered.">        while (stack.size() &gt; 1 &amp;&amp; !canHostBlocks(stack.peek())) {</span>
+<span class="fc" id="L490">            Node popped = stack.pop();</span>
+<span class="fc bfc" id="L491" title="All 2 branches covered.">            if (popped == implicitParagraph) {</span>
+<span class="fc" id="L492">                implicitParagraph = null;</span>
+            }
+<span class="fc" id="L494">        }</span>
+<span class="fc" id="L495">    }</span>
+
+    /**
+     * If the current insertion point is a block container that cannot hold
+     * inline content directly, open an implicit {@link Paragraph} to hold it.
+     */
+    private void ensureInlineContainer() {
+<span class="fc" id="L502">        Node top = stack.peek();</span>
+<span class="fc bfc" id="L503" title="All 2 branches covered.">        if (canHostBlocks(top)) {</span>
+<span class="fc" id="L504">            Paragraph p = new Paragraph();</span>
+<span class="fc" id="L505">            top.appendChild(p);</span>
+<span class="fc" id="L506">            stack.push(p);</span>
+<span class="fc" id="L507">            implicitParagraph = p;</span>
+        }
+<span class="fc" id="L509">    }</span>
+
+    private void closeImplicitParagraph() {
+<span class="fc bfc" id="L512" title="All 4 branches covered.">        if (implicitParagraph != null &amp;&amp; stack.peek() == implicitParagraph) {</span>
+<span class="fc" id="L513">            stack.pop();</span>
+<span class="fc" id="L514">            implicitParagraph = null;</span>
+        }
+<span class="fc" id="L516">    }</span>
+
+    private void startTable() {
+<span class="fc" id="L519">        tableDepth++;</span>
+<span class="fc bfc" id="L520" title="All 2 branches covered.">        if (tableDepth == 1) {</span>
+<span class="fc" id="L521">            popToBlockHost();</span>
+<span class="fc" id="L522">            tableBlock = new TableBlock();</span>
+<span class="fc" id="L523">            tableBody = null;</span>
+<span class="fc" id="L524">            rowIndex = 0;</span>
+<span class="fc" id="L525">            stack.peek().appendChild(tableBlock);</span>
+        }
+<span class="fc" id="L527">    }</span>
+
+    private void endTable() {
+<span class="fc bfc" id="L530" title="All 2 branches covered.">        if (tableDepth == 1) {</span>
+<span class="fc" id="L531">            tableBlock = null;</span>
+<span class="fc" id="L532">            tableBody = null;</span>
+        }
+<span class="fc" id="L534">        tableDepth = Math.max(0, tableDepth - 1);</span>
+<span class="fc" id="L535">    }</span>
+
+    private void startRow() {
+<span class="fc bfc" id="L538" title="All 2 branches covered.">        if (tableDepth != 1) {</span>
+<span class="fc" id="L539">            return;</span>
+        }
+<span class="fc" id="L541">        TableRow row = new TableRow();</span>
+<span class="fc bfc" id="L542" title="All 2 branches covered.">        if (rowIndex == 0) {</span>
+<span class="fc" id="L543">            TableHead head = new TableHead();</span>
+<span class="fc" id="L544">            tableBlock.appendChild(head);</span>
+<span class="fc" id="L545">            head.appendChild(row);</span>
+<span class="fc" id="L546">            inHeaderRow = true;</span>
+<span class="fc" id="L547">        } else {</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">            if (tableBody == null) {</span>
+<span class="fc" id="L549">                tableBody = new TableBody();</span>
+<span class="fc" id="L550">                tableBlock.appendChild(tableBody);</span>
+            }
+<span class="fc" id="L552">            tableBody.appendChild(row);</span>
+<span class="fc" id="L553">            inHeaderRow = false;</span>
+        }
+<span class="fc" id="L555">        stack.push(row);</span>
+<span class="fc" id="L556">    }</span>
+
+    private void startCell(boolean header) {
+<span class="fc bfc" id="L559" title="All 4 branches covered.">        if (tableDepth != 1 || !(stack.peek() instanceof TableRow)) {</span>
+<span class="fc" id="L560">            return;</span>
+        }
+<span class="fc" id="L562">        TableCell cell = new TableCell();</span>
+<span class="fc bfc" id="L563" title="All 4 branches covered.">        cell.setHeader(header || inHeaderRow);</span>
+<span class="fc" id="L564">        stack.peek().appendChild(cell);</span>
+<span class="fc" id="L565">        stack.push(cell);</span>
+<span class="fc" id="L566">    }</span>
+
+    private static BulletList newBulletList() {
+<span class="fc" id="L569">        BulletList list = new BulletList();</span>
+<span class="fc" id="L570">        list.setMarker(&quot;-&quot;);</span>
+<span class="fc" id="L571">        list.setTight(true);</span>
+<span class="fc" id="L572">        return list;</span>
+    }
+
+    private static boolean canHostBlocks(Node n) {
+<span class="fc bfc" id="L576" title="All 6 branches covered.">        return n instanceof Document || n instanceof BlockQuote || n instanceof ListItem;</span>
+    }
+
+    private static boolean isBlockContainer(Node n) {
+<span class="pc bpc" id="L580" title="3 of 16 branches missed.">        return n instanceof Document || n instanceof BlockQuote || n instanceof ListItem</span>
+                || n instanceof ListBlock || n instanceof TableBlock || n instanceof TableHead
+                || n instanceof TableBody || n instanceof TableRow;
+    }
+
+    private static boolean isStructuralOnly(Node n) {
+<span class="pc bpc" id="L586" title="3 of 10 branches missed.">        return n instanceof ListBlock || n instanceof TableBlock || n instanceof TableHead</span>
+                || n instanceof TableBody || n instanceof TableRow;
+    }
+
+    private static String collapseLineBreaks(String s) {
+<span class="fc" id="L591">        return s.replace('\r', ' ').replace('\n', ' ');</span>
+    }
+
+    private static String withTrailingNewline(String s) {
+<span class="fc bfc" id="L595" title="All 4 branches covered.">        if (s.isEmpty() || s.charAt(s.length() - 1) == '\n') {</span>
+<span class="fc" id="L596">            return s;</span>
+        }
+<span class="fc" id="L598">        return s + &quot;\n&quot;;</span>
+    }
+
+    private static String value(Attributes atts, String name) {
+<span class="fc" id="L602">        String v = atts.getValue(name);</span>
+<span class="pc bpc" id="L603" title="1 of 2 branches missed.">        return v != null ? v : &quot;&quot;;</span>
+    }
+
+    private static String localName(String localName, String qName) {
+<span class="pc bpc" id="L607" title="2 of 4 branches missed.">        if (localName != null &amp;&amp; !localName.isEmpty()) {</span>
+<span class="fc" id="L608">            return localName.toLowerCase(Locale.ROOT);</span>
+        }
+<span class="nc bnc" id="L610" title="All 2 branches missed.">        if (qName != null) {</span>
+<span class="nc" id="L611">            int colon = qName.indexOf(':');</span>
+<span class="nc bnc" id="L612" title="All 2 branches missed.">            String name = colon &gt;= 0 ? qName.substring(colon + 1) : qName;</span>
+<span class="nc" id="L613">            return name.toLowerCase(Locale.ROOT);</span>
+        }
+<span class="nc" id="L615">        return &quot;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

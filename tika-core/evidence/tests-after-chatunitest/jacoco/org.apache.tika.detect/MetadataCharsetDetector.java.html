@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataCharsetDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">MetadataCharsetDetector.java</span></div><h1>MetadataCharsetDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Encoding detector that extracts a declared charset from Tika metadata without
+ * reading any bytes from the stream.  Returns a single
+ * {@link EncodingResult.ResultType#DECLARATIVE} result when a charset is found.
+ *
+ * &lt;p&gt;Three metadata keys are consulted in order:
+ * &lt;ol&gt;
+ *   &lt;li&gt;{@link Metadata#CONTENT_TYPE} — the {@code charset} parameter of the
+ *       HTTP/MIME Content-Type header (e.g. {@code text/html; charset=UTF-8}).&lt;/li&gt;
+ *   &lt;li&gt;{@link TikaCoreProperties#CONTENT_TYPE_HINT} — the {@code charset} parameter
+ *       of a content-type a source &lt;em&gt;claimed&lt;/em&gt; for the bytes (e.g. an HTML
+ *       {@code &lt;meta&gt;} tag, or a zip entry's UTF-8 (EFS) flag). A hint, not a verdict.
+ *       This key is only consulted when {@link MetadataCharsetDetector} is included in
+ *       the active {@link org.apache.tika.detect.EncodingDetector} chain.&lt;/li&gt;
+ *   &lt;li&gt;{@link Metadata#CONTENT_ENCODING} — a bare charset label set by parsers
+ *       such as {@code RFC822Parser}, which splits Content-Type into a bare
+ *       media-type key and a separate charset key.&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;p&gt;This detector is SPI-loaded in {@code tika-core} and therefore always present
+ * in the default encoding-detector chain.  Its DECLARATIVE result is visible to
+ * {@code JunkFilterEncodingDetector}, which honours it when its decoding is
+ * byte-identical to at least one other candidate's.&lt;/p&gt;
+ *
+ * @since Apache Tika 4.0
+ */
+@TikaComponent(spi = false, name = &quot;metadata-charset-detector&quot;)
+<span class="fc" id="L59">public class MetadataCharsetDetector implements EncodingDetector {</span>
+
+    @Override
+    public List&lt;EncodingResult&gt; detect(TikaInputStream tis, Metadata metadata,
+                                       ParseContext context) throws IOException {
+<span class="fc" id="L64">        Charset cs = charsetFromContentType(metadata);</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (cs == null) {</span>
+<span class="fc" id="L66">            cs = charsetFromContentTypeHint(metadata);</span>
+        }
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (cs == null) {</span>
+<span class="fc" id="L69">            cs = charsetFromContentEncoding(metadata);</span>
+        }
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (cs == null) {</span>
+<span class="fc" id="L72">            return Collections.emptyList();</span>
+        }
+<span class="fc" id="L74">        return List.of(new EncodingResult(cs, 1.0f, cs.name(),</span>
+                EncodingResult.ResultType.DECLARATIVE));
+    }
+
+    /**
+     * Returns the charset named in the {@code charset} parameter of the
+     * {@link Metadata#CONTENT_TYPE} value, or {@code null} if absent or unparseable.
+     */
+    public static Charset charsetFromContentType(Metadata metadata) {
+<span class="fc" id="L83">        return charsetFromMediaType(metadata.get(Metadata.CONTENT_TYPE));</span>
+    }
+
+    /**
+     * Returns the charset named in the {@code charset} parameter of the
+     * {@link TikaCoreProperties#CONTENT_TYPE_HINT} value — a content-type a source
+     * claimed for the bytes (HTML {@code &lt;meta&gt;}, a zip entry's UTF-8 flag, ...) —
+     * or {@code null} if absent or unparseable.
+     */
+    public static Charset charsetFromContentTypeHint(Metadata metadata) {
+<span class="fc" id="L93">        return charsetFromMediaType(metadata.get(TikaCoreProperties.CONTENT_TYPE_HINT));</span>
+    }
+
+    private static Charset charsetFromMediaType(String contentType) {
+<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (contentType == null) {</span>
+<span class="fc" id="L98">            return null;</span>
+        }
+<span class="fc" id="L100">        MediaType mediaType = MediaType.parse(contentType);</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if (mediaType == null) {</span>
+<span class="nc" id="L102">            return null;</span>
+        }
+<span class="fc" id="L104">        return parseCharset(mediaType.getParameters().get(&quot;charset&quot;));</span>
+    }
+
+    /**
+     * Returns the charset named in {@link Metadata#CONTENT_ENCODING}, or
+     * {@code null} if absent or unparseable.  This key is used by
+     * {@code RFC822Parser} to expose the charset declared in MIME body-part
+     * headers when the bare media type is stored separately in
+     * {@link Metadata#CONTENT_TYPE}.
+     */
+    public static Charset charsetFromContentEncoding(Metadata metadata) {
+<span class="fc" id="L115">        return parseCharset(metadata.get(Metadata.CONTENT_ENCODING));</span>
+    }
+
+    private static Charset parseCharset(String label) {
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">        if (label == null || label.isBlank()) {</span>
+<span class="fc" id="L120">            return null;</span>
+        }
+        Charset cs;
+        try {
+<span class="fc" id="L124">            cs = Charset.forName(label.trim());</span>
+<span class="fc" id="L125">        } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L126">            return null;</span>
+<span class="fc" id="L127">        }</span>
+<span class="fc" id="L128">        return normalizeWhatwg(cs);</span>
+    }
+
+    /**
+     * Applies the critical WHATWG encoding-label normalizations that are universally
+     * applicable regardless of content type.  The WHATWG encoding spec
+     * (https://encoding.spec.whatwg.org/) maps {@code ISO-8859-1}, {@code US-ASCII},
+     * and their aliases to {@code windows-1252} because real-world content labeled
+     * with these names is almost always actually windows-1252.
+     */
+    private static Charset normalizeWhatwg(Charset cs) {
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (cs == null) {</span>
+<span class="nc" id="L140">            return null;</span>
+        }
+<span class="fc" id="L142">        String name = cs.name();</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if (StandardCharsets.ISO_8859_1.name().equals(name)</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">                || StandardCharsets.US_ASCII.name().equals(name)) {</span>
+            try {
+<span class="fc" id="L146">                return Charset.forName(&quot;windows-1252&quot;);</span>
+<span class="nc" id="L147">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L148">                return cs;</span>
+            }
+        }
+<span class="fc" id="L151">        return cs;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

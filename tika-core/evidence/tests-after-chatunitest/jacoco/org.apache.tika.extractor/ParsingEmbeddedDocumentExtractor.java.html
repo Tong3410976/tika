@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParsingEmbeddedDocumentExtractor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.extractor</a> &gt; <span class="el_source">ParsingEmbeddedDocumentExtractor.java</span></div><h1>ParsingEmbeddedDocumentExtractor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.extractor;
+
+import static org.apache.tika.sax.XHTMLContentHandler.XHTML;
+
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.AttributesImpl;
+
+import org.apache.tika.exception.CorruptedFileException;
+import org.apache.tika.exception.EmbeddedLimitReachedException;
+import org.apache.tika.exception.EncryptedDocumentException;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.parser.DelegatingParser;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.ParseRecord;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.sax.BodyContentHandler;
+import org.apache.tika.sax.EmbeddedContentHandler;
+import org.apache.tika.sax.SAXOutputConfig;
+import org.apache.tika.sax.XHTMLBalancingHandler;
+
+/**
+ * Helper class for parsers of package archives or other compound document
+ * formats that support embedded or attached component documents.
+ *
+ * @since Apache Tika 0.8
+ */
+public class ParsingEmbeddedDocumentExtractor implements EmbeddedDocumentExtractor {
+
+<span class="fc" id="L53">    private static final File ABSTRACT_PATH = new File(&quot;&quot;);</span>
+
+<span class="fc" id="L55">    private static final Parser DELEGATING_PARSER = new DelegatingParser();</span>
+
+    protected final ParseContext context;
+
+<span class="fc" id="L59">    public ParsingEmbeddedDocumentExtractor(ParseContext context) {</span>
+<span class="fc" id="L60">        this.context = context;</span>
+<span class="fc" id="L61">    }</span>
+
+    @Override
+    public boolean shouldParseEmbedded(Metadata metadata) {
+        // Check ParseRecord for depth/count limits first
+<span class="nc" id="L66">        ParseRecord parseRecord = context.get(ParseRecord.class);</span>
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if (parseRecord != null &amp;&amp; !checkEmbeddedLimits(parseRecord)) {</span>
+<span class="nc" id="L68">            return false;</span>
+        }
+
+        // Then check DocumentSelector for content-based filtering
+<span class="nc" id="L72">        DocumentSelector selector = context.get(DocumentSelector.class);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (selector != null) {</span>
+<span class="nc" id="L74">            return selector.select(metadata);</span>
+        }
+
+        // Then check FilenameFilter
+<span class="nc" id="L78">        FilenameFilter filter = context.get(FilenameFilter.class);</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (filter != null) {</span>
+<span class="nc" id="L80">            String name = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">            if (name != null) {</span>
+<span class="nc" id="L82">                return filter.accept(ABSTRACT_PATH, name);</span>
+            }
+        }
+
+<span class="nc" id="L86">        return true;</span>
+    }
+
+    /**
+     * Checks embedded document limits from ParseRecord.
+     * &lt;p&gt;
+     * If throwOnMaxDepth or throwOnMaxCount is configured and the respective limit is hit,
+     * an EmbeddedLimitReachedException is thrown. Otherwise, returns false and sets the
+     * appropriate limit flag on the ParseRecord.
+     * &lt;p&gt;
+     * Note: The count limit is a hard stop (once hit, no more embedded docs are parsed).
+     * The depth limit only affects documents at that depth - sibling documents at
+     * shallower depths will still be parsed.
+     * &lt;p&gt;
+     * Subclasses that override parseEmbedded() should call this method to enforce limits.
+     *
+     * @param parseRecord the parse record to check
+     * @return true if the embedded document should be parsed, false if limits are exceeded
+     * @throws EmbeddedLimitReachedException if a limit is exceeded and throwing is configured
+     */
+    protected boolean checkEmbeddedLimits(ParseRecord parseRecord) {
+        // Count limit is a hard stop - once we've hit max, no more embedded parsing
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (parseRecord.isEmbeddedCountLimitReached()) {</span>
+<span class="nc" id="L109">            return false;</span>
+        }
+<span class="nc" id="L111">        int maxCount = parseRecord.getMaxEmbeddedCount();</span>
+<span class="nc bnc" id="L112" title="All 4 branches missed.">        if (maxCount &gt;= 0 &amp;&amp; parseRecord.getEmbeddedCount() &gt;= maxCount) {</span>
+<span class="nc" id="L113">            parseRecord.setEmbeddedCountLimitReached(true);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            if (parseRecord.isThrowOnMaxCount()) {</span>
+<span class="nc" id="L115">                throw new EmbeddedLimitReachedException(</span>
+                        EmbeddedLimitReachedException.LimitType.MAX_COUNT, maxCount);
+            }
+<span class="nc" id="L118">            return false;</span>
+        }
+
+        // Depth limit only applies to current depth - siblings at shallower levels
+        // can still be parsed. The flag is set for reporting purposes.
+        // depth is 1-indexed (main doc is depth 1), so embedded depth limit of N
+        // means we allow parsing up to depth N+1
+<span class="nc" id="L125">        int maxDepth = parseRecord.getMaxEmbeddedDepth();</span>
+<span class="nc bnc" id="L126" title="All 4 branches missed.">        if (maxDepth &gt;= 0 &amp;&amp; parseRecord.getDepth() &gt; maxDepth + 1) {</span>
+<span class="nc" id="L127">            parseRecord.setEmbeddedDepthLimitReached(true);</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (parseRecord.isThrowOnMaxDepth()) {</span>
+<span class="nc" id="L129">                throw new EmbeddedLimitReachedException(</span>
+                        EmbeddedLimitReachedException.LimitType.MAX_DEPTH, maxDepth);
+            }
+<span class="nc" id="L132">            return false;</span>
+        }
+<span class="nc" id="L134">        return true;</span>
+    }
+
+    @Override
+    public void parseEmbedded(
+            TikaInputStream tis, ContentHandler handler, Metadata metadata, ParseContext parseContext, boolean outputHtml)
+            throws SAXException, IOException {
+        // Check and enforce embedded limits even if caller didn't call shouldParseEmbedded()
+        // This guarantees limits are enforced for all callers
+<span class="nc" id="L143">        ParseRecord parseRecord = context.get(ParseRecord.class);</span>
+<span class="nc bnc" id="L144" title="All 4 branches missed.">        if (parseRecord != null &amp;&amp; !checkEmbeddedLimits(parseRecord)) {</span>
+<span class="nc" id="L145">            return;</span>
+        }
+
+        // Increment embedded count for tracking
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (parseRecord != null) {</span>
+<span class="nc" id="L150">            parseRecord.incrementEmbeddedCount();</span>
+        }
+
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if (outputHtml) {</span>
+<span class="nc" id="L154">            AttributesImpl attributes = new AttributesImpl();</span>
+<span class="nc" id="L155">            attributes.addAttribute(&quot;&quot;, &quot;class&quot;, &quot;class&quot;, &quot;CDATA&quot;, &quot;package-entry&quot;);</span>
+<span class="nc" id="L156">            handler.startElement(XHTML, &quot;div&quot;, &quot;div&quot;, attributes);</span>
+        }
+
+<span class="nc" id="L159">        String name = metadata.get(TikaCoreProperties.RESOURCE_NAME_KEY);</span>
+<span class="nc bnc" id="L160" title="All 8 branches missed.">        if (isWriteFileNameToContent() &amp;&amp; name != null &amp;&amp; name.length() &gt; 0 &amp;&amp; outputHtml) {</span>
+<span class="nc" id="L161">            handler.startElement(XHTML, &quot;h1&quot;, &quot;h1&quot;, new AttributesImpl());</span>
+<span class="nc" id="L162">            char[] chars = name.toCharArray();</span>
+<span class="nc" id="L163">            handler.characters(chars, 0, chars.length);</span>
+<span class="nc" id="L164">            handler.endElement(XHTML, &quot;h1&quot;, &quot;h1&quot;);</span>
+        }
+
+        // Wrap the delegate's handler so we can close anything it left open if
+        // it throws mid-element. Without this, the &lt;/div&gt; emitted in finally
+        // could land on top of an open &lt;p&gt;/&lt;table&gt;/etc. from the failed
+        // sub-parse and produce malformed XHTML.
+        XHTMLBalancingHandler balancer =
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                outputHtml ? new XHTMLBalancingHandler(handler) : null;</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        ContentHandler delegateHandler = outputHtml ? balancer : handler;</span>
+
+        // Use the delegate parser to parse this entry
+<span class="nc" id="L176">        boolean parsedCleanly = false;</span>
+        try {
+<span class="nc" id="L178">            tis.setCloseShield();</span>
+<span class="nc" id="L179">            DELEGATING_PARSER.parse(tis,</span>
+                    new EmbeddedContentHandler(new BodyContentHandler(delegateHandler)),
+                    metadata, context);
+<span class="nc" id="L182">            parsedCleanly = true;</span>
+<span class="nc" id="L183">        } catch (EncryptedDocumentException ede) {</span>
+<span class="nc" id="L184">            recordException(ede, context);</span>
+<span class="nc" id="L185">        } catch (CorruptedFileException e) {</span>
+            //necessary to stop the parse to avoid infinite loops
+            //on corrupt sqlite3 files
+<span class="nc" id="L188">            throw new IOException(e);</span>
+<span class="nc" id="L189">        } catch (TikaException e) {</span>
+<span class="nc" id="L190">            recordException(e, context);</span>
+        } finally {
+<span class="nc" id="L192">            tis.removeCloseShield();</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">            if (outputHtml) {</span>
+                // Only an aborted parse can leave elements open; on a clean parse
+                // the balancer stack is empty. Draining only on abort keeps the
+                // package-entry div well-formed when the inner parse throws, while
+                // letting StrictXHTMLValidator still catch genuine imbalances on the
+                // happy path (TIKA-4728).
+<span class="nc bnc" id="L199" title="All 2 branches missed.">                if (!parsedCleanly) {</span>
+<span class="nc" id="L200">                    balancer.drainOpenElements();</span>
+                }
+<span class="nc" id="L202">                handler.endElement(XHTML, &quot;div&quot;, &quot;div&quot;);</span>
+            }
+        }
+<span class="nc" id="L205">    }</span>
+
+    protected void recordException(Exception e, ParseContext context) {
+<span class="nc" id="L208">        ParseRecord record = context.get(ParseRecord.class);</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        if (record == null) {</span>
+<span class="nc" id="L210">            return;</span>
+        }
+<span class="nc" id="L212">        record.addException(e);</span>
+<span class="nc" id="L213">    }</span>
+
+    public Parser getDelegatingParser() {
+<span class="nc" id="L216">        return DELEGATING_PARSER;</span>
+    }
+
+    /**
+     * Returns whether to write file names to content based on {@link SAXOutputConfig}
+     * in the ParseContext. Defaults to {@code true} if no config is present.
+     *
+     * @return true if file names should be written to content
+     */
+    public boolean isWriteFileNameToContent() {
+<span class="nc" id="L226">        SAXOutputConfig config = context.get(SAXOutputConfig.class);</span>
+<span class="nc bnc" id="L227" title="All 4 branches missed.">        return config == null || config.isWriteFileNameToContent();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

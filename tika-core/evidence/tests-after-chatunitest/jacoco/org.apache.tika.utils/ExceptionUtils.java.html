@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExceptionUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">ExceptionUtils.java</span></div><h1>ExceptionUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.tika.exception.TikaException;
+
+<span class="nc" id="L29">public class ExceptionUtils {</span>
+
+<span class="fc" id="L31">    private final static Pattern MSG_PATTERN = Pattern.compile(&quot;:[^\r\n]+&quot;);</span>
+
+    /**
+     * Simple util to get stack trace.
+     * &lt;p&gt;
+     * This will unwrap a TikaException and return the cause if not null
+     * &lt;p&gt;
+     * NOTE: If your stacktraces are truncated, make sure to start your jvm
+     * with: -XX:-OmitStackTraceInFastThrow
+     *
+     * @param t throwable
+     * @return
+     * @throws IOException
+     */
+    public static String getFilteredStackTrace(Throwable t) {
+<span class="nc" id="L46">        Throwable cause = t;</span>
+<span class="nc bnc" id="L47" title="All 4 branches missed.">        if ((t.getClass().equals(TikaException.class)) &amp;&amp; t.getCause() != null) {</span>
+<span class="nc" id="L48">            cause = t.getCause();</span>
+        }
+<span class="nc" id="L50">        return getStackTrace(cause);</span>
+    }
+
+    /**
+     * Get the full stacktrace as a string
+     *
+     * @param t
+     * @return
+     */
+    public static String getStackTrace(Throwable t) {
+<span class="fc" id="L60">        Writer result = new StringWriter();</span>
+<span class="fc" id="L61">        PrintWriter writer = new PrintWriter(result);</span>
+<span class="fc" id="L62">        t.printStackTrace(writer);</span>
+        try {
+<span class="fc" id="L64">            writer.flush();</span>
+<span class="fc" id="L65">            result.flush();</span>
+<span class="fc" id="L66">            writer.close();</span>
+<span class="fc" id="L67">            result.close();</span>
+<span class="nc" id="L68">        } catch (IOException e) {</span>
+            //swallow
+<span class="fc" id="L70">        }</span>
+<span class="fc" id="L71">        return result.toString();</span>
+    }
+
+    /**
+     * Utility method to trim the message from a stack trace
+     * string.
+     * &lt;p&gt;
+     * E.g. &lt;code&gt;java.lang.IllegalStateException: Potential loop detected &lt;/code&gt;
+     * will be trimmed to &lt;code&gt;java.lang.IllegalStateException&lt;/code&gt;
+     *
+     * @param trace string view of stack trace
+     * @return trimmed stack trace
+     */
+    public static String trimMessage(String trace) {
+<span class="nc" id="L85">        Matcher msgMatcher = MSG_PATTERN.matcher(trace);</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (msgMatcher.find()) {</span>
+<span class="nc" id="L87">            return msgMatcher.replaceFirst(&quot;&quot;);</span>
+        }
+<span class="nc" id="L89">        return trace;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

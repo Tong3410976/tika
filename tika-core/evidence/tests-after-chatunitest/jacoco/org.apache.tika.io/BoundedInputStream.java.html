@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BoundedInputStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">BoundedInputStream.java</span></div><h1>BoundedInputStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import org.apache.commons.io.IOUtils;
+
+/**
+ * Very slight modification of Commons' BoundedInputStream
+ * so that we can figure out if this hit the bound or not.
+ * &lt;p&gt;
+ * This relies on IOUtils' skip and read to try to fully
+ * read/skip inputstream.
+ */
+public class BoundedInputStream extends InputStream {
+
+
+    private final static int EOF = -1;
+    private final long max;
+    private final InputStream in;
+    private long pos;
+
+<span class="nc" id="L40">    public BoundedInputStream(long max, InputStream in) {</span>
+<span class="nc" id="L41">        this.max = max;</span>
+<span class="nc" id="L42">        this.in = in;</span>
+<span class="nc" id="L43">    }</span>
+
+    @Override
+    public int read() throws IOException {
+<span class="nc bnc" id="L47" title="All 4 branches missed.">        if (max &gt;= 0 &amp;&amp; pos &gt;= max) {</span>
+<span class="nc" id="L48">            return EOF;</span>
+        }
+<span class="nc" id="L50">        final int result = in.read();</span>
+<span class="nc" id="L51">        pos++;</span>
+<span class="nc" id="L52">        return result;</span>
+    }
+
+    /**
+     * Invokes the delegate's &lt;code&gt;read(byte[])&lt;/code&gt; method.
+     *
+     * @param b the buffer to read the bytes into
+     * @return the number of bytes read or -1 if the end of stream or
+     * the limit has been reached.
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    public int read(final byte[] b) throws IOException {
+<span class="nc" id="L65">        return this.read(b, 0, b.length);</span>
+    }
+
+    /**
+     * Invokes the delegate's &lt;code&gt;read(byte[], int, int)&lt;/code&gt; method.
+     * &lt;p&gt;
+     * This does not have the same guarantees as IOUtil's readFully()...be careful.
+     *
+     * @param b   the buffer to read the bytes into
+     * @param off The start offset
+     * @param len The number of bytes to read
+     * @return the number of bytes read or -1 if the end of stream or
+     * the limit has been reached.
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    public int read(final byte[] b, final int off, final int len) throws IOException {
+<span class="nc bnc" id="L82" title="All 4 branches missed.">        if (max &gt;= 0 &amp;&amp; pos &gt;= max) {</span>
+<span class="nc" id="L83">            return EOF;</span>
+        }
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        final long maxRead = max &gt;= 0 ? Math.min(len, max - pos) : len;</span>
+<span class="nc" id="L86">        final int bytesRead = in.read(b, off, (int) maxRead);</span>
+
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (bytesRead == EOF) {</span>
+<span class="nc" id="L89">            return EOF;</span>
+        }
+
+<span class="nc" id="L92">        pos += bytesRead;</span>
+<span class="nc" id="L93">        return bytesRead;</span>
+    }
+
+    /**
+     * Invokes the delegate's &lt;code&gt;skip(long)&lt;/code&gt; method.
+     * As with InputStream generally, this does not guarantee reading n bytes.
+     * Use IOUtils' skipFully for that functionality.
+     *
+     * @param n the number of bytes to skip
+     * @return the actual number of bytes skipped
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    public long skip(final long n) throws IOException {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        final long toSkip = max &gt;= 0 ? Math.min(n, max - pos) : n;</span>
+<span class="nc" id="L108">        final long skippedBytes = in.skip(toSkip);</span>
+<span class="nc" id="L109">        pos += skippedBytes;</span>
+<span class="nc" id="L110">        return skippedBytes;</span>
+    }
+
+    @Override
+    public void reset() throws IOException {
+<span class="nc" id="L115">        in.reset();</span>
+<span class="nc" id="L116">        pos = 0;</span>
+<span class="nc" id="L117">    }</span>
+
+    @Override
+    public void mark(int readLimit) {
+<span class="nc" id="L121">        in.mark(readLimit);</span>
+<span class="nc" id="L122">    }</span>
+
+    public boolean hasHitBound() {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        return pos &gt;= max;</span>
+    }
+
+    @Override
+    public byte[] readNBytes(int len) throws IOException {
+<span class="nc" id="L130">        return in.readNBytes(len);</span>
+    }
+
+    @Override
+    public int readNBytes(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L135">        return in.readNBytes(b, off, len);</span>
+    }
+
+    @Override
+    public int available() throws IOException {
+<span class="nc" id="L140">        return in.available();</span>
+    }
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L145">        return in.markSupported();</span>
+    }
+
+    @Override
+    public long transferTo(OutputStream out) throws IOException {
+<span class="nc" id="L150">        return IOUtils.copy(this, out);</span>
+    }
+
+    public long getPos() {
+<span class="nc" id="L154">        return pos;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

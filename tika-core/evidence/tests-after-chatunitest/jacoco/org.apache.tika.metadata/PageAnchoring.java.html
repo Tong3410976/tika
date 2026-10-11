@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PageAnchoring.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">PageAnchoring.java</span></div><h1>PageAnchoring.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+import java.util.Collection;
+import java.util.Objects;
+
+/**
+ * Helpers for tagging an embedded resource's metadata with the pages or
+ * sheets of its parent document on which it appears.  Centralised so every
+ * paginated/sheeted parser (HSLF/XSLF for PowerPoint, OpenDocumentParser
+ * for ODP, HSSF/XSSF for Excel, PDF, ...) encodes the same convention
+ * identically.
+ *
+ * &lt;p&gt;Convention:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code indices == null}: caller does not know the resource's
+ *       anchoring &amp;mdash; both single- and sequence-valued properties are
+ *       left unset.&lt;/li&gt;
+ *   &lt;li&gt;{@code indices.isEmpty()}: the resource is known to be present in
+ *       the container but referenced from no page/sheet &amp;mdash; the
+ *       sequence property is set to a single-element array containing the
+ *       sentinel value (see {@link TikaPagedText#UNLINKED_PAGE} and
+ *       {@link Office#UNLINKED_SHEET}).&lt;/li&gt;
+ *   &lt;li&gt;{@code indices.size() == 1}: both the single-valued and the
+ *       sequence-valued property are set, the sequence carrying the one
+ *       index as its only element.  Consumers that only inspect the
+ *       single-valued property still see the right answer.&lt;/li&gt;
+ *   &lt;li&gt;{@code indices.size() &gt; 1}: only the sequence-valued property is
+ *       set; the single-valued property is cleared, because no single
+ *       index would be meaningful.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;This class only mutates the metadata it is handed &amp;mdash; it is the
+ * caller's job to compute the index set (e.g. by pre-scanning a slide
+ * file for picture references before the embedded-resource emission).
+ */
+public final class PageAnchoring {
+
+    private PageAnchoring() {
+    }
+
+    /**
+     * Apply {@link TikaPagedText#PAGE_NUMBER} / {@link TikaPagedText#PAGE_NUMBERS}
+     * to {@code target}, per the page-anchoring convention.  Used by
+     * presentation parsers (PPT, PPTX, ODP), and by PDF parsers when
+     * tagging per-page embedded resources.
+     *
+     * @param target metadata to write to
+     * @param pages  1-based page numbers, an empty collection for
+     *               &quot;known unlinked&quot;, or {@code null} for unknown
+     */
+    public static void applyPageMetadata(Metadata target, Collection&lt;Integer&gt; pages) {
+<span class="fc" id="L68">        applyAnchorMetadata(target, pages,</span>
+                TikaPagedText.PAGE_NUMBER, TikaPagedText.PAGE_NUMBERS,
+                TikaPagedText.UNLINKED_PAGE);
+<span class="fc" id="L71">    }</span>
+
+    /**
+     * Apply {@link Office#SHEET_NUMBER} / {@link Office#SHEET_NUMBERS} to
+     * {@code target}, per the same convention as
+     * {@link #applyPageMetadata}.  Used by spreadsheet parsers (HSSF,
+     * XSSF) when tagging an embedded resource with the sheets it appears
+     * on.
+     *
+     * @param target metadata to write to
+     * @param sheets 1-based sheet numbers, an empty collection for
+     *               &quot;known unlinked&quot;, or {@code null} for unknown
+     */
+    public static void applySheetMetadata(Metadata target, Collection&lt;Integer&gt; sheets) {
+<span class="fc" id="L85">        applyAnchorMetadata(target, sheets,</span>
+                Office.SHEET_NUMBER, Office.SHEET_NUMBERS,
+                Office.UNLINKED_SHEET);
+<span class="fc" id="L88">    }</span>
+
+    /**
+     * Shared core for {@link #applyPageMetadata} and {@link #applySheetMetadata}.
+     * Exposed so future paginated-resource conventions (e.g. arbitrary
+     * index spaces other than pages/sheets) can reuse the same logic
+     * without copying it.
+     *
+     * @param target            metadata to write to (no-op if {@code null})
+     * @param indices           the anchor indices, or {@code null} for &quot;unknown&quot;
+     * @param singleProperty    {@code internalInteger} property set when there
+     *                          is exactly one anchor index
+     * @param sequenceProperty  {@code internalIntegerSequence} property
+     *                          populated with all anchor indices
+     * @param unlinkedSentinel  value used as the sole element of
+     *                          {@code sequenceProperty} when {@code indices}
+     *                          is empty (known unlinked)
+     */
+    public static void applyAnchorMetadata(Metadata target, Collection&lt;Integer&gt; indices,
+                                           Property singleProperty,
+                                           Property sequenceProperty,
+                                           int unlinkedSentinel) {
+<span class="fc bfc" id="L110" title="All 4 branches covered.">        if (target == null || indices == null) {</span>
+<span class="fc" id="L111">            return;</span>
+        }
+        int[] arr;
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (indices.isEmpty()) {</span>
+<span class="fc" id="L115">            arr = new int[]{unlinkedSentinel};</span>
+        } else {
+<span class="fc" id="L117">            arr = indices.stream()</span>
+<span class="fc" id="L118">                    .filter(Objects::nonNull)</span>
+<span class="fc" id="L119">                    .mapToInt(Integer::intValue)</span>
+<span class="fc" id="L120">                    .sorted()</span>
+<span class="fc" id="L121">                    .toArray();</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">            if (arr.length == 0) {</span>
+<span class="nc" id="L123">                arr = new int[]{unlinkedSentinel};</span>
+            }
+        }
+        // Clear any previous value, then append each element.  Necessary
+        // because Metadata has no set-int[] overload; using add() builds
+        // the sequence one element at a time.  Clearing first guards
+        // against accidental double application.
+<span class="fc" id="L130">        target.remove(sequenceProperty.getName());</span>
+<span class="fc" id="L131">        target.remove(singleProperty.getName());</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        for (int v : arr) {</span>
+<span class="fc" id="L133">            target.add(sequenceProperty, v);</span>
+        }
+<span class="fc bfc" id="L135" title="All 4 branches covered.">        if (arr.length == 1 &amp;&amp; arr[0] != unlinkedSentinel) {</span>
+<span class="fc" id="L136">            target.set(singleProperty, arr[0]);</span>
+        }
+<span class="fc" id="L138">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

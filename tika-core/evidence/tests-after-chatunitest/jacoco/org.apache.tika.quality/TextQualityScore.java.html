@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TextQualityScore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.quality</a> &gt; <span class="el_source">TextQualityScore.java</span></div><h1>TextQualityScore.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.quality;
+
+/**
+ * Result of scoring a string for text quality via a {@link TextQualityDetector}.
+ *
+ * &lt;p&gt;{@code zScore} is the primary output: how many standard deviations below
+ * typical clean text this string scores on its dominant script's model.
+ * Negative means worse than average clean text; more negative means worse.
+ *
+ * &lt;p&gt;{@code pClean} is a probability estimate in [0,1] that this is clean text.
+ *
+ * &lt;p&gt;{@code ciLow} / {@code ciHigh} are the 95% confidence interval bounds on
+ * {@code zScore}.  For short strings these bounds are wide; for long strings
+ * they narrow.  Prefer {@code ciLow &lt; threshold} over {@code zScore &lt; threshold}
+ * when triggering actions, to reduce false positives on short strings.
+ */
+public final class TextQualityScore {
+
+    /** Sentinel z-score returned when scoring could not be run (e.g. null or empty input). */
+    public static final float UNKNOWN = Float.NaN;
+
+    private final float zScore;
+    private final float pClean;
+    private final float ciLow;
+    private final float ciHigh;
+    private final String dominantScript;
+
+    public TextQualityScore(float zScore, float pClean,
+                            float ciLow, float ciHigh,
+<span class="nc" id="L46">                            String dominantScript) {</span>
+<span class="nc" id="L47">        this.zScore = zScore;</span>
+<span class="nc" id="L48">        this.pClean = pClean;</span>
+<span class="nc" id="L49">        this.ciLow = ciLow;</span>
+<span class="nc" id="L50">        this.ciHigh = ciHigh;</span>
+<span class="nc" id="L51">        this.dominantScript = dominantScript;</span>
+<span class="nc" id="L52">    }</span>
+
+    /** Z-score relative to clean text for the detected script. 0 = average clean; negative = worse. */
+    public float getZScore() {
+<span class="nc" id="L56">        return zScore;</span>
+    }
+
+    /** Probability in [0,1] that this string is clean text. */
+    public float getPClean() {
+<span class="nc" id="L61">        return pClean;</span>
+    }
+
+    /** Lower bound of the 95% confidence interval on zScore. */
+    public float getCiLow() {
+<span class="nc" id="L66">        return ciLow;</span>
+    }
+
+    /** Upper bound of the 95% confidence interval on zScore. */
+    public float getCiHigh() {
+<span class="nc" id="L71">        return ciHigh;</span>
+    }
+
+    /** Name of the dominant Unicode script detected, e.g. &quot;LATIN&quot;, &quot;CYRILLIC&quot;, &quot;ARABIC&quot;. */
+    public String getDominantScript() {
+<span class="nc" id="L76">        return dominantScript;</span>
+    }
+
+    /** True if scoring could not be performed (e.g. empty or unsupported-script input). */
+    public boolean isUnknown() {
+<span class="nc" id="L81">        return Float.isNaN(zScore);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (isUnknown()) {</span>
+<span class="nc" id="L87">            return &quot;TextQualityScore[UNKNOWN script=&quot; + dominantScript + &quot;]&quot;;</span>
+        }
+<span class="nc" id="L89">        return String.format(java.util.Locale.ROOT,</span>
+                &quot;TextQualityScore[z=%.3f p=%.3f ci=(%.3f,%.3f) script=%s]&quot;,
+<span class="nc" id="L91">                zScore, pClean, ciLow, ciHigh, dominantScript);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

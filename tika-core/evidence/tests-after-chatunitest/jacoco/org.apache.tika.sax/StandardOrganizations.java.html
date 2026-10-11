@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StandardOrganizations.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">StandardOrganizations.java</span></div><h1>StandardOrganizations.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.Map;
+import java.util.TreeMap;
+
+/**
+ * This class provides a collection of the most important technical standard organizations.
+ * The collection of standard organizations has been obtained from
+ * &lt;a href=&quot;https://en.wikipedia.org/wiki/List_of_technical_standard_organisations&quot;&gt;Wikipedia&lt;/a&gt;.
+ * Currently, the list is composed of the most important international standard organizations,
+ * the regional standard organizations (i.e., Africa, Americas, Asia Pacific, Europe, and Middle
+ * East), and British and American standard organizations among the national-based ones.
+ */
+<span class="nc" id="L30">public class StandardOrganizations {</span>
+
+    private static final Map&lt;String, String&gt; organizations;
+
+    static {
+<span class="nc" id="L35">        organizations = new TreeMap&lt;&gt;();</span>
+        //International standard organizations
+<span class="nc" id="L37">        organizations.put(&quot;3GPP&quot;, &quot;3rd Generation Partnership Project&quot;);</span>
+<span class="nc" id="L38">        organizations.put(&quot;3GPP2&quot;, &quot;3rd Generation Partnership Project 2&quot;);</span>
+<span class="nc" id="L39">        organizations.put(&quot;Accellera&quot;, &quot;Accellera Organization&quot;);</span>
+<span class="nc" id="L40">        organizations.put(&quot;A4L&quot;,</span>
+                &quot;Access for Learning Community (formerly known as the Schools Interoperability &quot; +
+                        &quot;Framework)&quot;);
+<span class="nc" id="L43">        organizations.put(&quot;AES&quot;, &quot;Audio Engineering Society&quot;);</span>
+<span class="nc" id="L44">        organizations.put(&quot;AIIM&quot;, &quot;Association for Information and Image Management&quot;);</span>
+<span class="nc" id="L45">        organizations.put(&quot;ASAM&quot;,</span>
+                &quot;Association for Automation and Measuring Systems - Automotive technology&quot;);
+<span class="nc" id="L47">        organizations.put(&quot;ASHRAE&quot;,</span>
+                &quot;American Society of Heating, Refrigerating and Air-Conditioning Engineers &quot; +
+                        &quot;(ASHRAE is an international organization, despite its name)&quot;);
+<span class="nc" id="L50">        organizations.put(&quot;ASME&quot;, &quot;formerly The American Society of Mechanical Engineers&quot;);</span>
+<span class="nc" id="L51">        organizations</span>
+<span class="nc" id="L52">                .put(&quot;ASTM&quot;, &quot;ASTM (American Society for Testing and Materials) International&quot;);</span>
+<span class="nc" id="L53">        organizations.put(&quot;ATIS&quot;, &quot;Alliance for Telecommunications Industry Solutions&quot;);</span>
+<span class="nc" id="L54">        organizations.put(&quot;AUTOSAR&quot;, &quot;Automotive technology&quot;);</span>
+<span class="nc" id="L55">        organizations.put(&quot;BIPM, CGPM, and CIPM&quot;,</span>
+                &quot;Bureau International des Poids et Mesures and the related organizations &quot; +
+                        &quot;established under the Metre Convention of 1875.&quot;);
+<span class="nc" id="L58">        organizations.put(&quot;CableLabs&quot;, &quot;Cable Television Laboratories&quot;);</span>
+<span class="nc" id="L59">        organizations.put(&quot;CCSDS&quot;, &quot;Consultative Committee for Space Data Sciences&quot;);</span>
+<span class="nc" id="L60">        organizations.put(&quot;CISPR&quot;, &quot;International Special Committee on Radio Interference&quot;);</span>
+<span class="nc" id="L61">        organizations.put(&quot;CFA&quot;, &quot;Compact flash association&quot;);</span>
+<span class="nc" id="L62">        organizations.put(&quot;DCMI&quot;, &quot;Dublin Core Metadata Initiative&quot;);</span>
+<span class="nc" id="L63">        organizations.put(&quot;DMTF&quot;, &quot;Distributed Management Task Force&quot;);</span>
+<span class="nc" id="L64">        organizations.put(&quot;Ecma International&quot;, &quot;Ecma International (previously called ECMA)&quot;);</span>
+<span class="nc" id="L65">        organizations.put(&quot;EKOenergy&quot;, &quot;EKOenergy Network managed by environmental NGOs&quot;);</span>
+<span class="nc" id="L66">        organizations.put(&quot;FAI&quot;, &quot;Fédération Aéronautique Internationale&quot;);</span>
+<span class="nc" id="L67">        organizations.put(&quot;GlobalPlatform&quot;, &quot;Secure element and TEE standards&quot;);</span>
+<span class="nc" id="L68">        organizations.put(&quot;GS1&quot;,</span>
+                &quot;Global supply chain standards (identification numbers, barcodes, electronic &quot; +
+                        &quot;commerce transactions, RFID)&quot;);
+<span class="nc" id="L71">        organizations.put(&quot;HGI&quot;, &quot;Home Gateway Initiative&quot;);</span>
+<span class="nc" id="L72">        organizations.put(&quot;HFSB&quot;, &quot;Hedge Fund Standards Board&quot;);</span>
+<span class="nc" id="L73">        organizations.put(&quot;IATA&quot;, &quot;International Air Transport Association&quot;);</span>
+<span class="nc" id="L74">        organizations.put(&quot;IAU*&quot;, &quot;International Arabic Union&quot;);</span>
+<span class="nc" id="L75">        organizations.put(&quot;ICAO&quot;, &quot;International Civil Aviation Organization&quot;);</span>
+<span class="nc" id="L76">        organizations.put(&quot;IEC&quot;, &quot;International Electrotechnical Commission&quot;);</span>
+<span class="nc" id="L77">        organizations.put(&quot;IEEE&quot;, &quot;Institute of Electrical and Electronics Engineers&quot;);</span>
+<span class="nc" id="L78">        organizations.put(&quot;IEEE-SA&quot;, &quot;IEEE Standards Association&quot;);</span>
+<span class="nc" id="L79">        organizations.put(&quot;IETF&quot;, &quot;Internet Engineering Task Force&quot;);</span>
+<span class="nc" id="L80">        organizations.put(&quot;IFOAM&quot;, &quot;International Federation of Organic Agriculture Movements&quot;);</span>
+<span class="nc" id="L81">        organizations.put(&quot;IFSWF&quot;, &quot;International Forum of Sovereign Wealth Funds&quot;);</span>
+<span class="nc" id="L82">        organizations.put(&quot;IMO&quot;, &quot;International Maritime Organization&quot;);</span>
+<span class="nc" id="L83">        organizations.put(&quot;IMS&quot;, &quot;IMS Global Learning Consortium&quot;);</span>
+<span class="nc" id="L84">        organizations.put(&quot;ISO&quot;, &quot;International Organization for Standardization&quot;);</span>
+<span class="nc" id="L85">        organizations.put(&quot;IPTC&quot;, &quot;International Press Telecommunications Council&quot;);</span>
+<span class="nc" id="L86">        organizations.put(&quot;ITU&quot;, &quot;The International Telecommunication Union&quot;);</span>
+<span class="nc" id="L87">        organizations.put(&quot;ITU-R&quot;, &quot;ITU Radiocommunications Sector (formerly known as CCIR)&quot;);</span>
+<span class="nc" id="L88">        organizations.put(&quot;CCIR&quot;,</span>
+                &quot;Comité Consultatif International pour la Radio, a forerunner of the ITU-R&quot;);
+<span class="nc" id="L90">        organizations.put(&quot;ITU-T&quot;, &quot;ITU Telecommunications Sector (formerly known as CCITT)&quot;);</span>
+<span class="nc" id="L91">        organizations.put(&quot;CCITT&quot;,</span>
+                &quot;Comité Consultatif International Téléphonique et Télégraphique, renamed ITU-T in&quot; +
+                        &quot; 1993&quot;);
+<span class="nc" id="L94">        organizations.put(&quot;ITU-D&quot;, &quot;ITU Telecom Development (formerly known as BDT)&quot;);</span>
+<span class="nc" id="L95">        organizations.put(&quot;BDT&quot;, &quot;Bureau de développement des télécommunications, renamed ITU-D&quot;);</span>
+<span class="nc" id="L96">        organizations.put(&quot;IUPAC&quot;, &quot;International Union of Pure and Applied Chemistry&quot;);</span>
+<span class="nc" id="L97">        organizations.put(&quot;Liberty Alliance&quot;, &quot;Liberty Alliance&quot;);</span>
+<span class="nc" id="L98">        organizations.put(&quot;Media Grid&quot;, &quot;Media Grid Standards Organization&quot;);</span>
+<span class="nc" id="L99">        organizations.put(&quot;NACE International&quot;,</span>
+                &quot;Formerly known as National Association of Corrosion Engineers&quot;);
+<span class="nc" id="L101">        organizations.put(&quot;OASIS&quot;,</span>
+                &quot;Organization for the Advancement of Structured Information Standards&quot;);
+<span class="nc" id="L103">        organizations.put(&quot;OGC&quot;, &quot;Open Geospatial Consortium&quot;);</span>
+<span class="nc" id="L104">        organizations.put(&quot;OHICC&quot;, &quot;Organization of Hotel Industry Classification &amp; Certification&quot;);</span>
+<span class="nc" id="L105">        organizations.put(&quot;OMA&quot;, &quot;Open Mobile Alliance&quot;);</span>
+<span class="nc" id="L106">        organizations.put(&quot;OMG&quot;, &quot;Object Management Group&quot;);</span>
+<span class="nc" id="L107">        organizations.put(&quot;OGF&quot;,</span>
+                &quot;Open Grid Forum (merger of Global Grid Forum (GGF) and Enterprise Grid Alliance &quot; +
+                        &quot;(EGA))&quot;);
+<span class="nc" id="L110">        organizations.put(&quot;GGF&quot;, &quot;Global Grid Forum&quot;);</span>
+<span class="nc" id="L111">        organizations.put(&quot;EGA&quot;, &quot;Enterprise Grid Alliance&quot;);</span>
+<span class="nc" id="L112">        organizations.put(&quot;OpenTravel Alliance&quot;, &quot;OpenTravel Alliance (previously known as OTA)&quot;);</span>
+<span class="nc" id="L113">        organizations.put(&quot;OTA&quot;, &quot;OpenTravel Alliance&quot;);</span>
+<span class="nc" id="L114">        organizations.put(&quot;OSGi&quot;, &quot;OSGi Alliance&quot;);</span>
+<span class="nc" id="L115">        organizations.put(&quot;PESC&quot;, &quot;P20 Education Standards Council[1]&quot;);</span>
+<span class="nc" id="L116">        organizations.put(&quot;SAI&quot;, &quot;Social Accountability International&quot;);</span>
+<span class="nc" id="L117">        organizations.put(&quot;SDA&quot;, &quot;Secure Digital Association&quot;);</span>
+<span class="nc" id="L118">        organizations.put(&quot;SNIA&quot;, &quot;Storage Networking Industry Association&quot;);</span>
+<span class="nc" id="L119">        organizations.put(&quot;SMPTE&quot;, &quot;Society of Motion Picture and Television Engineers&quot;);</span>
+<span class="nc" id="L120">        organizations.put(&quot;SSDA&quot;, &quot;Solid State Drive Alliance&quot;);</span>
+<span class="nc" id="L121">        organizations.put(&quot;The Open Group&quot;, &quot;The Open Group&quot;);</span>
+<span class="nc" id="L122">        organizations.put(&quot;TIA&quot;, &quot;Telecommunications Industry Association&quot;);</span>
+<span class="nc" id="L123">        organizations.put(&quot;TM Forum&quot;, &quot;Telemanagement Forum&quot;);</span>
+<span class="nc" id="L124">        organizations.put(&quot;UIC&quot;, &quot;International Union of Railways&quot;);</span>
+<span class="nc" id="L125">        organizations.put(&quot;UL&quot;, &quot;Underwriters Laboratories&quot;);</span>
+<span class="nc" id="L126">        organizations.put(&quot;UPU&quot;, &quot;Universal Postal Union&quot;);</span>
+<span class="nc" id="L127">        organizations.put(&quot;WMO&quot;, &quot;World Meteorological Organization&quot;);</span>
+<span class="nc" id="L128">        organizations.put(&quot;W3C&quot;, &quot;World Wide Web Consortium&quot;);</span>
+<span class="nc" id="L129">        organizations.put(&quot;WSA&quot;, &quot;Website Standards Association&quot;);</span>
+<span class="nc" id="L130">        organizations.put(&quot;WHO&quot;, &quot;World Health Organization&quot;);</span>
+<span class="nc" id="L131">        organizations.put(&quot;XSF&quot;, &quot;The XMPP Standards Foundation&quot;);</span>
+<span class="nc" id="L132">        organizations.put(&quot;FAO&quot;, &quot;Food and Agriculture Organization&quot;);</span>
+        //Regional standards organizations
+        //Africa
+<span class="nc" id="L135">        organizations.put(&quot;ARSO&quot;, &quot;African Regional Organization for Standarization&quot;);</span>
+<span class="nc" id="L136">        organizations.put(&quot;SADCSTAN&quot;,</span>
+                &quot;Southern African Development Community (SADC) Cooperation in Standarization&quot;);
+        //Americas
+<span class="nc" id="L139">        organizations.put(&quot;COPANT&quot;, &quot;Pan American Standards Commission&quot;);</span>
+<span class="nc" id="L140">        organizations.put(&quot;AMN&quot;, &quot;MERCOSUR Standardization Association&quot;);</span>
+<span class="nc" id="L141">        organizations.put(&quot;CROSQ&quot;, &quot;CARICOM Regional Organization for Standards and Quality&quot;);</span>
+<span class="nc" id="L142">        organizations.put(&quot;AAQG&quot;, &quot;America's Aerospace Quality Group&quot;);</span>
+        //Asia Pacific
+<span class="nc" id="L144">        organizations.put(&quot;PASC&quot;, &quot;Pacific Area Standards Congress&quot;);</span>
+<span class="nc" id="L145">        organizations.put(&quot;ACCSQ&quot;, &quot;ASEAN Consultative Committee for Standards and Quality&quot;);</span>
+        //Europe
+<span class="nc" id="L147">        organizations.put(&quot;RoyalCert&quot;, &quot;RoyalCert International Registrars&quot;);</span>
+<span class="nc" id="L148">        organizations.put(&quot;CEN&quot;, &quot;European Committee for Standardization&quot;);</span>
+<span class="nc" id="L149">        organizations.put(&quot;CENELEC&quot;, &quot;European Committee for Electrotechnical Standardization&quot;);</span>
+<span class="nc" id="L150">        organizations.put(&quot;URS&quot;, &quot;United Registrar of Systems, UK&quot;);</span>
+<span class="nc" id="L151">        organizations.put(&quot;ETSI&quot;, &quot;European Telecommunications Standards Institute&quot;);</span>
+<span class="nc" id="L152">        organizations</span>
+<span class="nc" id="L153">                .put(&quot;EASC&quot;, &quot;Euro-Asian Council for Standardization, Metrology and Certification&quot;);</span>
+<span class="nc" id="L154">        organizations</span>
+<span class="nc" id="L155">                .put(&quot;IRMM&quot;, &quot;Institute for Reference Materials and Measurements (European Union)&quot;);</span>
+        //Middle East
+<span class="nc" id="L157">        organizations.put(&quot;AIDMO&quot;, &quot;Arab Industrial Development and Mining Organization&quot;);</span>
+<span class="nc" id="L158">        organizations.put(&quot;IAU&quot;, &quot;International Arabic Union&quot;);</span>
+        //Nationally-based standards organizations
+        //United Kingdom
+<span class="nc" id="L161">        organizations.put(&quot;BSI&quot;, &quot;British Standards Institution aka BSI Group&quot;);</span>
+<span class="nc" id="L162">        organizations.put(&quot;DStan&quot;, &quot;UK Defence Standardization&quot;);</span>
+        //United States of America
+<span class="nc" id="L164">        organizations.put(&quot;ANSI&quot;, &quot;American National Standards Institute&quot;);</span>
+<span class="nc" id="L165">        organizations.put(&quot;ACI&quot;, &quot;American Concrete Institute&quot;);</span>
+<span class="nc" id="L166">        organizations.put(&quot;NIST&quot;, &quot;National Institute of Standards and Technology&quot;);</span>
+<span class="nc" id="L167">    }</span>
+
+    /**
+     * Returns the map containing the collection of the most important technical standard
+     * organizations.
+     *
+     * @return the map containing the collection of the most important technical standard
+     * organizations.
+     */
+    public static Map&lt;String, String&gt; getOrganizations() {
+<span class="nc" id="L177">        return organizations;</span>
+    }
+
+    /**
+     * Returns the regular expression containing the most important technical standard
+     * organizations.
+     *
+     * @return the regular expression containing the most important technical standard
+     * organizations.
+     */
+    public static String getOrganzationsRegex() {
+
+<span class="nc" id="L189">        return &quot;(&quot; + String.join(&quot;|&quot;, organizations.keySet()) + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

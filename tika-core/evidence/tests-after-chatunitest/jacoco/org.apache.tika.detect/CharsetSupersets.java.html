@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CharsetSupersets.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">CharsetSupersets.java</span></div><h1>CharsetSupersets.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.nio.charset.Charset;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Maps detected charsets to safer superset charsets for decoding.
+ *
+ * &lt;p&gt;When Tika detects a charset that is a strict subset of a broader encoding,
+ * it is safer to decode with the superset — the superset handles all byte
+ * sequences the subset can produce, plus the extension characters the subset
+ * cannot represent. Decoding with only the subset risks mojibake on any
+ * extension characters present in the document.&lt;/p&gt;
+ *
+ * &lt;p&gt;Policy: Content-Type and detected-encoding metadata report the &lt;em&gt;detected&lt;/em&gt;
+ * charset. Actual stream decoding uses the superset. The superset used is recorded
+ * in {@link org.apache.tika.metadata.TikaCoreProperties#DECODED_CHARSET}.&lt;/p&gt;
+ *
+ * &lt;h3&gt;Superset map&lt;/h3&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;EUC-KR → x-windows-949 (MS949 is a strict superset: all EUC-KR byte sequences
+ *       decode identically, extension chars in x-windows-949 would mojibake under EUC-KR)&lt;/li&gt;
+ *   &lt;li&gt;Big5 → Big5-HKSCS (HKSCS adds Hong Kong Supplementary Characters)&lt;/li&gt;
+ *   &lt;li&gt;GB2312 → GB18030 (GB18030 is a strict superset of both GB2312 and GBK)&lt;/li&gt;
+ *   &lt;li&gt;GBK → GB18030 (GB18030 is a strict superset; enables 4-byte extension sequences)&lt;/li&gt;
+ *   &lt;li&gt;Shift_JIS → windows-31j (MS932 is a strict superset with NEC/IBM extensions)&lt;/li&gt;
+ *   &lt;li&gt;EUC-JP → x-eucJP-Open (EUC packing of the NEC/IBM vendor extensions)&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public final class CharsetSupersets {
+
+    /**
+     * Maps detected charset canonical names (case-sensitive, as returned by
+     * {@link Charset#name()}) to their superset charset canonical name.
+     */
+    public static final Map&lt;String, String&gt; SUPERSET_MAP;
+
+    static {
+<span class="fc" id="L57">        Map&lt;String, String&gt; m = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L58">        m.put(&quot;EUC-KR&quot;,    &quot;x-windows-949&quot;);</span>
+<span class="fc" id="L59">        m.put(&quot;Big5&quot;,      &quot;Big5-HKSCS&quot;);</span>
+<span class="fc" id="L60">        m.put(&quot;GB2312&quot;,    &quot;GB18030&quot;);</span>
+<span class="fc" id="L61">        m.put(&quot;GBK&quot;,       &quot;GB18030&quot;);</span>
+<span class="fc" id="L62">        m.put(&quot;Shift_JIS&quot;, &quot;windows-31j&quot;);</span>
+<span class="fc" id="L63">        m.put(&quot;EUC-JP&quot;,    &quot;x-eucJP-Open&quot;);</span>
+<span class="fc" id="L64">        SUPERSET_MAP = Collections.unmodifiableMap(m);</span>
+<span class="fc" id="L65">    }</span>
+
+    private CharsetSupersets() {
+    }
+
+    /**
+     * Returns the superset charset to use for decoding, or {@code null} if
+     * {@code detected} has no superset override.
+     *
+     * @param detected the charset returned by the encoding detector
+     * @return superset charset, or {@code null} if none is defined
+     */
+    public static Charset supersetOf(Charset detected) {
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (detected == null) {</span>
+<span class="fc" id="L79">            return null;</span>
+        }
+<span class="fc" id="L81">        String supersetName = SUPERSET_MAP.get(detected.name());</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (supersetName == null) {</span>
+<span class="fc" id="L83">            return null;</span>
+        }
+        try {
+<span class="fc" id="L86">            return Charset.forName(supersetName);</span>
+<span class="nc" id="L87">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L88">            return null;</span>
+        }
+    }
+
+    /**
+     * The charset to decode with: {@link #supersetOf(Charset) superset} of
+     * {@code detected} if one exists, else {@code detected} (null only if
+     * {@code detected} is null). For bare-{@link Charset} callers; detection
+     * results can use {@link EncodingResult#getDecodeAs()}.
+     */
+    public static Charset decodeAs(Charset detected) {
+<span class="nc" id="L99">        Charset superset = supersetOf(detected);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        return superset != null ? superset : detected;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

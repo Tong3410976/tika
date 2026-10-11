@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ByteArraySource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.io</a> &gt; <span class="el_source">ByteArraySource.java</span></div><h1>ByteArraySource.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.io;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * Input source backed by a byte array.
+ * &lt;p&gt;
+ * Data is already in memory and natively seekable via array indexing.
+ * No caching is needed. A temp file is only created if {@link #getPath}
+ * is explicitly called.
+ * &lt;p&gt;
+ * Would prefer to extend UnsynchronizedByteArrayInputStream, but we need direct
+ * access to the internals.
+ */
+class ByteArraySource extends InputStream implements TikaInputSource {
+
+    private final byte[] data;
+    private final int length;
+    private final TemporaryResources tmp;
+    private int position;
+    private Path spilledPath;
+
+<span class="fc" id="L43">    ByteArraySource(byte[] data, TemporaryResources tmp) {</span>
+<span class="fc" id="L44">        this.data = data;</span>
+<span class="fc" id="L45">        this.length = data.length;</span>
+<span class="fc" id="L46">        this.tmp = tmp;</span>
+<span class="fc" id="L47">        this.position = 0;</span>
+<span class="fc" id="L48">        this.spilledPath = null;</span>
+<span class="fc" id="L49">    }</span>
+
+    @Override
+    public int read() {
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        if (position &gt;= length) {</span>
+<span class="fc" id="L54">            return -1;</span>
+        }
+<span class="fc" id="L56">        return data[position++] &amp; 0xFF;</span>
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (position &gt;= length) {</span>
+<span class="fc" id="L62">            return -1;</span>
+        }
+<span class="fc" id="L64">        int available = length - position;</span>
+<span class="fc" id="L65">        int toRead = Math.min(len, available);</span>
+<span class="fc" id="L66">        System.arraycopy(data, position, b, off, toRead);</span>
+<span class="fc" id="L67">        position += toRead;</span>
+<span class="fc" id="L68">        return toRead;</span>
+    }
+
+    @Override
+    public long skip(long n) {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (n &lt;= 0) {</span>
+<span class="nc" id="L74">            return 0;</span>
+        }
+<span class="nc" id="L76">        int available = length - position;</span>
+<span class="nc" id="L77">        int toSkip = (int) Math.min(n, available);</span>
+<span class="nc" id="L78">        position += toSkip;</span>
+<span class="nc" id="L79">        return toSkip;</span>
+    }
+
+    @Override
+    public int available() {
+<span class="fc" id="L84">        return length - position;</span>
+    }
+
+    @Override
+    public void seekTo(long newPosition) throws IOException {
+<span class="pc bpc" id="L89" title="2 of 4 branches missed.">        if (newPosition &lt; 0 || newPosition &gt; length) {</span>
+<span class="nc" id="L90">            throw new IOException(&quot;Invalid seek position: &quot; + newPosition +</span>
+                    &quot; (length: &quot; + length + &quot;)&quot;);
+        }
+<span class="fc" id="L93">        this.position = (int) newPosition;</span>
+<span class="fc" id="L94">    }</span>
+
+    @Override
+    public boolean hasPath() {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        return spilledPath != null;</span>
+    }
+
+    @Override
+    public Path getPath(String suffix) throws IOException {
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (spilledPath == null) {</span>
+            // Spill to temp file on first call
+<span class="fc" id="L105">            spilledPath = tmp.createTempFile(suffix);</span>
+<span class="fc" id="L106">            try (OutputStream out = Files.newOutputStream(spilledPath)) {</span>
+<span class="fc" id="L107">                out.write(data, 0, length);</span>
+            }
+        }
+<span class="fc" id="L110">        return spilledPath;</span>
+    }
+
+    @Override
+    public long getLength() {
+<span class="fc" id="L115">        return length;</span>
+    }
+
+    @Override
+    public void enableRewind() {
+        // No-op: byte array is always rewindable
+<span class="fc" id="L121">    }</span>
+
+    // Mark/reset support using position tracking
+<span class="fc" id="L124">    private int markPosition = -1;</span>
+
+    @Override
+    public synchronized void mark(int readlimit) {
+<span class="fc" id="L128">        markPosition = position;</span>
+<span class="fc" id="L129">    }</span>
+
+    @Override
+    public synchronized void reset() throws IOException {
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">        if (markPosition &lt; 0) {</span>
+<span class="nc" id="L134">            throw new IOException(&quot;Mark not set&quot;);</span>
+        }
+<span class="fc" id="L136">        position = markPosition;</span>
+<span class="fc" id="L137">    }</span>
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L141">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

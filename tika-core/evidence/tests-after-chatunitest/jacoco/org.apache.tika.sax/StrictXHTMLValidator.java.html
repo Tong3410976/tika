@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StrictXHTMLValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">StrictXHTMLValidator.java</span></div><h1>StrictXHTMLValidator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+/**
+ * A SAX content handler decorator that enforces XHTML well-formedness on the
+ * incoming event stream. Any parser that emits an event sequence that would
+ * produce malformed XHTML triggers a {@link SAXException} synchronously — the
+ * stack trace points at the parser code that made the offending call, instead
+ * of surfacing later as a parse error on the serialized output.
+ * &lt;p&gt;
+ * Invariants enforced:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code startDocument} is called at most once.&lt;/li&gt;
+ *   &lt;li&gt;No SAX events arrive after {@code endDocument}.&lt;/li&gt;
+ *   &lt;li&gt;Every {@code endElement} matches the topmost open {@code startElement}
+ *       (no cross-nesting like {@code &amp;lt;a&amp;gt;&amp;lt;b&amp;gt;&amp;lt;/a&amp;gt;&amp;lt;/b&amp;gt;}).&lt;/li&gt;
+ *   &lt;li&gt;The element stack is empty when {@code endDocument} fires (no unclosed
+ *       elements left dangling by an exception path).&lt;/li&gt;
+ *   &lt;li&gt;Within a single {@code startElement}, no two attributes share the same
+ *       (namespaceURI, localName) pair (the bug class that produces
+ *       {@code &amp;lt;div class=&quot;x&quot; class=&quot;y&quot;&amp;gt;}).&lt;/li&gt;
+ * &lt;/ul&gt;
+ * Use as a decorator wrapping the real handler. It passes every event through
+ * to the downstream handler after validation, so any normal text/XHTML capture
+ * still works.
+ */
+public class StrictXHTMLValidator extends ContentHandlerDecorator {
+
+<span class="fc" id="L53">    private final Deque&lt;QName&gt; openElements = new ArrayDeque&lt;&gt;();</span>
+    private boolean documentStarted;
+    private boolean documentEnded;
+
+    public StrictXHTMLValidator(ContentHandler handler) {
+<span class="fc" id="L58">        super(handler);</span>
+<span class="fc" id="L59">    }</span>
+
+    @Override
+    public void startDocument() throws SAXException {
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        if (documentStarted) {</span>
+<span class="nc" id="L64">            throw new SAXException(&quot;StrictXHTMLValidator: startDocument called twice&quot;);</span>
+        }
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (documentEnded) {</span>
+<span class="nc" id="L67">            throw new SAXException(</span>
+                    &quot;StrictXHTMLValidator: startDocument after endDocument&quot;);
+        }
+<span class="fc" id="L70">        documentStarted = true;</span>
+<span class="fc" id="L71">        super.startDocument();</span>
+<span class="fc" id="L72">    }</span>
+
+    @Override
+    public void endDocument() throws SAXException {
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (documentEnded) {</span>
+<span class="nc" id="L77">            throw new SAXException(&quot;StrictXHTMLValidator: endDocument called twice&quot;);</span>
+        }
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        if (!openElements.isEmpty()) {</span>
+<span class="nc" id="L80">            throw new SAXException(</span>
+<span class="nc" id="L81">                    &quot;StrictXHTMLValidator: endDocument with &quot; + openElements.size()</span>
+                            + &quot; unclosed element(s); topmost was &lt;&quot;
+<span class="nc" id="L83">                            + openElements.peek().qOrLocal() + &quot;&gt;&quot;);</span>
+        }
+<span class="fc" id="L85">        documentEnded = true;</span>
+<span class="fc" id="L86">        super.endDocument();</span>
+<span class="fc" id="L87">    }</span>
+
+    @Override
+    public void startElement(String uri, String localName, String qName, Attributes attrs)
+            throws SAXException {
+<span class="fc" id="L92">        ensureNotEnded(&quot;startElement &lt;&quot; + display(qName, localName) + &quot;&gt;&quot;);</span>
+<span class="fc" id="L93">        checkAttributesUnique(qName, localName, attrs);</span>
+<span class="fc" id="L94">        openElements.push(new QName(uri, localName, qName));</span>
+<span class="fc" id="L95">        super.startElement(uri, localName, qName, attrs);</span>
+<span class="fc" id="L96">    }</span>
+
+    @Override
+    public void endElement(String uri, String localName, String qName) throws SAXException {
+<span class="fc" id="L100">        ensureNotEnded(&quot;endElement &lt;/&quot; + display(qName, localName) + &quot;&gt;&quot;);</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (openElements.isEmpty()) {</span>
+<span class="fc" id="L102">            throw new SAXException(</span>
+<span class="fc" id="L103">                    &quot;StrictXHTMLValidator: endElement &lt;/&quot; + display(qName, localName)</span>
+                            + &quot;&gt; with no matching startElement&quot;);
+        }
+<span class="fc" id="L106">        QName top = openElements.pop();</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">        if (!top.matches(uri, localName, qName)) {</span>
+<span class="nc" id="L108">            throw new SAXException(</span>
+<span class="nc" id="L109">                    &quot;StrictXHTMLValidator: endElement &lt;/&quot; + display(qName, localName)</span>
+                            + &quot;&gt; does not match topmost open element &lt;&quot;
+<span class="nc" id="L111">                            + top.qOrLocal() + &quot;&gt;&quot;);</span>
+        }
+<span class="fc" id="L113">        super.endElement(uri, localName, qName);</span>
+<span class="fc" id="L114">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+<span class="fc" id="L118">        ensureNotEnded(&quot;characters&quot;);</span>
+<span class="fc" id="L119">        super.characters(ch, start, length);</span>
+<span class="fc" id="L120">    }</span>
+
+    @Override
+    public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {
+<span class="fc" id="L124">        ensureNotEnded(&quot;ignorableWhitespace&quot;);</span>
+<span class="fc" id="L125">        super.ignorableWhitespace(ch, start, length);</span>
+<span class="fc" id="L126">    }</span>
+
+    @Override
+    public void processingInstruction(String target, String data) throws SAXException {
+<span class="nc" id="L130">        ensureNotEnded(&quot;processingInstruction&quot;);</span>
+<span class="nc" id="L131">        super.processingInstruction(target, data);</span>
+<span class="nc" id="L132">    }</span>
+
+    @Override
+    public void startPrefixMapping(String prefix, String uri) throws SAXException {
+<span class="fc" id="L136">        ensureNotEnded(&quot;startPrefixMapping&quot;);</span>
+<span class="fc" id="L137">        super.startPrefixMapping(prefix, uri);</span>
+<span class="fc" id="L138">    }</span>
+
+    @Override
+    public void endPrefixMapping(String prefix) throws SAXException {
+<span class="fc" id="L142">        ensureNotEnded(&quot;endPrefixMapping&quot;);</span>
+<span class="fc" id="L143">        super.endPrefixMapping(prefix);</span>
+<span class="fc" id="L144">    }</span>
+
+    @Override
+    public void skippedEntity(String name) throws SAXException {
+<span class="nc" id="L148">        ensureNotEnded(&quot;skippedEntity&quot;);</span>
+<span class="nc" id="L149">        super.skippedEntity(name);</span>
+<span class="nc" id="L150">    }</span>
+
+    private void ensureNotEnded(String event) throws SAXException {
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (documentEnded) {</span>
+<span class="nc" id="L154">            throw new SAXException(</span>
+                    &quot;StrictXHTMLValidator: &quot; + event + &quot; arrived after endDocument&quot;);
+        }
+<span class="fc" id="L157">    }</span>
+
+    private void checkAttributesUnique(String elementQName, String elementLocalName,
+                                       Attributes attrs) throws SAXException {
+<span class="fc" id="L161">        int n = attrs.getLength();</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">        if (n &lt; 2) {</span>
+<span class="fc" id="L163">            return;</span>
+        }
+        // (uri, localName) pairs must be unique per the XML namespaces spec.
+        // We also check raw qnames because Tika's serializers emit by qname and
+        // duplicate qnames produce malformed XHTML even when localnames differ.
+<span class="fc" id="L168">        Set&lt;String&gt; seenUriLocal = new HashSet&lt;&gt;(n);</span>
+<span class="fc" id="L169">        Set&lt;String&gt; seenQNames = new HashSet&lt;&gt;(n);</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L171">            String uri = nullSafe(attrs.getURI(i));</span>
+<span class="fc" id="L172">            String local = nullSafe(attrs.getLocalName(i));</span>
+<span class="fc" id="L173">            String qn = nullSafe(attrs.getQName(i));</span>
+            // U+0001 cannot appear in a valid XML uri/localName, so it joins the
+            // two unambiguously without risk of a key collision.
+<span class="fc" id="L176">            String key = uri + &quot;\u0001&quot; + local;</span>
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">            if (!seenUriLocal.add(key)) {</span>
+<span class="nc" id="L178">                throw new SAXException(</span>
+                        &quot;StrictXHTMLValidator: duplicate attribute on &lt;&quot;
+<span class="nc" id="L180">                                + display(elementQName, elementLocalName) + &quot;&gt;: &quot;</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">                                + (uri.isEmpty() ? local : (&quot;{&quot; + uri + &quot;}&quot; + local)));</span>
+            }
+<span class="pc bpc" id="L183" title="2 of 4 branches missed.">            if (!qn.isEmpty() &amp;&amp; !seenQNames.add(qn)) {</span>
+<span class="nc" id="L184">                throw new SAXException(</span>
+                        &quot;StrictXHTMLValidator: duplicate attribute qname on &lt;&quot;
+<span class="nc" id="L186">                                + display(elementQName, elementLocalName) + &quot;&gt;: &quot; + qn);</span>
+            }
+        }
+<span class="fc" id="L189">    }</span>
+
+    private static String nullSafe(String s) {
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        return s == null ? &quot;&quot; : s;</span>
+    }
+
+    private static String display(String qName, String localName) {
+<span class="pc bpc" id="L196" title="2 of 4 branches missed.">        if (qName != null &amp;&amp; !qName.isEmpty()) {</span>
+<span class="fc" id="L197">            return qName;</span>
+        }
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        return localName == null ? &quot;&quot; : localName;</span>
+    }
+
+    private static final class QName {
+        final String uri;
+        final String localName;
+        final String qName;
+
+<span class="fc" id="L207">        QName(String uri, String localName, String qName) {</span>
+<span class="fc" id="L208">            this.uri = nullSafe(uri);</span>
+<span class="fc" id="L209">            this.localName = nullSafe(localName);</span>
+<span class="fc" id="L210">            this.qName = nullSafe(qName);</span>
+<span class="fc" id="L211">        }</span>
+
+        boolean matches(String u, String l, String q) {
+            // SAX parsers can vary in which fields they populate. Accept a
+            // match on either (uri, localName) or qName, whichever is present.
+<span class="fc" id="L216">            String otherU = nullSafe(u);</span>
+<span class="fc" id="L217">            String otherL = nullSafe(l);</span>
+<span class="fc" id="L218">            String otherQ = nullSafe(q);</span>
+<span class="pc bpc" id="L219" title="2 of 4 branches missed.">            boolean uriLocalMatch = uri.equals(otherU) &amp;&amp; localName.equals(otherL)</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">                    &amp;&amp; !localName.isEmpty();</span>
+<span class="pc bpc" id="L221" title="2 of 4 branches missed.">            boolean qNameMatch = !qName.isEmpty() &amp;&amp; qName.equals(otherQ);</span>
+<span class="pc bpc" id="L222" title="3 of 4 branches missed.">            return uriLocalMatch || qNameMatch;</span>
+        }
+
+        String qOrLocal() {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">            return qName.isEmpty() ? localName : qName;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

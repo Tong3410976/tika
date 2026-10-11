@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.parser</a> &gt; <span class="el_source">DefaultParser.java</span></div><h1>DefaultParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.parser;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.config.ServiceLoader;
+import org.apache.tika.detect.DefaultEncodingDetector;
+import org.apache.tika.detect.EncodingDetector;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.renderer.CompositeRenderer;
+import org.apache.tika.renderer.Renderer;
+import org.apache.tika.utils.ServiceLoaderUtils;
+
+/**
+ * A composite parser based on all the {@link Parser} implementations
+ * available through the
+ * {@link javax.imageio.spi.ServiceRegistry service provider mechanism}.
+ *
+ * @since Apache Tika 0.8
+ */
+@TikaComponent(spi = false)
+public class DefaultParser extends CompositeParser {
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = 3612324825403757520L;
+    private transient final ServiceLoader loader;
+    private final Collection&lt;Class&lt;? extends Parser&gt;&gt; excludedClasses;
+
+    public DefaultParser(MediaTypeRegistry registry, ServiceLoader loader,
+                         Collection&lt;Class&lt;? extends Parser&gt;&gt; excludeParsers,
+                         EncodingDetector encodingDetector, Renderer renderer) {
+<span class="fc" id="L55">        super(registry, getDefaultParsers(loader, encodingDetector, renderer, excludeParsers));</span>
+<span class="fc" id="L56">        this.loader = loader;</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        this.excludedClasses = excludeParsers != null ?</span>
+<span class="fc" id="L58">                Collections.unmodifiableCollection(new ArrayList&lt;&gt;(excludeParsers)) :</span>
+<span class="pc" id="L59">                Collections.emptySet();</span>
+<span class="fc" id="L60">    }</span>
+
+    public DefaultParser(MediaTypeRegistry registry, ServiceLoader loader,
+                         Collection&lt;Class&lt;? extends Parser&gt;&gt; excludeParsers) {
+<span class="nc" id="L64">        super(registry,</span>
+<span class="nc" id="L65">                getDefaultParsers(loader, new DefaultEncodingDetector(loader),</span>
+                        new CompositeRenderer(loader), excludeParsers));
+<span class="nc" id="L67">        this.loader = loader;</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        this.excludedClasses = excludeParsers != null ?</span>
+<span class="nc" id="L69">                Collections.unmodifiableCollection(new ArrayList&lt;&gt;(excludeParsers)) :</span>
+<span class="nc" id="L70">                Collections.emptySet();</span>
+<span class="nc" id="L71">    }</span>
+
+    public DefaultParser(MediaTypeRegistry registry, ServiceLoader loader,
+                         EncodingDetector encodingDetector, Renderer renderer) {
+<span class="nc" id="L75">        this(registry, loader, Collections.EMPTY_SET, encodingDetector, renderer);</span>
+<span class="nc" id="L76">    }</span>
+
+    public DefaultParser(MediaTypeRegistry registry, ServiceLoader loader) {
+<span class="fc" id="L79">        this(registry, loader, Collections.EMPTY_SET, new DefaultEncodingDetector(loader),</span>
+                new CompositeRenderer(loader));
+<span class="fc" id="L81">    }</span>
+
+    public DefaultParser(MediaTypeRegistry registry, ClassLoader loader) {
+<span class="nc" id="L84">        this(registry, new ServiceLoader(loader));</span>
+<span class="nc" id="L85">    }</span>
+
+    public DefaultParser(ClassLoader loader) {
+<span class="nc" id="L88">        this(MediaTypeRegistry.getDefaultRegistry(), new ServiceLoader(loader));</span>
+<span class="nc" id="L89">    }</span>
+
+    public DefaultParser(MediaTypeRegistry registry) {
+<span class="fc" id="L92">        this(registry, new ServiceLoader());</span>
+<span class="fc" id="L93">    }</span>
+
+    public DefaultParser() {
+<span class="fc" id="L96">        this(MediaTypeRegistry.getDefaultRegistry());</span>
+<span class="fc" id="L97">    }</span>
+
+    /**
+     * Finds all statically loadable parsers and sort the list by name,
+     * rather than discovery order. CompositeParser takes the last
+     * parser for any given media type, so put the Tika parsers first
+     * so that non-Tika (user supplied) parsers can take precedence.
+     *
+     * @param loader service loader
+     * @return ordered list of statically loadable parsers
+     */
+    private static List&lt;Parser&gt; getDefaultParsers(ServiceLoader loader,
+                                                  EncodingDetector encodingDetector,
+                                                  Renderer renderer,
+                                                  Collection&lt;Class&lt;? extends Parser&gt;&gt;
+                                                          excludeParsers) {
+<span class="fc" id="L113">        List&lt;Parser&gt; parsers =</span>
+<span class="fc" id="L114">                loader.loadStaticServiceProviders(Parser.class, excludeParsers);</span>
+
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">        if (encodingDetector != null) {</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">            for (Parser p : parsers) {</span>
+<span class="fc" id="L118">                setEncodingDetector(p, encodingDetector);</span>
+<span class="fc" id="L119">            }</span>
+        }
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (renderer != null) {</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            for (Parser p : parsers) {</span>
+<span class="fc" id="L123">                setRenderer(p, renderer);</span>
+<span class="fc" id="L124">            }</span>
+        }
+<span class="fc" id="L126">        ServiceLoaderUtils.sortLoadedClasses(parsers);</span>
+        //reverse the order of parsers so that custom ones come last
+        //this will prevent them from being overwritten in getParsers(ParseContext ..)
+<span class="fc" id="L129">        Collections.reverse(parsers);</span>
+<span class="fc" id="L130">        return parsers;</span>
+    }
+
+    //recursively go through the parsers and set the encoding detector
+    //as configured in the config file
+    private static void setEncodingDetector(Parser p, EncodingDetector encodingDetector) {
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if (p instanceof AbstractEncodingDetectorParser) {</span>
+<span class="nc" id="L137">            ((AbstractEncodingDetectorParser) p).setEncodingDetector(encodingDetector);</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        } else if (p instanceof CompositeParser) {</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">            for (Parser child : ((CompositeParser) p).getAllComponentParsers()) {</span>
+<span class="nc" id="L140">                setEncodingDetector(child, encodingDetector);</span>
+<span class="nc" id="L141">            }</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        } else if (p instanceof ParserDecorator) {</span>
+<span class="nc" id="L143">            setEncodingDetector(((ParserDecorator) p).getWrappedParser(), encodingDetector);</span>
+        }
+<span class="fc" id="L145">    }</span>
+
+    private static void setRenderer(Parser p, Renderer renderer) {
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">        if (p instanceof RenderingParser) {</span>
+<span class="nc" id="L149">            ((RenderingParser) p).setRenderer(renderer);</span>
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        } else if (p instanceof CompositeParser) {</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            for (Parser child : ((CompositeParser) p).getAllComponentParsers()) {</span>
+<span class="nc" id="L152">                setRenderer(child, renderer);</span>
+<span class="nc" id="L153">            }</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">        } else if (p instanceof ParserDecorator) {</span>
+<span class="nc" id="L155">            setRenderer(((ParserDecorator) p).getWrappedParser(), renderer);</span>
+        }
+<span class="fc" id="L157">    }</span>
+
+    @Override
+    public Map&lt;MediaType, Parser&gt; getParsers(ParseContext context) {
+<span class="fc" id="L161">        Map&lt;MediaType, Parser&gt; map = super.getParsers(context);</span>
+
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        if (loader != null) {</span>
+            // Add dynamic parser service (they always override static ones)
+<span class="fc" id="L165">            MediaTypeRegistry registry = getMediaTypeRegistry();</span>
+<span class="fc" id="L166">            List&lt;Parser&gt; parsers = loader.loadDynamicServiceProviders(Parser.class);</span>
+<span class="fc" id="L167">            Collections.reverse(parsers); // best parser last</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">            for (Parser parser : parsers) {</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">                for (MediaType type : parser.getSupportedTypes(context)) {</span>
+<span class="nc" id="L170">                    map.put(registry.normalize(type), parser);</span>
+<span class="nc" id="L171">                }</span>
+<span class="nc" id="L172">            }</span>
+        }
+
+<span class="fc" id="L175">        return map;</span>
+    }
+
+    @Override
+    public List&lt;Parser&gt; getAllComponentParsers() {
+<span class="nc" id="L180">        List&lt;Parser&gt; parsers = super.getAllComponentParsers();</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        if (loader != null) {</span>
+<span class="nc" id="L182">            parsers = new ArrayList&lt;&gt;(parsers);</span>
+<span class="nc" id="L183">            parsers.addAll(loader.loadDynamicServiceProviders(Parser.class));</span>
+        }
+<span class="nc" id="L185">        return parsers;</span>
+    }
+
+    /**
+     * Returns the classes that were explicitly excluded when constructing this parser.
+     * Used for round-trip serialization to preserve exclusion configuration.
+     *
+     * @return unmodifiable collection of excluded parser classes, never null
+     */
+    public Collection&lt;Class&lt;? extends Parser&gt;&gt; getExcludedClasses() {
+<span class="nc" id="L195">        return excludedClasses;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

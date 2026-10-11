@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Office.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">Office.java</span></div><h1>Office.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * Office Document properties collection. These properties apply to
+ * Office / Productivity Documents of all forms, including (but not limited
+ * to) MS Office and OpenDocument formats.
+ * This is a logical collection of properties, which may be drawn from a
+ * few different external definitions.
+ *
+ * @since Apache Tika 1.2
+ */
+public interface Office {
+    // These are taken from the OpenDocumentFormat specification
+    String NAMESPACE_URI_DOC_META = &quot;urn:oasis:names:tc:opendocument:xmlns:meta:1.0&quot;;
+    String PREFIX_DOC_META = &quot;meta&quot;;
+
+    /**
+     * For user defined metadata entries in the document,
+     * what prefix should be attached to the key names.
+     * eg &lt;meta:user-defined meta:name=&quot;Info1&quot;&gt;Text1&lt;/meta:user-defined&gt; becomes custom:Info1=Text1
+     */
+    String USER_DEFINED_METADATA_NAME_PREFIX = &quot;custom:&quot;;
+
+<span class="fc" id="L40">    PassthroughPrefix USER_DEFINED = PassthroughPrefix.file(USER_DEFINED_METADATA_NAME_PREFIX,</span>
+            &quot;OOXML/OLE2/ODF user-defined document properties&quot;);
+
+
+    /**
+     * Keywords pertaining to a document. Also populates {@link DublinCore#SUBJECT}.
+     */
+<span class="fc" id="L47">    Property KEYWORDS = Property.composite(Property.internalTextBag(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;keyword&quot;),
+            new Property[]{DublinCore.SUBJECT,});
+
+    /**
+     * Name of the initial creator/author of a document
+     */
+<span class="fc" id="L54">    Property INITIAL_AUTHOR = Property.internalText(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;initial-author&quot;);
+
+    /**
+     * Name of the last (most recent) author of a document
+     */
+<span class="fc" id="L60">    Property LAST_AUTHOR = Property.internalText(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;last-author&quot;);
+
+    /**
+     * Name of the principal author(s) of a document
+     */
+<span class="fc" id="L66">    Property AUTHOR = Property.internalTextBag(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;author&quot;);
+
+
+    /**
+     * When was the document created?
+     */
+<span class="fc" id="L73">    Property CREATION_DATE = Property.internalDate(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;creation-date&quot;);
+
+    /**
+     * When was the document last saved?
+     */
+<span class="fc" id="L79">    Property SAVE_DATE = Property.internalDate(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;save-date&quot;);
+
+    /**
+     * When was the document last printed?
+     */
+<span class="fc" id="L85">    Property PRINT_DATE = Property.internalDate(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;print-date&quot;);
+
+
+    /**
+     * The number of Slides are there in the (presentation) document
+     */
+<span class="fc" id="L92">    Property SLIDE_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;slide-count&quot;);
+
+    /**
+     * The number of Pages are there in the (paged) document
+     */
+<span class="fc" id="L98">    Property PAGE_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;page-count&quot;);
+
+    /**
+     * The number of individual Paragraphs in the document
+     */
+<span class="fc" id="L104">    Property PARAGRAPH_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;paragraph-count&quot;);
+
+    /**
+     * The number of lines in the document
+     */
+<span class="fc" id="L110">    Property LINE_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;line-count&quot;);
+
+    /**
+     * The number of Words in the document
+     */
+<span class="fc" id="L116">    Property WORD_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;word-count&quot;);
+
+    /**
+     * The number of Characters in the document
+     */
+<span class="fc" id="L122">    Property CHARACTER_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;character-count&quot;);
+
+    /**
+     * The number of Characters in the document, including spaces
+     */
+<span class="fc" id="L128">    Property CHARACTER_COUNT_WITH_SPACES = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER +
+                    &quot;character-count-with-spaces&quot;);
+
+    /**
+     * The number of Tables in the document
+     */
+<span class="fc" id="L135">    Property TABLE_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;table-count&quot;);
+
+    /**
+     * The number of Images in the document
+     */
+<span class="fc" id="L141">    Property IMAGE_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;image-count&quot;);
+
+    /**
+     * The number of Objects in the document. These are typically non-Image resources
+     * embedded in the document, such as other documents or non-Image media.
+     */
+<span class="fc" id="L148">    Property OBJECT_COUNT = Property.internalInteger(</span>
+            PREFIX_DOC_META + TikaCoreProperties.NAMESPACE_PREFIX_DELIMITER + &quot;object-count&quot;);
+
+    /**
+     * Embedded files may have a &quot;progID&quot; associated with them, such as
+     * Word.Document.12 or AcroExch.Document.DC
+     */
+<span class="fc" id="L155">    Property PROG_ID = Property.internalText(&quot;msoffice:prog-id&quot;);</span>
+
+<span class="fc" id="L157">    Property OCX_NAME = Property.internalText(&quot;msoffice:ocx-name&quot;);</span>
+
+<span class="fc" id="L159">    Property EMBEDDED_STORAGE_CLASS_ID = Property.internalText(&quot;msoffice:embedded-storage-class-id&quot;);</span>
+
+<span class="fc" id="L161">    Property HAS_HIDDEN_SHEETS = Property.internalBoolean(&quot;msoffice:excel:has-hidden-sheets&quot;);</span>
+
+<span class="fc" id="L163">    Property HAS_HIDDEN_COLUMNS = Property.internalBoolean(&quot;msoffice:excel:has-hidden-cols&quot;);</span>
+
+<span class="fc" id="L165">    Property HAS_HIDDEN_ROWS = Property.internalBoolean(&quot;msoffice:excel:has-hidden-rows&quot;);</span>
+
+<span class="fc" id="L167">    Property HAS_VERY_HIDDEN_SHEETS = Property.internalBoolean(&quot;msoffice:excel:has-very-hidden-sheets&quot;);</span>
+
+<span class="fc" id="L169">    Property HIDDEN_SHEET_NAMES = Property.internalTextBag(&quot;msoffice:excel:hidden-sheet-names&quot;);</span>
+
+<span class="fc" id="L171">    Property VERY_HIDDEN_SHEET_NAMES = Property.internalTextBag(&quot;msoffice:excel:very-hidden-sheet-names&quot;);</span>
+
+<span class="fc" id="L173">    Property PROTECTED_WORKSHEET = Property.internalBoolean(&quot;msoffice:excel:protected-worksheet&quot;);</span>
+
+<span class="fc" id="L175">    Property WORKBOOK_CODENAME = Property.internalText(&quot;msoffice:excel:workbook-codename&quot;);</span>
+
+<span class="fc" id="L177">    Property HAS_DATA_CONNECTIONS = Property.internalBoolean(&quot;msoffice:excel:has-data-connections&quot;);</span>
+
+<span class="fc" id="L179">    Property HAS_EXTERNAL_LINKS = Property.internalBoolean(&quot;msoffice:excel:has-external-links&quot;);</span>
+
+<span class="fc" id="L181">    Property HAS_WEB_QUERIES = Property.internalBoolean(&quot;msoffice:excel:has-web-queries&quot;);</span>
+
+<span class="fc" id="L183">    Property HAS_EXTERNAL_OLE_OBJECTS = Property.internalBoolean(&quot;msoffice:has-external-ole-objects&quot;);</span>
+
+<span class="fc" id="L185">    Property HAS_FIELD_HYPERLINKS = Property.internalBoolean(&quot;msoffice:has-field-hyperlinks&quot;);</span>
+
+<span class="fc" id="L187">    Property HAS_HOVER_HYPERLINKS = Property.internalBoolean(&quot;msoffice:has-hover-hyperlinks&quot;);</span>
+
+<span class="fc" id="L189">    Property HAS_VML_HYPERLINKS = Property.internalBoolean(&quot;msoffice:has-vml-hyperlinks&quot;);</span>
+
+<span class="fc" id="L191">    Property HAS_COMMENTS = Property.internalBoolean(&quot;msoffice:has-comments&quot;);</span>
+
+<span class="fc" id="L193">    Property COMMENT_PERSONS = Property.internalTextBag(&quot;msoffice:comment-person-display-name&quot;);</span>
+
+<span class="fc" id="L195">    Property HAS_HIDDEN_SLIDES = Property.internalBoolean(&quot;msoffice:ppt:has-hidden-slides&quot;);</span>
+
+<span class="fc" id="L197">    Property NUM_HIDDEN_SLIDES = Property.internalInteger(&quot;msoffice:ppt:num-hidden-slides&quot;);</span>
+
+<span class="fc" id="L199">    Property HAS_ANIMATIONS = Property.internalBoolean(&quot;msoffice:ppt:has-animations&quot;);</span>
+
+<span class="fc" id="L201">    Property NUM_UNLISTED_SLIDES = Property.internalInteger(&quot;msoffice:ppt:num-unlisted-slides&quot;);</span>
+
+<span class="fc" id="L203">    Property UNLISTED_SLIDE_NAMES = Property.internalTextBag(&quot;msoffice:ppt:unlisted-slide-names&quot;);</span>
+
+    //w:vanish or isVanish or isFldVanish
+<span class="fc" id="L206">    Property HAS_HIDDEN_TEXT = Property.internalBoolean(&quot;msoffice:doc:has-hidden-text&quot;);</span>
+
+<span class="fc" id="L208">    Property HAS_TRACK_CHANGES = Property.internalBoolean(&quot;msoffice:has-track-changes&quot;);</span>
+
+    // Security-relevant: DDE (Dynamic Data Exchange) links can execute commands
+<span class="fc" id="L211">    Property HAS_DDE_LINKS = Property.internalBoolean(&quot;msoffice:excel:has-dde-links&quot;);</span>
+
+    // Security-relevant: Mail merge can reference external data sources
+<span class="fc" id="L214">    Property HAS_MAIL_MERGE = Property.internalBoolean(&quot;msoffice:doc:has-mail-merge&quot;);</span>
+
+    // Security-relevant: Attached templates can be fetched from external URLs
+<span class="fc" id="L217">    Property HAS_ATTACHED_TEMPLATE = Property.internalBoolean(&quot;msoffice:doc:has-attached-template&quot;);</span>
+
+    // Security-relevant: SubDocuments reference external documents in master docs
+<span class="fc" id="L220">    Property HAS_SUBDOCUMENTS = Property.internalBoolean(&quot;msoffice:doc:has-subdocuments&quot;);</span>
+
+    // Security-relevant: Pivot tables can reference external OLAP/database sources
+<span class="fc" id="L223">    Property HAS_EXTERNAL_PIVOT_DATA = Property.internalBoolean(&quot;msoffice:excel:has-external-pivot-data&quot;);</span>
+
+    // Security-relevant: Power Query can contain URLs and connection strings
+<span class="fc" id="L226">    Property HAS_POWER_QUERY = Property.internalBoolean(&quot;msoffice:excel:has-power-query&quot;);</span>
+
+    // Security-relevant: OLE objects can link to external files (vs embedded)
+<span class="fc" id="L229">    Property HAS_LINKED_OLE_OBJECTS = Property.internalBoolean(&quot;msoffice:has-linked-ole-objects&quot;);</span>
+
+    // Security-relevant: Charts can reference external workbook data
+<span class="fc" id="L232">    Property HAS_EXTERNAL_CHART_DATA = Property.internalBoolean(&quot;msoffice:has-external-chart-data&quot;);</span>
+
+    // Security-relevant: Framesets can load external URLs
+<span class="fc" id="L235">    Property HAS_FRAMESETS = Property.internalBoolean(&quot;msoffice:doc:has-framesets&quot;);</span>
+
+    /**
+     * 1-based sheet number for a resource (e.g. an embedded image)
+     * anchored to exactly one sheet of a workbook.  For resources
+     * spanning multiple sheets see {@link #SHEET_NUMBERS}.  This is the
+     * spreadsheet analogue of {@link TikaPagedText#PAGE_NUMBER} — the
+     * convention is identical, but the property name reflects the
+     * domain (Excel sheets are not &quot;pages&quot; in the printer sense).
+     */
+<span class="fc" id="L245">    Property SHEET_NUMBER = Property.internalInteger(&quot;msoffice:excel:sheet-number&quot;);</span>
+
+    /**
+     * 1-based sheet numbers a resource is anchored to, as a sequence.
+     * Used for resources that appear on multiple sheets of a workbook.
+     * See {@link TikaPagedText#PAGE_NUMBERS} for the full convention
+     * (single-page, multi-page, unlinked, unknown); the same rules
+     * apply here, with {@link #UNLINKED_SHEET} as the &quot;known unlinked&quot;
+     * sentinel.
+     */
+<span class="fc" id="L255">    Property SHEET_NUMBERS = Property.internalIntegerSequence(&quot;msoffice:excel:sheet-numbers&quot;);</span>
+
+    /**
+     * Sentinel value used as the sole element of {@link #SHEET_NUMBERS}
+     * when an embedded resource is present in a workbook but not
+     * referenced from any sheet.  Mirrors
+     * {@link TikaPagedText#UNLINKED_PAGE} — negative because real sheet
+     * numbers are 1-based.  See {@link PageAnchoring} for the helper
+     * that writes this convention.
+     */
+    int UNLINKED_SHEET = -1;
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParserUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.utils</a> &gt; <span class="el_source">ParserUtils.java</span></div><h1>ParserUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.utils;
+
+import static org.apache.tika.metadata.TikaCoreProperties.EMBEDDED_EXCEPTION;
+
+import java.util.Arrays;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.Property;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ParserDecorator;
+
+/**
+ * Helper util methods for Parsers themselves.
+ */
+<span class="nc" id="L32">public class ParserUtils {</span>
+
+<span class="fc" id="L34">    public final static Property EMBEDDED_PARSER = Property.internalText(</span>
+            TikaCoreProperties.TIKA_META_EXCEPTION_PREFIX + &quot;embedded-parser&quot;);
+
+
+    /**
+     * Does a deep clone of a Metadata object.
+     */
+    public static Metadata cloneMetadata(Metadata m) {
+<span class="fc" id="L42">        Metadata clone = new Metadata();</span>
+
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        for (String n : m.names()) {</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">            if (!m.isMultiValued(n)) {</span>
+<span class="fc" id="L46">                clone.reconstruct(n, m.get(n), false);</span>
+            } else {
+<span class="fc bfc" id="L48" title="All 2 branches covered.">                for (String val : m.getValues(n)) {</span>
+<span class="fc" id="L49">                    clone.reconstruct(n, val, true);</span>
+                }
+            }
+        }
+<span class="fc" id="L53">        return clone;</span>
+    }
+
+    /**
+     * Identifies the real class name of the {@link Parser}, unwrapping
+     * any {@link ParserDecorator} decorations on top of it.
+     */
+    public static String getParserClassname(Parser parser) {
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        if (parser instanceof ParserDecorator) {</span>
+<span class="nc" id="L62">            return ((ParserDecorator) parser).getWrappedParser().getClass().getName();</span>
+        } else {
+<span class="fc" id="L64">            return parser.getClass().getName();</span>
+        }
+    }
+
+    /**
+     * Records details of the {@link Parser} used to the {@link Metadata},
+     * typically wanted where multiple parsers could be picked between
+     * or used.
+     */
+    public static void recordParserDetails(Parser parser, Metadata metadata) {
+<span class="fc" id="L74">        String className = getParserClassname(parser);</span>
+<span class="fc" id="L75">        recordParserDetails(className, metadata);</span>
+<span class="fc" id="L76">    }</span>
+
+    /**
+     * Records details of the {@link Parser} used to the {@link Metadata},
+     * typically wanted where multiple parsers could be picked between
+     * or used.
+     */
+    public static void recordParserDetails(String parserClassName, Metadata metadata) {
+<span class="fc" id="L84">        String[] parsedBys = metadata.getValues(TikaCoreProperties.TIKA_PARSED_BY);</span>
+<span class="pc bpc" id="L85" title="1 of 4 branches missed.">        if (parsedBys == null || parsedBys.length == 0) {</span>
+<span class="fc" id="L86">            metadata.add(TikaCoreProperties.TIKA_PARSED_BY, parserClassName);</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        } else if (Arrays.stream(parsedBys).noneMatch(parserClassName::equals)) {</span>
+            //only add parser once
+<span class="fc" id="L89">            metadata.add(TikaCoreProperties.TIKA_PARSED_BY, parserClassName);</span>
+        }
+<span class="fc" id="L91">    }</span>
+
+    /**
+     * Records details of a {@link Parser}'s failure to the
+     * {@link Metadata}, so you can check what went wrong even if the
+     * {@link Exception} wasn't immediately thrown (eg when several different
+     * Parsers are used)
+     */
+    public static void recordParserFailure(Parser parser, Throwable failure, Metadata metadata) {
+<span class="fc" id="L100">        String trace = ExceptionUtils.getStackTrace(failure);</span>
+<span class="fc" id="L101">        metadata.add(EMBEDDED_EXCEPTION, trace);</span>
+<span class="fc" id="L102">        metadata.add(EMBEDDED_PARSER, getParserClassname(parser));</span>
+<span class="fc" id="L103">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

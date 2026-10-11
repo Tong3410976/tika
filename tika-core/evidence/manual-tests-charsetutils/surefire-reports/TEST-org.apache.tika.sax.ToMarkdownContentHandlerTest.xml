@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.283" tests="357" errors="0" skipped="0" failures="0" flakes="0">
+  <properties>
+    <property name="os.detected.arch" value="x86_64"/>
+    <property name="java.specification.version" value="22"/>
+    <property name="sun.cpu.isalist" value="amd64"/>
+    <property name="sun.jnu.encoding" value="GBK"/>
+    <property name="nisse.jgit.author" value="yogyagamage &lt;47789154+yogyagamage@users.noreply.github.com&gt;"/>
+    <property name="java.class.path" value="C:\Users\17960\Desktop\IFT3913\Tache2\tika-core\target\test-classes;C:\Users\17960\Desktop\IFT3913\Tache2\tika-core\target\classes;C:\Users\17960\.m2\repository\org\slf4j\slf4j-api\2.0.18\slf4j-api-2.0.18.jar;C:\Users\17960\.m2\repository\commons-io\commons-io\2.22.0\commons-io-2.22.0.jar;C:\Users\17960\.m2\repository\org\commonmark\commonmark\0.30.0\commonmark-0.30.0.jar;C:\Users\17960\.m2\repository\org\commonmark\commonmark-ext-gfm-tables\0.30.0\commonmark-ext-gfm-tables-0.30.0.jar;C:\Users\17960\.m2\repository\org\commonmark\commonmark-ext-gfm-strikethrough\0.30.0\commonmark-ext-gfm-strikethrough-0.30.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.core\6.0.0\org.osgi.core-6.0.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.compendium\5.0.0\org.osgi.compendium-5.0.0.jar;C:\Users\17960\.m2\repository\biz\aQute\bnd\biz.aQute.bndlib\7.3.0\biz.aQute.bndlib-7.3.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.dto\1.0.0\org.osgi.dto-1.0.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.resource\1.0.0\org.osgi.resource-1.0.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.framework\1.8.0\org.osgi.framework-1.8.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.util.tracker\1.5.4\org.osgi.util.tracker-1.5.4.jar;C:\Users\17960\.m2\repository\org\osgi\osgi.annotation\8.0.1\osgi.annotation-8.0.1.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.service.log\1.3.0\org.osgi.service.log-1.3.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.service.repository\1.1.0\org.osgi.service.repository-1.1.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.util.function\1.2.0\org.osgi.util.function-1.2.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.util.promise\1.3.0\org.osgi.util.promise-1.3.0.jar;C:\Users\17960\.m2\repository\biz\aQute\bnd\biz.aQute.bnd.util\7.3.0\biz.aQute.bnd.util-7.3.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.service.serviceloader\1.0.0\org.osgi.service.serviceloader-1.0.0.jar;C:\Users\17960\.m2\repository\org\apache\tika\tika-annotation-processor\4.0.0-SNAPSHOT\tika-annotation-processor-4.0.0-SNAPSHOT.jar;C:\Users\17960\.m2\repository\com\google\guava\guava\33.6.0-jre\guava-33.6.0-jre.jar;C:\Users\17960\.m2\repository\com\google\guava\failureaccess\1.0.3\failureaccess-1.0.3.jar;C:\Users\17960\.m2\repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;C:\Users\17960\.m2\repository\org\jspecify\jspecify\1.0.0\jspecify-1.0.0.jar;C:\Users\17960\.m2\repository\com\google\errorprone\error_prone_annotations\2.50.0\error_prone_annotations-2.50.0.jar;C:\Users\17960\.m2\repository\com\google\j2objc\j2objc-annotations\3.1\j2objc-annotations-3.1.jar;C:\Users\17960\.m2\repository\com\martensigwart\fakeload\0.7.0\fakeload-0.7.0.jar;C:\Users\17960\.m2\repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;C:\Users\17960\.m2\repository\org\apache\logging\log4j\log4j-core\2.26.1\log4j-core-2.26.1.jar;C:\Users\17960\.m2\repository\org\apache\logging\log4j\log4j-api\2.26.1\log4j-api-2.26.1.jar;C:\Users\17960\.m2\repository\org\apache\logging\log4j\log4j-slf4j2-impl\2.26.1\log4j-slf4j2-impl-2.26.1.jar;C:\Users\17960\.m2\repository\org\junit\jupiter\junit-jupiter-api\6.1.3\junit-jupiter-api-6.1.3.jar;C:\Users\17960\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\17960\.m2\repository\org\junit\platform\junit-platform-commons\6.1.3\junit-platform-commons-6.1.3.jar;C:\Users\17960\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\17960\.m2\repository\org\junit\jupiter\junit-jupiter-engine\6.1.3\junit-jupiter-engine-6.1.3.jar;C:\Users\17960\.m2\repository\org\junit\platform\junit-platform-engine\6.1.3\junit-platform-engine-6.1.3.jar;C:\Users\17960\.m2\repository\org\mockito\mockito-core\5.23.0\mockito-core-5.23.0.jar;C:\Users\17960\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\17960\.m2\repository\org\mockito\mockito-junit-jupiter\3.8.0\mockito-junit-jupiter-3.8.0.jar;C:\Users\17960\.m2\repository\net\bytebuddy\byte-buddy\1.17.7\byte-buddy-1.17.7.jar;C:\Users\17960\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.7\byte-buddy-agent-1.17.7.jar;"/>
+    <property name="nisse.mvn.minor" value="9"/>
+    <property name="nisse.os.version" value="10.0"/>
+    <property name="java.vm.vendor" value="Oracle Corporation"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="user.variant" value=""/>
+    <property name="nisse.mvn.majorMinor" value="3.9"/>
+    <property name="nisse.jgit.remoteName" value="origin"/>
+    <property name="java.vendor.url" value="https://java.oracle.com/"/>
+    <property name="user.timezone" value="America/Toronto"/>
+    <property name="nisse.os.bitness" value="64"/>
+    <property name="java.vm.specification.version" value="22"/>
+    <property name="os.name" value="Windows 11"/>
+    <property name="nisse.jgit.clean" value="false"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="user.country" value="CN"/>
+    <property name="sun.boot.library.path" value="C:\Program Files\Java\jdk-22\bin"/>
+    <property name="sun.java.command" value="C:\Users\17960\AppData\Local\Temp\surefire13376292625296767915\surefirebooter-20260926201617800_3.jar C:\Users\17960\AppData\Local\Temp\surefire13376292625296767915 2026-09-26T20-16-17_544-jvmRun1 surefire-20260926201617800_1tmp surefire_0-20260926201617800_2tmp"/>
+    <property name="jdk.debug" value="release"/>
+    <property name="surefire.test.class.path" value="C:\Users\17960\Desktop\IFT3913\Tache2\tika-core\target\test-classes;C:\Users\17960\Desktop\IFT3913\Tache2\tika-core\target\classes;C:\Users\17960\.m2\repository\org\slf4j\slf4j-api\2.0.18\slf4j-api-2.0.18.jar;C:\Users\17960\.m2\repository\commons-io\commons-io\2.22.0\commons-io-2.22.0.jar;C:\Users\17960\.m2\repository\org\commonmark\commonmark\0.30.0\commonmark-0.30.0.jar;C:\Users\17960\.m2\repository\org\commonmark\commonmark-ext-gfm-tables\0.30.0\commonmark-ext-gfm-tables-0.30.0.jar;C:\Users\17960\.m2\repository\org\commonmark\commonmark-ext-gfm-strikethrough\0.30.0\commonmark-ext-gfm-strikethrough-0.30.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.core\6.0.0\org.osgi.core-6.0.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.compendium\5.0.0\org.osgi.compendium-5.0.0.jar;C:\Users\17960\.m2\repository\biz\aQute\bnd\biz.aQute.bndlib\7.3.0\biz.aQute.bndlib-7.3.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.dto\1.0.0\org.osgi.dto-1.0.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.resource\1.0.0\org.osgi.resource-1.0.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.framework\1.8.0\org.osgi.framework-1.8.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.util.tracker\1.5.4\org.osgi.util.tracker-1.5.4.jar;C:\Users\17960\.m2\repository\org\osgi\osgi.annotation\8.0.1\osgi.annotation-8.0.1.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.service.log\1.3.0\org.osgi.service.log-1.3.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.service.repository\1.1.0\org.osgi.service.repository-1.1.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.util.function\1.2.0\org.osgi.util.function-1.2.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.util.promise\1.3.0\org.osgi.util.promise-1.3.0.jar;C:\Users\17960\.m2\repository\biz\aQute\bnd\biz.aQute.bnd.util\7.3.0\biz.aQute.bnd.util-7.3.0.jar;C:\Users\17960\.m2\repository\org\osgi\org.osgi.service.serviceloader\1.0.0\org.osgi.service.serviceloader-1.0.0.jar;C:\Users\17960\.m2\repository\org\apache\tika\tika-annotation-processor\4.0.0-SNAPSHOT\tika-annotation-processor-4.0.0-SNAPSHOT.jar;C:\Users\17960\.m2\repository\com\google\guava\guava\33.6.0-jre\guava-33.6.0-jre.jar;C:\Users\17960\.m2\repository\com\google\guava\failureaccess\1.0.3\failureaccess-1.0.3.jar;C:\Users\17960\.m2\repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;C:\Users\17960\.m2\repository\org\jspecify\jspecify\1.0.0\jspecify-1.0.0.jar;C:\Users\17960\.m2\repository\com\google\errorprone\error_prone_annotations\2.50.0\error_prone_annotations-2.50.0.jar;C:\Users\17960\.m2\repository\com\google\j2objc\j2objc-annotations\3.1\j2objc-annotations-3.1.jar;C:\Users\17960\.m2\repository\com\martensigwart\fakeload\0.7.0\fakeload-0.7.0.jar;C:\Users\17960\.m2\repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;C:\Users\17960\.m2\repository\org\apache\logging\log4j\log4j-core\2.26.1\log4j-core-2.26.1.jar;C:\Users\17960\.m2\repository\org\apache\logging\log4j\log4j-api\2.26.1\log4j-api-2.26.1.jar;C:\Users\17960\.m2\repository\org\apache\logging\log4j\log4j-slf4j2-impl\2.26.1\log4j-slf4j2-impl-2.26.1.jar;C:\Users\17960\.m2\repository\org\junit\jupiter\junit-jupiter-api\6.1.3\junit-jupiter-api-6.1.3.jar;C:\Users\17960\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\17960\.m2\repository\org\junit\platform\junit-platform-commons\6.1.3\junit-platform-commons-6.1.3.jar;C:\Users\17960\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\17960\.m2\repository\org\junit\jupiter\junit-jupiter-engine\6.1.3\junit-jupiter-engine-6.1.3.jar;C:\Users\17960\.m2\repository\org\junit\platform\junit-platform-engine\6.1.3\junit-platform-engine-6.1.3.jar;C:\Users\17960\.m2\repository\org\mockito\mockito-core\5.23.0\mockito-core-5.23.0.jar;C:\Users\17960\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\17960\.m2\repository\org\mockito\mockito-junit-jupiter\3.8.0\mockito-junit-jupiter-3.8.0.jar;C:\Users\17960\.m2\repository\net\bytebuddy\byte-buddy\1.17.7\byte-buddy-1.17.7.jar;C:\Users\17960\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.7\byte-buddy-agent-1.17.7.jar;"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="user.home" value="C:\Users\17960"/>
+    <property name="user.language" value="zh"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="os.detected.version" value="10.0"/>
+    <property name="os.detected.classifier" value="windows-x86_64"/>
+    <property name="java.version.date" value="2024-04-16"/>
+    <property name="java.home" value="C:\Program Files\Java\jdk-22"/>
+    <property name="nisse.jgit.commit" value="a2d75c2c10563b261148e9bafe4046832b33c1a6"/>
+    <property name="os.detected.version.minor" value="0"/>
+    <property name="file.separator" value="\"/>
+    <property name="basedir" value="C:\Users\17960\Desktop\IFT3913\Tache2\tika-core"/>
+    <property name="java.vm.compressedOopsMode" value="Zero based"/>
+    <property name="nisse.mvn.major" value="3"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="java.awt.headless" value="true"/>
+    <property name="nisse.jgit.branchName" value="main"/>
+    <property name="nisse.compat.osDetector" value="true"/>
+    <property name="nisse.os.arch" value="x86_64"/>
+    <property name="surefire.real.class.path" value="C:\Users\17960\AppData\Local\Temp\surefire13376292625296767915\surefirebooter-20260926201617800_3.jar"/>
+    <property name="user.script" value=""/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="java.runtime.version" value="22.0.1+8-16"/>
+    <property name="user.name" value="17960"/>
+    <property name="nisse.os.version.minor" value="0"/>
+    <property name="nisse.jgit.remoteUrl" value="https://github.com/Tong3410976/tika.git"/>
+    <property name="stdout.encoding" value="GBK"/>
+    <property name="path.separator" value=";"/>
+    <property name="os.detected.version.major" value="10"/>
+    <property name="os.version" value="10.0"/>
+    <property name="nisse.mvn.distributionShortName" value="Maven"/>
+    <property name="nisse.os.version.major" value="10"/>
+    <property name="java.runtime.name" value="Java(TM) SE Runtime Environment"/>
+    <property name="nisse.jgit.committer" value="yogyagamage &lt;47789154+yogyagamage@users.noreply.github.com&gt;"/>
+    <property name="os.detected.bitness" value="64"/>
+    <property name="os.detected.name" value="windows"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="java.vm.name" value="Java HotSpot(TM) 64-Bit Server VM"/>
+    <property name="nisse.mvn.distributionId" value="apache-maven"/>
+    <property name="nisse.os.classifier" value="windows-x86_64"/>
+    <property name="localRepository" value="C:\Users\17960\.m2\repository"/>
+    <property name="java.vendor.url.bug" value="https://bugreport.java.com/bugreport/"/>
+    <property name="java.io.tmpdir" value="C:\Users\17960\AppData\Local\Temp\"/>
+    <property name="java.version" value="22.0.1"/>
+    <property name="nisse.mvn.version" value="3.9.12"/>
+    <property name="user.dir" value="C:\Users\17960\Desktop\IFT3913\Tache2\tika-core"/>
+    <property name="os.arch" value="amd64"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="nisse.mvn.buildNumber" value="848fbb4bf2d427b72bdb2471c22fced7ebd9a7a1"/>
+    <property name="nisse.jgit.date" value="Mon Aug 31 16:10:23 2026 -0400"/>
+    <property name="sun.os.patch.level" value=""/>
+    <property name="native.encoding" value="GBK"/>
+    <property name="java.library.path" value="C:\Program Files\Java\jdk-22\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Program Files\Java\jdk-22\bin;C:\Users\17960\miniconda3;C:\Users\17960\miniconda3\Library\mingw-w64\bin;C:\Users\17960\miniconda3\Library\usr\bin;C:\Users\17960\miniconda3\Library\bin;C:\Users\17960\miniconda3\Scripts;C:\Users\17960\miniconda3\bin;C:\Users\17960\miniconda3\condabin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\windows\system32;C:\windows;C:\windows\System32\Wbem;C:\windows\System32\WindowsPowerShell\v1.0;C:\windows\System32\OpenSSH;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps;C:\Program Files\HP\OMEN-Broadcast\Common;C:\Program Files\HP\HP One Agent;C:\Program Files\Java\jdk-22\bin;C:\Program Files\Java\jdk-22\jre\bin;C:\Program Files\dotnet;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0;C:\WINDOWS\System32\OpenSSH;C:\Users\17960\AppData\Local\nvm;C:\nvm4w\nodejs;C:\FFmpegBuilds\ffmpeg-8.0-essentials_build\bin;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\PostgreSQL\18\bin;C:\Program Files\Git\cmd;E:\Python\Scripts;E:\Python;C:\Users\17960\AppData\Local\Programs\Python\Python311\Scripts;C:\Users\17960\AppData\Local\Programs\Python\Python311;C:\Users\17960\AppData\Local\Programs\Python\Launcher;C:\Users\17960\AppData\Local\Microsoft\WindowsApps;C:\Users\17960\.dotnet\tools;C:\Users\17960\AppData\Local\Programs\Ollama;C:\Users\17960\AppData\Local\nvm;C:\nvm4w\nodejs;C:\Users\17960\AppData\Local\Programs\Python\Python313;C:\Users\17960\AppData\Local\Programs\Python\Python313\Scripts;C:\Tools\apache-maven-3.9.16\bin;C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.2\bin;."/>
+    <property name="java.vm.info" value="mixed mode, sharing"/>
+    <property name="stderr.encoding" value="GBK"/>
+    <property name="java.vendor" value="Oracle Corporation"/>
+    <property name="java.vm.version" value="22.0.1+8-16"/>
+    <property name="nisse.jgit.shortCommitId" value="a2d75c2"/>
+    <property name="nisse.mvn.distributionName" value="Apache Maven"/>
+    <property name="nisse.os.name" value="windows"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
+    <property name="eclipseP2RepoId" value="invalid"/>
+    <property name="java.class.version" value="66.0"/>
+    <property name="nisse.mvn.patch" value="12"/>
+  </properties>
+  <testcase name="testDeeplyNestedElementsDoNotThrow" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.03"/>
+  <testcase name="testPartialContentWrittenToWriterOnAbort" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.003"/>
+  <testcase name="testScriptContentSkipped" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testPartialContentWrittenToOutputStreamOnAbort" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[1]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.003"/>
+  <testcase name="testRandomUnbalancedTags()[2]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.003"/>
+  <testcase name="testRandomUnbalancedTags()[3]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="testRandomUnbalancedTags()[4]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.003"/>
+  <testcase name="testRandomUnbalancedTags()[5]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.003"/>
+  <testcase name="testRandomUnbalancedTags()[6]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[7]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[8]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[9]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="testRandomUnbalancedTags()[10]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[11]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[12]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[13]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[14]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[15]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[16]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[17]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[18]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[19]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[20]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[21]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[22]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[23]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[24]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[25]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="testRandomUnbalancedTags()[26]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[27]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[28]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[29]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[30]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[31]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[32]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[33]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[34]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[35]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[36]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[37]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[38]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[39]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[40]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[41]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[42]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[43]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[44]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[45]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[46]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[47]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[48]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[49]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[50]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[51]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[52]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[53]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[54]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[55]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[56]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[57]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[58]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[59]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[60]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[61]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[62]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[63]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[64]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[65]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[66]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[67]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[68]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[69]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[70]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[71]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[72]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[73]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[74]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[75]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[76]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[77]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[78]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[79]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[80]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[81]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[82]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[83]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[84]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[85]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[86]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[87]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[88]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[89]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[90]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[91]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[92]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[93]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[94]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[95]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[96]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[97]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[98]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testRandomUnbalancedTags()[99]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testRandomUnbalancedTags()[100]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testAllHeadingLevels" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testImageAltAndSrcEscaped" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testDiv" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testFencedCodeBlock" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testImage" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testTable" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.004"/>
+  <testcase name="testLineBreak" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testBold" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testLink" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testInlineSpanningBlockBoundaries" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="testBoldInsideListItem" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testPartialContentWithStillOpenElementsNoEndDocument" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[1]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.005"/>
+  <testcase name="fuzzRandomCharacterContent()[2]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[3]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[4]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[5]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[6]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[7]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[8]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[9]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[10]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[11]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[12]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[13]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="fuzzRandomCharacterContent()[14]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[15]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[16]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[17]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[18]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[19]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[20]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[21]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[22]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[23]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[24]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[25]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[26]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[27]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[28]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[29]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[30]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[31]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[32]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="fuzzRandomCharacterContent()[33]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[34]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[35]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[36]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[37]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[38]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[39]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[40]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[41]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[42]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[43]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[44]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[45]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[46]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[47]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[48]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[49]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[50]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[51]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[52]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[53]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[54]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[55]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[56]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[57]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[58]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[59]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[60]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[61]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[62]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[63]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[64]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[65]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[66]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[67]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[68]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[69]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[70]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[71]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[72]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[73]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[74]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[75]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[76]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[77]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[78]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[79]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[80]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[81]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[82]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[83]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[84]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[85]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[86]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[87]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[88]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[89]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[90]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[91]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[92]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[93]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[94]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[95]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[96]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[97]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[98]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[99]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[100]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[101]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[102]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[103]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[104]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[105]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[106]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[107]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[108]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[109]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[110]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[111]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[112]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[113]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[114]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[115]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[116]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[117]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[118]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[119]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[120]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[121]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[122]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[123]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[124]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[125]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[126]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[127]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[128]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[129]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[130]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[131]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[132]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[133]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[134]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[135]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[136]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[137]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[138]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[139]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[140]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[141]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[142]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[143]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[144]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[145]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[146]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[147]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[148]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[149]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[150]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[151]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[152]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="fuzzRandomCharacterContent()[153]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[154]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[155]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[156]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[157]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[158]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[159]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[160]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[161]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[162]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[163]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[164]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[165]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[166]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[167]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[168]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[169]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[170]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[171]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[172]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[173]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[174]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[175]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[176]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[177]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[178]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[179]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[180]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[181]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[182]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[183]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[184]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[185]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[186]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[187]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[188]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[189]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[190]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[191]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[192]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[193]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[194]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[195]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[196]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[197]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[198]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="fuzzRandomCharacterContent()[199]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="fuzzRandomCharacterContent()[200]" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testInlineSpacesPreserved" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testTableCellNewlineFolded" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testNestedTablesIgnored" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testImageAltAndSrcCannotBreakOut" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testParagraphs" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testHeadings" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testLinkInsideHeading" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testLinkDestinationWithSpaceAndParenWrapped" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testTableCellPipeEscaped" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testNoExcessiveBlankLines" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testLinkHrefNoBreakout" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testUnclosedElements" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testTableCellPipeAndNewlineContained" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testTableAndListEdgeCasesDoNotThrow" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.007"/>
+  <testcase name="testInlineCode" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testInlineContentInStructuralContainersDoesNotThrow" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.007"/>
+  <testcase name="testNoEscapingInInlineCode" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testLinkTextEscaped" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testLinkTextCannotBreakOut" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testWritePartialIsIdempotentAfterEndDocument" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testBlockquote" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testStyleContentSkipped" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testFactoryCreatesMarkdownHandler" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testInterleavedElements" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testUnorderedList" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testHandlerTypeParsingMarkdown" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testContentPreservedWhenParserThrowsBeforeEndDocument" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testItalic" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testOrderedList" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testMisnestedBlockInsideInlineAndCrossedClose" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testHorizontalRule" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testExtraEndElements" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.002"/>
+  <testcase name="testDeeplyNestedSameElement" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+  <testcase name="testMarkdownEscaping" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testStrong" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testNestedLists" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testNoEscapingInCodeBlock" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testEmphasis" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testBoldInsideLinkIsNested" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testDefinitionList" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.0"/>
+  <testcase name="testTableWithOnlyTd" classname="org.apache.tika.sax.ToMarkdownContentHandlerTest" time="0.001"/>
+</testsuite>

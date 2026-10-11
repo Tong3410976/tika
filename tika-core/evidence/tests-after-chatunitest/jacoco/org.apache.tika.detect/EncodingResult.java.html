@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EncodingResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">EncodingResult.java</span></div><h1>EncodingResult.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import java.nio.charset.Charset;
+
+/**
+ * A charset detection result pairing a {@link Charset} with a confidence score
+ * and a {@link ResultType} indicating the nature of the evidence.
+ *
+ * &lt;h3&gt;Result types&lt;/h3&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@link ResultType#DECLARATIVE} — the document explicitly stated its
+ *       encoding (BOM, HTML {@code &lt;meta charset&gt;}).  These are authoritative
+ *       claims about author intent and get preference over inferred results
+ *       &lt;em&gt;when consistent with the actual bytes&lt;/em&gt;.&lt;/li&gt;
+ *   &lt;li&gt;{@link ResultType#STRUCTURAL} — byte-grammar proof (ISO-2022 escape
+ *       sequences, UTF-8 multibyte validation).  The encoding is proven by the
+ *       byte structure itself, independent of any declaration.&lt;/li&gt;
+ *   &lt;li&gt;{@link ResultType#STATISTICAL} — probabilistic inference from a
+ *       statistical model.  The {@code confidence} float is meaningful here
+ *       for ranking among candidates; for DECLARATIVE and STRUCTURAL results
+ *       it is conventionally {@code 1.0} but carries no additional information.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @since Apache Tika 4.0
+ */
+public class EncodingResult {
+
+    /**
+     * The nature of the evidence that produced this result.
+     */
+<span class="fc" id="L47">    public enum ResultType {</span>
+        /**
+         * The document explicitly declared its encoding (BOM, HTML meta charset).
+         * Authoritative about author intent; preferred over inferred results when
+         * consistent with the actual bytes.
+         */
+<span class="fc" id="L53">        DECLARATIVE,</span>
+        /**
+         * The encoding is proven by byte-grammar structure (ISO-2022 escape
+         * sequences, UTF-8 multibyte validation).  Not a guess — the byte
+         * patterns are only valid in this encoding.
+         */
+<span class="fc" id="L59">        STRUCTURAL,</span>
+        /**
+         * Probabilistic inference from a statistical model.  The confidence
+         * float is meaningful for ranking among candidates.
+         */
+<span class="fc" id="L64">        STATISTICAL</span>
+    }
+
+    private final Charset charset;
+    private final float confidence;
+    /**
+     * The detector's original label for this result.  Usually identical to
+     * {@code charset.name()}, but may differ when the detector uses training
+     * labels that are finer-grained than the Java charset registry (e.g.
+     * {@code &quot;IBM420-ltr&quot;} / {@code &quot;IBM420-rtl&quot;} both map to Java's
+     * {@code &quot;IBM420&quot;}, and {@code &quot;windows-874&quot;} maps to Java's canonical
+     * {@code &quot;x-windows-874&quot;}).  Preserved so that evaluation tooling and
+     * callers that care about sub-charset properties can access the original
+     * prediction without going through {@code Charset.name()}.
+     */
+    private final String label;
+    private final ResultType resultType;
+
+    /**
+     * Constructs a STATISTICAL result. Existing detectors that do not yet
+     * classify their evidence type default to statistical (probabilistic)
+     * treatment, which is the safe, arbitratable assumption.
+     *
+     * @param charset    the detected charset; must not be {@code null}
+     * @param confidence detection confidence in {@code [0.0, 1.0]}
+     */
+    public EncodingResult(Charset charset, float confidence) {
+<span class="nc" id="L91">        this(charset, confidence, charset.name(), ResultType.STATISTICAL);</span>
+<span class="nc" id="L92">    }</span>
+
+    /**
+     * Constructs a STATISTICAL result with a detector-specific label.
+     *
+     * @param charset    the detected charset; must not be {@code null}
+     * @param confidence detection confidence in {@code [0.0, 1.0]}
+     * @param label      the detector's original label (e.g. {@code &quot;IBM420-ltr&quot;});
+     *                   if {@code null}, defaults to {@code charset.name()}
+     */
+    public EncodingResult(Charset charset, float confidence, String label) {
+<span class="nc" id="L103">        this(charset, confidence, label, ResultType.STATISTICAL);</span>
+<span class="nc" id="L104">    }</span>
+
+    /**
+     * Constructs a result with an explicit {@link ResultType}.
+     *
+     * @param charset    the detected charset; must not be {@code null}
+     * @param confidence detection confidence in {@code [0.0, 1.0]}
+     * @param label      the detector's original label; if {@code null},
+     *                   defaults to {@code charset.name()}
+     * @param resultType the nature of the evidence; must not be {@code null}
+     */
+    public EncodingResult(Charset charset, float confidence, String label,
+<span class="fc" id="L116">                          ResultType resultType) {</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (charset == null) {</span>
+<span class="nc" id="L118">            throw new IllegalArgumentException(&quot;charset must not be null&quot;);</span>
+        }
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">        if (resultType == null) {</span>
+<span class="nc" id="L121">            throw new IllegalArgumentException(&quot;resultType must not be null&quot;);</span>
+        }
+<span class="fc" id="L123">        this.charset = charset;</span>
+<span class="fc" id="L124">        this.confidence = Math.max(0f, Math.min(1f, confidence));</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        this.label = (label != null) ? label : charset.name();</span>
+<span class="fc" id="L126">        this.resultType = resultType;</span>
+<span class="fc" id="L127">    }</span>
+
+    /**
+     * The detected charset. For &lt;em&gt;decoding&lt;/em&gt; bytes prefer {@link #getDecodeAs()};
+     * this is the charset to &lt;em&gt;report&lt;/em&gt; (Content-Type / detected-encoding).
+     */
+    public Charset getCharset() {
+<span class="fc" id="L134">        return charset;</span>
+    }
+
+    /**
+     * The charset to decode with: {@link #getCharset()} widened to its superset when
+     * one exists (e.g. GBK &amp;rarr; GB18030), else the detected charset unchanged.
+     *
+     * @see CharsetSupersets
+     */
+    public Charset getDecodeAs() {
+<span class="nc" id="L144">        return CharsetSupersets.decodeAs(charset);</span>
+    }
+
+    /**
+     * Detection confidence in {@code [0.0, 1.0]}.  Meaningful for ranking
+     * among {@link ResultType#STATISTICAL} candidates.  For
+     * {@link ResultType#DECLARATIVE} and {@link ResultType#STRUCTURAL} results
+     * the value is conventionally {@code 1.0} but carries no additional
+     * information beyond the type itself.
+     */
+    public float getConfidence() {
+<span class="nc" id="L155">        return confidence;</span>
+    }
+
+    /**
+     * The nature of the evidence that produced this result.
+     *
+     * @see ResultType
+     */
+    public ResultType getResultType() {
+<span class="fc" id="L164">        return resultType;</span>
+    }
+
+    /**
+     * The detector's original label for this result.  Usually identical to
+     * {@link #getCharset()}{@code .name()}, but preserved when the detector
+     * uses finer-grained labels than the Java charset registry supports (e.g.
+     * {@code &quot;IBM420-ltr&quot;}, {@code &quot;IBM420-rtl&quot;}, {@code &quot;windows-874&quot;}).
+     */
+    public String getLabel() {
+<span class="nc" id="L174">        return label;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L179">        String cs = charset.name();</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        String lbl = label.equals(cs) ? cs : label + &quot;(&quot; + cs + &quot;)&quot;;</span>
+<span class="nc" id="L181">        return lbl + &quot;@&quot; + String.format(java.util.Locale.ROOT, &quot;%.2f&quot;, confidence)</span>
+                + &quot;[&quot; + resultType + &quot;]&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

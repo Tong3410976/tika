@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MachineMetadata.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.metadata</a> &gt; <span class="el_source">MachineMetadata.java</span></div><h1>MachineMetadata.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.metadata;
+
+/**
+ * Metadata for describing machines, such as their
+ * architecture, type and endian-ness
+ */
+public interface MachineMetadata {
+    String PREFIX = &quot;machine:&quot;;
+
+<span class="nc" id="L26">    Property ARCHITECTURE_BITS =</span>
+<span class="nc" id="L27">            Property.internalClosedChoise(PREFIX + &quot;architectureBits&quot;, &quot;8&quot;, &quot;16&quot;, &quot;32&quot;, &quot;64&quot;);</span>
+
+    String PLATFORM_SYSV = &quot;System V&quot;;
+    String PLATFORM_HPUX = &quot;HP-UX&quot;;
+    String PLATFORM_NETBSD = &quot;NetBSD&quot;;
+    String PLATFORM_LINUX = &quot;Linux&quot;;
+    String PLATFORM_SOLARIS = &quot;Solaris&quot;;
+    String PLATFORM_AIX = &quot;AIX&quot;;
+    String PLATFORM_IRIX = &quot;IRIX&quot;;
+    String PLATFORM_FREEBSD = &quot;FreeBSD&quot;;
+    String PLATFORM_TRU64 = &quot;Tru64&quot;;
+    String PLATFORM_ARM = &quot;ARM&quot;; // ARM architecture ABI
+    String PLATFORM_EMBEDDED = &quot;Embedded&quot;; // Stand-alone (embedded) ABI
+    String PLATFORM_WINDOWS = &quot;Windows&quot;;
+
+<span class="nc" id="L42">    Property PLATFORM =</span>
+<span class="nc" id="L43">            Property.internalClosedChoise(PREFIX + &quot;platform&quot;, PLATFORM_SYSV, PLATFORM_HPUX,</span>
+                    PLATFORM_NETBSD, PLATFORM_LINUX, PLATFORM_SOLARIS, PLATFORM_AIX, PLATFORM_IRIX,
+                    PLATFORM_FREEBSD, PLATFORM_TRU64, PLATFORM_ARM, PLATFORM_EMBEDDED,
+                    PLATFORM_WINDOWS);
+
+    String MACHINE_x86_32 = &quot;x86-32&quot;;
+    String MACHINE_x86_64 = &quot;x86-64&quot;;
+    String MACHINE_IA_64 = &quot;IA-64&quot;;
+    String MACHINE_SPARC = &quot;SPARC&quot;;
+    String MACHINE_M68K = &quot;Motorola-68000&quot;;
+    String MACHINE_M88K = &quot;Motorola-88000&quot;;
+    String MACHINE_MIPS = &quot;MIPS&quot;;
+    String MACHINE_PPC = &quot;PPC&quot;;
+    String MACHINE_S370 = &quot;S370&quot;;
+    String MACHINE_S390 = &quot;S390&quot;;
+    String MACHINE_ARM = &quot;ARM&quot;;
+    String MACHINE_VAX = &quot;Vax&quot;;
+    String MACHINE_ALPHA = &quot;Alpha&quot;;
+    String MACHINE_EFI = &quot;EFI&quot;; // EFI ByteCode
+    String MACHINE_M32R = &quot;M32R&quot;;
+    String MACHINE_SH3 = &quot;SH3&quot;;
+    String MACHINE_SH4 = &quot;SH4&quot;;
+    String MACHINE_SH5 = &quot;SH5&quot;;
+    String MACHINE_UNKNOWN = &quot;Unknown&quot;;
+
+<span class="nc" id="L68">    Property MACHINE_TYPE =</span>
+<span class="nc" id="L69">            Property.internalClosedChoise(PREFIX + &quot;machineType&quot;, MACHINE_x86_32, MACHINE_x86_64,</span>
+                    MACHINE_IA_64, MACHINE_SPARC, MACHINE_M68K, MACHINE_M88K, MACHINE_MIPS,
+                    MACHINE_PPC, MACHINE_S370, MACHINE_S390, MACHINE_ARM, MACHINE_VAX,
+                    MACHINE_ALPHA, MACHINE_EFI, MACHINE_M32R, MACHINE_SH3, MACHINE_SH4, MACHINE_SH5,
+                    MACHINE_UNKNOWN);
+<span class="nc" id="L74">    Property ENDIAN =</span>
+<span class="nc" id="L75">            Property.internalClosedChoise(PREFIX + &quot;endian&quot;, Endian.LITTLE.name, Endian.BIG.name);</span>
+
+    final class Endian {
+<span class="nc" id="L78">        public static final Endian LITTLE = new Endian(&quot;Little&quot;, false);</span>
+<span class="nc" id="L79">        public static final Endian BIG = new Endian(&quot;Big&quot;, true);</span>
+        private final String name;
+        private final boolean msb;
+
+<span class="nc" id="L83">        private Endian(String name, boolean msb) {</span>
+<span class="nc" id="L84">            this.name = name;</span>
+<span class="nc" id="L85">            this.msb = msb;</span>
+<span class="nc" id="L86">        }</span>
+
+        public String getName() {
+<span class="nc" id="L89">            return name;</span>
+        }
+
+        @SuppressWarnings(&quot;unused&quot;)
+        public boolean isMSB() {
+<span class="nc" id="L94">            return msb;</span>
+        }
+
+        @SuppressWarnings(&quot;unused&quot;)
+        public String getMSB() {
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            if (msb) {</span>
+<span class="nc" id="L100">                return &quot;MSB&quot;;</span>
+            } else {
+<span class="nc" id="L102">                return &quot;LSB&quot;;</span>
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

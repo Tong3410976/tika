@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaggedContentHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.sax</a> &gt; <span class="el_source">TaggedContentHandler.java</span></div><h1>TaggedContentHandler.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.sax;
+
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
+/**
+ * A content handler decorator that tags potential exceptions so that the
+ * handler that caused the exception can easily be identified. This is
+ * done by using the {@link TaggedSAXException} class to wrap all thrown
+ * {@link SAXException}s. See below for an example of using this class.
+ * &lt;pre&gt;
+ * TaggedContentHandler handler = new TaggedContentHandler(...);
+ * try {
+ *     // Processing that may throw an SAXException either from this handler
+ *     // or from some other XML parsing activity
+ *     processXML(handler);
+ * } catch (SAXException e) {
+ *     if (handler.isCauseOf(e)) {
+ *         // The exception was caused by this handler.
+ *         // Use e.getCause() to get the original exception.
+ *     } else {
+ *         // The exception was caused by something else.
+ *     }
+ * }
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * Alternatively, the {@link #throwIfCauseOf(Exception)} method can be
+ * used to let higher levels of code handle the exception caused by this
+ * stream while other processing errors are being taken care of at this
+ * lower level.
+ * &lt;pre&gt;
+ * TaggedContentHandler handler = new TaggedContentHandler(...);
+ * try {
+ *     processXML(handler);
+ * } catch (SAXException e) {
+ *     stream.throwIfCauseOf(e);
+ *     // ... or process the exception that was caused by something else
+ * }
+ * &lt;/pre&gt;
+ *
+ * @see TaggedSAXException
+ */
+public class TaggedContentHandler extends ContentHandlerDecorator {
+
+    /**
+     * Creates a tagging decorator for the given content handler.
+     *
+     * @param proxy content handler to be decorated
+     */
+    public TaggedContentHandler(ContentHandler proxy) {
+<span class="fc" id="L67">        super(proxy);</span>
+<span class="fc" id="L68">    }</span>
+
+    /**
+     * Tests if the given exception was caused by this handler.
+     *
+     * @param exception an exception
+     * @return &lt;code&gt;true&lt;/code&gt; if the exception was thrown by this handler,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     */
+    public boolean isCauseOf(SAXException exception) {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (exception instanceof TaggedSAXException) {</span>
+<span class="nc" id="L79">            TaggedSAXException tagged = (TaggedSAXException) exception;</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">            return this == tagged.getTag();</span>
+        } else {
+<span class="nc" id="L82">            return false;</span>
+        }
+    }
+
+    /**
+     * Re-throws the original exception thrown by this handler. This method
+     * first checks whether the given exception is a {@link TaggedSAXException}
+     * wrapper created by this decorator, and then unwraps and throws the
+     * original wrapped exception. Returns normally if the exception was
+     * not thrown by this handler.
+     *
+     * @param exception an exception
+     * @throws SAXException original exception, if any, thrown by this handler
+     */
+    public void throwIfCauseOf(Exception exception) throws SAXException {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (exception instanceof TaggedSAXException) {</span>
+<span class="nc" id="L98">            TaggedSAXException tagged = (TaggedSAXException) exception;</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            if (this == tagged.getTag()) {</span>
+<span class="nc" id="L100">                throw tagged.getCause();</span>
+            }
+        }
+<span class="nc" id="L103">    }</span>
+
+    /**
+     * Tags any {@link SAXException}s thrown, wrapping and re-throwing.
+     *
+     * @param e The SAXException thrown
+     * @throws SAXException if an XML error occurs
+     */
+    @Override
+    protected void handleException(SAXException e) throws SAXException {
+<span class="fc" id="L113">        throw new TaggedSAXException(e, this);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

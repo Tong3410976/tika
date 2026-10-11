@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TrainedModelDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.detect</a> &gt; <span class="el_source">TrainedModelDetector.java</span></div><h1>TrainedModelDetector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.detect;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Writer;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.tika.io.TemporaryResources;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+
+public abstract class TrainedModelDetector implements Detector {
+    private static final long serialVersionUID = 1L;
+<span class="fc" id="L42">    private final Map&lt;MediaType, TrainedModel&gt; MODEL_MAP = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L44">    public TrainedModelDetector() {</span>
+<span class="fc" id="L45">        loadDefaultModels(getClass().getClassLoader());</span>
+<span class="fc" id="L46">    }</span>
+
+    public int getMinLength() {
+<span class="fc" id="L49">        return Integer.MAX_VALUE;</span>
+    }
+
+    public MediaType detect(TikaInputStream tis, Metadata metadata, ParseContext parseContext)
+            throws IOException {
+        // convert to byte-histogram
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        if (tis != null) {</span>
+<span class="fc" id="L56">            tis.mark(getMinLength());</span>
+<span class="fc" id="L57">            float[] histogram = readByteFrequencies(tis);</span>
+            // writeHisto(histogram); //on testing purpose
+
+            // threshold will be considered as
+            // MediaType.OCTET_STREAM
+<span class="fc" id="L62">            float maxprob = 0.5f;</span>
+<span class="fc" id="L63">            MediaType maxType = MediaType.OCTET_STREAM;</span>
+
+            /*
+             * iterate the map to find out the one that gives the higher
+             * prediction value.
+             */
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            for (Map.Entry&lt;MediaType, TrainedModel&gt; entry : MODEL_MAP.entrySet()) {</span>
+<span class="fc" id="L70">                MediaType key = entry.getKey();</span>
+<span class="fc" id="L71">                TrainedModel model = entry.getValue();</span>
+<span class="fc" id="L72">                float prob = model.predict(histogram);</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">                if (maxprob &lt; prob) {</span>
+<span class="fc" id="L74">                    maxprob = prob;</span>
+<span class="fc" id="L75">                    maxType = key;</span>
+                }
+<span class="fc" id="L77">            }</span>
+<span class="fc" id="L78">            tis.reset();</span>
+<span class="fc" id="L79">            return maxType;</span>
+        }
+<span class="nc" id="L81">        return null;</span>
+    }
+
+    /**
+     * Read the {@code inputstream} and build a byte frequency histogram
+     *
+     * @param input stream to read from
+     * @return byte frequencies array
+     * @throws IOException
+     */
+    protected float[] readByteFrequencies(final InputStream input) throws IOException {
+        ReadableByteChannel inputChannel;
+        // TODO: any reason to avoid closing of input &amp; inputChannel?
+        try {
+<span class="fc" id="L95">            inputChannel = Channels.newChannel(input);</span>
+            // long inSize = inputChannel.size();
+<span class="fc" id="L97">            float[] histogram = new float[257];</span>
+<span class="fc" id="L98">            histogram[0] = 1;</span>
+
+            // create buffer with capacity of maxBufSize bytes
+<span class="fc" id="L101">            ByteBuffer buf = ByteBuffer.allocate(1024 * 5);</span>
+<span class="fc" id="L102">            int bytesRead = inputChannel.read(buf); // read into buffer.</span>
+
+<span class="fc" id="L104">            float max = -1;</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            while (bytesRead != -1) {</span>
+
+<span class="fc" id="L107">                ((Buffer) buf).flip(); // make buffer ready for read</span>
+
+<span class="fc bfc" id="L109" title="All 2 branches covered.">                while (buf.hasRemaining()) {</span>
+<span class="fc" id="L110">                    byte byt = buf.get();</span>
+<span class="fc" id="L111">                    int idx = byt;</span>
+<span class="fc" id="L112">                    idx++;</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">                    if (byt &lt; 0) {</span>
+<span class="fc" id="L114">                        idx = 256 + idx;</span>
+<span class="fc" id="L115">                        histogram[idx]++;</span>
+                    } else {
+<span class="fc" id="L117">                        histogram[idx]++;</span>
+                    }
+<span class="fc" id="L119">                    max = Math.max(max, histogram[idx]);</span>
+<span class="fc" id="L120">                }</span>
+
+<span class="fc" id="L122">                buf.clear(); // make buffer ready for writing</span>
+<span class="fc" id="L123">                bytesRead = inputChannel.read(buf);</span>
+            }
+
+            int i;
+<span class="fc bfc" id="L127" title="All 2 branches covered.">            for (i = 1; i &lt; histogram.length; i++) {</span>
+<span class="fc" id="L128">                histogram[i] /= max;</span>
+<span class="fc" id="L129">                histogram[i] = (float) Math.sqrt(histogram[i]);</span>
+            }
+
+<span class="fc" id="L132">            return histogram;</span>
+        } finally {
+            // inputChannel.close();
+        }
+    }
+
+    /**
+     * for testing purposes; this method write the histogram vector to a file.
+     *
+     * @param histogram
+     * @throws IOException
+     */
+    private void writeHisto(final float[] histogram) throws IOException {
+<span class="nc" id="L145">        Path histPath = new TemporaryResources().createTempFile();</span>
+<span class="nc" id="L146">        try (Writer writer = Files.newBufferedWriter(histPath, UTF_8)) {</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">            for (float bin : histogram) {</span>
+<span class="nc" id="L148">                writer.write(bin + &quot;\t&quot;);</span>
+                // writer.write(i + &quot;\t&quot;);
+            }
+<span class="nc" id="L151">            writer.write(&quot;\r\n&quot;);</span>
+        }
+<span class="nc" id="L153">    }</span>
+
+    public void loadDefaultModels(Path modelFile) {
+<span class="nc" id="L156">        try (InputStream in = Files.newInputStream(modelFile)) {</span>
+<span class="nc" id="L157">            loadDefaultModels(in);</span>
+<span class="nc" id="L158">        } catch (IOException e) {</span>
+<span class="nc" id="L159">            throw new RuntimeException(&quot;Unable to read the default media type registry&quot;, e);</span>
+<span class="nc" id="L160">        }</span>
+<span class="nc" id="L161">    }</span>
+
+    public void loadDefaultModels(File modelFile) {
+<span class="nc" id="L164">        loadDefaultModels(modelFile.toPath());</span>
+<span class="nc" id="L165">    }</span>
+
+    public abstract void loadDefaultModels(final InputStream modelStream);
+
+    public abstract void loadDefaultModels(final ClassLoader classLoader);
+
+    protected void registerModels(MediaType type, TrainedModel model) {
+<span class="fc" id="L172">        MODEL_MAP.put(type, model);</span>
+<span class="fc" id="L173">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

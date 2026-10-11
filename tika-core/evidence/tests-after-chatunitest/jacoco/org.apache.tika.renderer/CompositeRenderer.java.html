@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeRenderer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.renderer</a> &gt; <span class="el_source">CompositeRenderer.java</span></div><h1>CompositeRenderer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.renderer;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.tika.config.ServiceLoader;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.utils.ServiceLoaderUtils;
+
+public class CompositeRenderer implements Renderer {
+
+<span class="fc" id="L38">    private Map&lt;MediaType, Renderer&gt; rendererMap = new HashMap&lt;&gt;();</span>
+
+    public CompositeRenderer(ServiceLoader serviceLoader) {
+<span class="fc" id="L41">        this(getDefaultRenderers(serviceLoader));</span>
+<span class="fc" id="L42">    }</span>
+
+<span class="fc" id="L44">    public CompositeRenderer(List&lt;Renderer&gt; renderers) {</span>
+<span class="fc" id="L45">        Map&lt;MediaType, Renderer&gt; tmp = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L46">        ParseContext empty = new ParseContext();</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">        for (Renderer renderer : renderers) {</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">            for (MediaType mt : renderer.getSupportedTypes(empty)) {</span>
+<span class="nc" id="L49">                tmp.put(mt, renderer);</span>
+<span class="nc" id="L50">            }</span>
+<span class="nc" id="L51">        }</span>
+<span class="fc" id="L52">        rendererMap = Collections.unmodifiableMap(tmp);</span>
+<span class="fc" id="L53">    }</span>
+    @Override
+    public Set&lt;MediaType&gt; getSupportedTypes(ParseContext context) {
+<span class="nc" id="L56">        return rendererMap.keySet();</span>
+    }
+
+    @Override
+    public RenderResults render(TikaInputStream tis, Metadata metadata, ParseContext parseContext,
+                                RenderRequest... requests) throws IOException, TikaException {
+
+<span class="nc" id="L63">        String mediaTypeString = metadata.get(TikaCoreProperties.TYPE);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (mediaTypeString == null) {</span>
+<span class="nc" id="L65">            throw new TikaException(&quot;need to specify file type in metadata&quot;);</span>
+        }
+<span class="nc" id="L67">        MediaType mt = MediaType.parse(mediaTypeString);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (mt == null) {</span>
+<span class="nc" id="L69">            throw new TikaException(&quot;can't parse mediaType: &quot; + mediaTypeString);</span>
+        }
+<span class="nc" id="L71">        Renderer renderer = rendererMap.get(mt);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        if (renderer == null) {</span>
+<span class="nc" id="L73">            throw new TikaException(&quot;I regret I can't find a renderer for &quot; + mt);</span>
+        }
+<span class="nc" id="L75">        return renderer.render(tis, metadata, parseContext, requests);</span>
+    }
+
+    public Renderer getLeafRenderer(MediaType mt) {
+<span class="nc" id="L79">        return rendererMap.get(mt);</span>
+    }
+
+    private static List&lt;Renderer&gt; getDefaultRenderers(ServiceLoader loader) {
+<span class="fc" id="L83">        List&lt;Renderer&gt; staticRenderers =</span>
+<span class="fc" id="L84">                loader.loadStaticServiceProviders(Renderer.class);</span>
+
+<span class="fc" id="L86">        ServiceLoaderUtils.sortLoadedClasses(staticRenderers);</span>
+<span class="fc" id="L87">        return staticRenderers;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

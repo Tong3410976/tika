@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmbeddedLimits.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Tika core</a> &gt; <a href="index.source.html" class="el_package">org.apache.tika.config</a> &gt; <span class="el_source">EmbeddedLimits.java</span></div><h1>EmbeddedLimits.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.tika.config;
+import java.io.Serializable;
+
+import org.apache.tika.annotation.TikaComponent;
+import org.apache.tika.parser.ParseContext;
+
+/**
+ * Configuration for limits on embedded document processing.
+ * &lt;p&gt;
+ * This controls how deep and how many embedded documents are processed:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code maxDepth} - maximum nesting depth for embedded documents (-1 = unlimited)&lt;/li&gt;
+ *   &lt;li&gt;{@code throwOnMaxDepth} - whether to throw an exception when maxDepth is reached&lt;/li&gt;
+ *   &lt;li&gt;{@code maxCount} - maximum number of embedded documents to process (-1 = unlimited)&lt;/li&gt;
+ *   &lt;li&gt;{@code throwOnMaxCount} - whether to throw an exception when maxCount is reached&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * &lt;b&gt;maxDepth behavior:&lt;/b&gt; When the depth limit is reached, recursion stops but siblings at the
+ * current level continue to be processed. For example, with maxDepth=1:
+ * &lt;pre&gt;
+ * container.zip (depth 0)
+ * ├── doc1.docx (depth 1) ✓ PARSED
+ * │   ├── image1.png (depth 2) ✗ NOT PARSED (exceeds maxDepth)
+ * │   └── embed.xlsx (depth 2) ✗ NOT PARSED (exceeds maxDepth)
+ * ├── doc2.pdf (depth 1) ✓ PARSED (sibling at same level)
+ * └── doc3.txt (depth 1) ✓ PARSED (sibling at same level)
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * &lt;b&gt;maxCount behavior:&lt;/b&gt; When the count limit is reached, processing stops immediately.
+ * No more embedded documents are processed, including siblings.
+ * &lt;p&gt;
+ * When a limit is hit and throwing is disabled:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code X-TIKA-maxDepthReached=true} is set when maxDepth is hit&lt;/li&gt;
+ *   &lt;li&gt;{@code X-TIKA-maxEmbeddedCountReached=true} is set when maxCount is hit&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * Example configuration:
+ * &lt;pre&gt;
+ * {
+ *   &quot;parse-context&quot;: {
+ *     &quot;embedded-limits&quot;: {
+ *       &quot;maxDepth&quot;: 10,
+ *       &quot;throwOnMaxDepth&quot;: false,
+ *       &quot;maxCount&quot;: 1000,
+ *       &quot;throwOnMaxCount&quot;: false
+ *     }
+ *   }
+ * }
+ * &lt;/pre&gt;
+ *
+ * @since Apache Tika 4.0
+ */
+@TikaComponent(name = &quot;embedded-limits&quot;, spi = false)
+public class EmbeddedLimits implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public static final int UNLIMITED = -1;
+
+<span class="pc" id="L77">    private int maxDepth = UNLIMITED;</span>
+<span class="pc" id="L78">    private boolean throwOnMaxDepth = false;</span>
+<span class="pc" id="L79">    private int maxCount = UNLIMITED;</span>
+<span class="pc" id="L80">    private boolean throwOnMaxCount = false;</span>
+
+    /**
+     * No-arg constructor for Jackson deserialization.
+     */
+<span class="fc" id="L85">    public EmbeddedLimits() {</span>
+<span class="fc" id="L86">    }</span>
+
+    /**
+     * Constructor with all parameters.
+     *
+     * @param maxDepth maximum nesting depth (-1 = unlimited)
+     * @param throwOnMaxDepth whether to throw when depth limit is reached
+     * @param maxCount maximum number of embedded documents (-1 = unlimited)
+     * @param throwOnMaxCount whether to throw when count limit is reached
+     */
+<span class="nc" id="L96">    public EmbeddedLimits(int maxDepth, boolean throwOnMaxDepth, int maxCount, boolean throwOnMaxCount) {</span>
+<span class="nc" id="L97">        this.maxDepth = maxDepth;</span>
+<span class="nc" id="L98">        this.throwOnMaxDepth = throwOnMaxDepth;</span>
+<span class="nc" id="L99">        this.maxCount = maxCount;</span>
+<span class="nc" id="L100">        this.throwOnMaxCount = throwOnMaxCount;</span>
+<span class="nc" id="L101">    }</span>
+
+    /**
+     * Gets the maximum nesting depth for embedded documents.
+     *
+     * @return maximum depth, or -1 for unlimited
+     */
+    public int getMaxDepth() {
+<span class="fc" id="L109">        return maxDepth;</span>
+    }
+
+    /**
+     * Sets the maximum nesting depth for embedded documents.
+     *
+     * @param maxDepth maximum depth, or -1 for unlimited
+     */
+    public void setMaxDepth(int maxDepth) {
+<span class="nc" id="L118">        this.maxDepth = maxDepth;</span>
+<span class="nc" id="L119">    }</span>
+
+    /**
+     * Gets whether to throw an exception when maxDepth is reached.
+     *
+     * @return true if an exception should be thrown
+     */
+    public boolean isThrowOnMaxDepth() {
+<span class="fc" id="L127">        return throwOnMaxDepth;</span>
+    }
+
+    /**
+     * Sets whether to throw an exception when maxDepth is reached.
+     *
+     * @param throwOnMaxDepth true to throw an exception
+     */
+    public void setThrowOnMaxDepth(boolean throwOnMaxDepth) {
+<span class="nc" id="L136">        this.throwOnMaxDepth = throwOnMaxDepth;</span>
+<span class="nc" id="L137">    }</span>
+
+    /**
+     * Gets the maximum number of embedded documents to process.
+     *
+     * @return maximum count, or -1 for unlimited
+     */
+    public int getMaxCount() {
+<span class="fc" id="L145">        return maxCount;</span>
+    }
+
+    /**
+     * Sets the maximum number of embedded documents to process.
+     *
+     * @param maxCount maximum count, or -1 for unlimited
+     */
+    public void setMaxCount(int maxCount) {
+<span class="nc" id="L154">        this.maxCount = maxCount;</span>
+<span class="nc" id="L155">    }</span>
+
+    /**
+     * Gets whether to throw an exception when maxCount is reached.
+     *
+     * @return true if an exception should be thrown
+     */
+    public boolean isThrowOnMaxCount() {
+<span class="fc" id="L163">        return throwOnMaxCount;</span>
+    }
+
+    /**
+     * Sets whether to throw an exception when maxCount is reached.
+     *
+     * @param throwOnMaxCount true to throw an exception
+     */
+    public void setThrowOnMaxCount(boolean throwOnMaxCount) {
+<span class="nc" id="L172">        this.throwOnMaxCount = throwOnMaxCount;</span>
+<span class="nc" id="L173">    }</span>
+
+    /**
+     * Helper method to get EmbeddedLimits from ParseContext with defaults.
+     *
+     * @param context the ParseContext (may be null)
+     * @return the EmbeddedLimits from context, or a new instance with defaults if not found
+     */
+    public static EmbeddedLimits get(ParseContext context) {
+<span class="pc bpc" id="L182" title="1 of 2 branches missed.">        if (context == null) {</span>
+<span class="nc" id="L183">            return new EmbeddedLimits();</span>
+        }
+<span class="fc" id="L185">        EmbeddedLimits limits = context.get(EmbeddedLimits.class);</span>
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        return limits != null ? limits : new EmbeddedLimits();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L191">        return &quot;EmbeddedLimits{&quot; +</span>
+                &quot;maxDepth=&quot; + maxDepth +
+                &quot;, throwOnMaxDepth=&quot; + throwOnMaxDepth +
+                &quot;, maxCount=&quot; + maxCount +
+                &quot;, throwOnMaxCount=&quot; + throwOnMaxCount +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L202">            return true;</span>
+        }
+<span class="nc bnc" id="L204" title="All 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L205">            return false;</span>
+        }
+<span class="nc" id="L207">        EmbeddedLimits that = (EmbeddedLimits) o;</span>
+<span class="nc bnc" id="L208" title="All 8 branches missed.">        return maxDepth == that.maxDepth &amp;&amp;</span>
+                throwOnMaxDepth == that.throwOnMaxDepth &amp;&amp;
+                maxCount == that.maxCount &amp;&amp;
+                throwOnMaxCount == that.throwOnMaxCount;
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L216">        int result = maxDepth;</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">        result = 31 * result + (throwOnMaxDepth ? 1 : 0);</span>
+<span class="nc" id="L218">        result = 31 * result + maxCount;</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        result = 31 * result + (throwOnMaxCount ? 1 : 0);</span>
+<span class="nc" id="L220">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
