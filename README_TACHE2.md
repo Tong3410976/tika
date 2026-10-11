@@ -387,5 +387,8 @@ ajoutés manuellement et conçus spécifiquement pour cibler les mutants encore 
 ## 7. Conclusion
 
 Cette tâche nous a permis de comparer l'efficacité de tests générés automatiquement par ChatUniTest avec celle de tests 
-conçus manuellement.
+conçus manuellement. ChatUniTest peut ainsi être considéré comme un outil utile pour assister la génération de tests, mais les tests 
+produits doivent être vérifiés et analysés avant d'être intégrés au projet. L'intervention humaine reste importante 
+pour comprendre les comportements critiques et concevoir des tests ciblant précisément les cas qui ne sont pas 
+correctement couverts.
 
