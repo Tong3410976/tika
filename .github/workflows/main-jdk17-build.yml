@@ -23,12 +23,53 @@ on:
     paths-ignore:
       - 'docs/**'
   push:
-    branches: [ main ]
+    branches: [ main, tache3-semgrep ]
     paths-ignore:
       - 'docs/**'
 
 jobs:
+
+  semgrep:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Semgrep
+        run: python -m pip install semgrep==1.182.1
+
+      - name: Verify Semgrep installation
+        run: semgrep --version
+
+      - name: Scan for new vulnerabilities
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Baseline commit not found"
+            exit 1
+          fi
+
+          mapfile -d '' java_dirs < <(find . -type d -path '*/src/main/java' -print0)
+
+          if [ "${#java_dirs[@]}" -eq 0 ]; then
+            echo "::error::No Java source directories found"
+            exit 1
+          fi
+
+          semgrep scan --config auto --baseline-commit "$BASE_SHA" --error "${java_dirs[@]}"
+
   build:
+    needs: semgrep
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
