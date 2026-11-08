@@ -139,6 +139,7 @@
       <artifactId>chatunitest-starter</artifactId>
       <version>1.4.0</version>
       <type>pom</type>
+      <scope>test</scope>
       <exclusions>
         <!-- Tika already provides its own JUnit 5 stack.
              Exclude ChatUniTest Starter's older JUnit/JUnit Platform stack
