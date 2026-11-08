@@ -17,6 +17,8 @@
 
 name: main jdk17 build
 
+# Tache 3 : validation du workflow Semgrep
+
 on:
   pull_request:
     branches: [ main ]
