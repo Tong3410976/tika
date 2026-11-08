@@ -251,6 +251,12 @@
         <artifactId>apache-rat-plugin</artifactId>
         <configuration>
           <inputExcludes>
+            <inputExclude>evidence/**</inputExclude>
+            <inputExclude>pit-reports-after-chatunitest/**</inputExclude>
+            <inputExclude>pit-reports-after-manual-charsetutils/**</inputExclude>
+            <inputExclude>pit-reports-final/**</inputExclude>
+            <inputExclude>pit-reports-original/**</inputExclude>
+            <inputExclude>chatunitest-tests/**</inputExclude>
             <inputExclude>src/test/resources/org/apache/tika/**</inputExclude>
             <inputExclude>src/main/resources/org/apache/tika/language/*.ngp</inputExclude>
             <inputExclude>src/main/resources/org/apache/tika/detect/*.nnmodel</inputExclude>
