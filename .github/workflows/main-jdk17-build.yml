@@ -25,7 +25,7 @@ on:
     paths-ignore:
       - 'docs/**'
   push:
-    branches: [ main, tache3-semgrep ]
+    branches: [ main, tache3-semgrep, tache3-semgrep-test ]
     paths-ignore:
       - 'docs/**'
 
