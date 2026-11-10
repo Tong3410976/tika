@@ -110,6 +110,15 @@ public class JDBCPipesIterator extends PipesIteratorBase {
         }
     }
 
+    // Tache 3: intentional SQL injection example for Semgrep validation.
+    public static void semgrepSqlInjectionDemo(Connection connection, String userInput)
+        throws SQLException {
+        String query = "SELECT * FROM documents WHERE id = '" + userInput + "'";
+        try (Statement statement = connection.createStatement()) {
+            statement.executeQuery(query);
+        }
+    }
+
     public static JDBCPipesIterator build(ExtensionConfig extensionConfig) throws IOException, TikaConfigException {
         JDBCPipesIteratorConfig config = JDBCPipesIteratorConfig.load(extensionConfig.json());
         return new JDBCPipesIterator(config, extensionConfig);
