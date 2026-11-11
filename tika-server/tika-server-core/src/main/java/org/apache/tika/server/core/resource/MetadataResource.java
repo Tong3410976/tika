@@ -18,6 +18,9 @@ package org.apache.tika.server.core.resource;
 
 import static org.apache.tika.server.core.resource.TikaResource.fillMetadata;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -70,6 +73,14 @@ public class MetadataResource {
                     .ok(parseMetadata(tis, Metadata.newInstance(context), att.getHeaders(), context))
                     .build();
         }
+    }
+
+    // Tâche 3 : exemple intentionnel de traversée de répertoires
+    // pour valider la détection des vulnérabilités par Semgrep.
+    public InputStream semgrepPathTraversalDemo(
+        @PathParam("fileName") String fileName) throws IOException {
+        File file = new File("documents", fileName);
+        return new FileInputStream(file);
     }
 
     /**
