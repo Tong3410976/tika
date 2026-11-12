@@ -40,6 +40,7 @@ import org.apache.cxf.jaxrs.ext.multipart.Attachment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.tika.config.EmbeddedLimits;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
@@ -77,7 +78,6 @@ public class MetadataResource {
     }
 
     // Tâche 3 : exemple intentionnel de traversée de répertoires
-    // pour valider la détection des vulnérabilités par Semgrep.
     public InputStream semgrepPathTraversalDemo(
         @PathParam("fileName") String fileName) throws IOException {
         File file = new File("documents", fileName);
@@ -90,6 +90,12 @@ public class MetadataResource {
         try (ObjectInputStream ois = new ObjectInputStream(input)) {
             return ois.readObject();
         }
+    }
+
+    // Tâche 3 : exemple intentionnel de vulnérabilité XXE.
+    public void semgrepXxeDemo(InputStream xmlInput) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.newDocumentBuilder().parse(xmlInput);
     }
 
     /**
