@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.util.List;
 
 import jakarta.ws.rs.Consumes;
@@ -81,6 +82,14 @@ public class MetadataResource {
         @PathParam("fileName") String fileName) throws IOException {
         File file = new File("documents", fileName);
         return new FileInputStream(file);
+    }
+
+    // Tâche 3 : exemple intentionnel de désérialisation non sécurisée.
+    public Object semgrepDeserializationDemo(InputStream input)
+        throws IOException, ClassNotFoundException {
+        try (ObjectInputStream ois = new ObjectInputStream(input)) {
+            return ois.readObject();
+        }
     }
 
     /**
