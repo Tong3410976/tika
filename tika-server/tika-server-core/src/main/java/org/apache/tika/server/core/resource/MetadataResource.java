@@ -40,8 +40,12 @@ import org.apache.cxf.jaxrs.ext.multipart.Attachment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
+
 import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.helpers.DefaultHandler;
+
 import org.apache.tika.config.EmbeddedLimits;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
@@ -97,6 +101,16 @@ public class MetadataResource {
     public void semgrepXxeValidationBis(InputStream xmlInput) throws Exception {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         factory.newSAXParser().parse(xmlInput, new DefaultHandler());
+    }
+
+    // Tâche 3 : exemple intentionnel de vérification non sécurisée
+    public HostnameVerifier semgrepInsecureHostnameVerifierDemo() {
+        return new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        };
     }
 
     /**
