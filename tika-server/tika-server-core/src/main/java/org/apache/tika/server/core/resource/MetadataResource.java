@@ -40,7 +40,8 @@ import org.apache.cxf.jaxrs.ext.multipart.Attachment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.SAXParserFactory;
+import org.xml.sax.helpers.DefaultHandler;
 import org.apache.tika.config.EmbeddedLimits;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
@@ -93,9 +94,9 @@ public class MetadataResource {
     }
 
     // Tâche 3 : exemple intentionnel de vulnérabilité XXE.
-    public void semgrepXxeDemo(InputStream xmlInput) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.newDocumentBuilder().parse(xmlInput);
+    public void semgrepXxeValidationBis(InputStream xmlInput) throws Exception {
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        factory.newSAXParser().parse(xmlInput, new DefaultHandler());
     }
 
     /**
