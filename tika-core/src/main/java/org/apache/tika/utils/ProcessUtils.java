@@ -20,6 +20,8 @@ package org.apache.tika.utils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +52,12 @@ public class ProcessUtils {
         return PROCESS_MAP.remove(id);
     }
 
+    // Tache 3: intentional weak hashing example for Semgrep validation.
+    public static MessageDigest semgrepWeakHashDemo()
+        throws NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("MD5");
+        return digest;
+    }
     /**
      * This should correctly put double-quotes around an argument if
      * ProcessBuilder doesn't seem to work (as it doesn't
