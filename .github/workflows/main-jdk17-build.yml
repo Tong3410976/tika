@@ -51,6 +51,16 @@ jobs:
       - name: Verify Semgrep installation
         run: semgrep --version
 
+      # Tâche 3 : ajout humoristique dans le pipeline CI.
+      - name: Rickroll dans le CI
+        shell: bash
+        run: |
+          echo "Surprise ! Vous avez été rickrollé !"
+          echo "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+          echo "::notice title=Rickroll::Une surprise vous attend dans le résumé du job."
+          echo "### 🎁 Surprise dans le CI" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Découvrir la surprise](https://www.youtube.com/watch?v=dQw4w9WgXcQ)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Scan for new vulnerabilities
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
