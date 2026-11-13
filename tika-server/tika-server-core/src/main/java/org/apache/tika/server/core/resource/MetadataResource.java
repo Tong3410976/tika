@@ -113,6 +113,11 @@ public class MetadataResource {
         };
     }
 
+    // Tâche 3 : exemple intentionnel de génération de jetons non sécurisée.
+    public String semgrepWeakRandomDemo() {
+        return Integer.toHexString(new java.util.Random().nextInt());
+    }
+
     /**
      * Multipart endpoint with per-request ParseContext configuration.
      * Accepts two parts: "file" (the document) and "config" (JSON configuration with parseContext).
